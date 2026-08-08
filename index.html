@@ -16,6 +16,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer onload="typeof initGoogleSignIn === 'function' && initGoogleSignIn()"></script>
 <style>
   :root{
     --bg:#FFF8F0;
@@ -119,7 +120,7 @@
     <div class="brand" style="margin-bottom:6px;">🐾 どうぶつ健康手帳</div>
     <div id="authNormal">
       <p class="muted">ログインすると記録がクラウドに保存され、別の端末からも同じデータにアクセスできます。</p>
-      <button onclick="AppAuth.signIn()">Googleでログイン</button>
+      <div id="gSignInButtonContainer" style="display:flex;justify-content:center;margin:10px 0;"></div>
       <p class="muted" id="authError" style="color:var(--danger);"></p>
     </div>
     <div id="authInAppWarning" class="hidden">
@@ -1405,15 +1406,44 @@ const App = {
 
 window.App = App;
 
-const AppAuth = {
-  signIn(){
-    document.getElementById('authError').textContent = '';
-    const provider = new firebase.auth.GoogleAuthProvider();
-    // Safariのポップアップブロック対策としてリダイレクト方式でログインする
-    auth.signInWithRedirect(provider).catch(err => {
-      document.getElementById('authError').textContent = 'ログインに失敗しました: ' + err.message;
+// Googleクライアント ID (Firebaseコンソール > Authentication > Sign-in method > Google > ウェブ SDK 構成)
+// ※末尾が "xxxxx.apps.googleusercontent.com" になっているか、コピーした値と見比べて確認してください
+const GOOGLE_CLIENT_ID = "594019463341-ld3a242bse6a173dnok147evttl895ng.apps.googleusercontent.com";
+
+// Safari の「サイト間トラッキングを防止」機能が Firebase の signInWithPopup/signInWithRedirect を
+// ブロックしてしまう問題を避けるため、Google Identity Services (GIS) で直接IDトークンを取得し、
+// それを Firebase の認証情報に変換してログインする方式に切り替える。
+function initGoogleSignIn(){
+  if(!window.google || !google.accounts || !google.accounts.id) return;
+  google.accounts.id.initialize({
+    client_id: GOOGLE_CLIENT_ID,
+    callback: handleGoogleCredential,
+    auto_select: false
+  });
+  const container = document.getElementById('gSignInButtonContainer');
+  if(container){
+    google.accounts.id.renderButton(container, {
+      type: 'standard',
+      theme: 'filled_blue',
+      size: 'large',
+      shape: 'pill',
+      text: 'continue_with',
+      logo_alignment: 'left'
     });
-  },
+  }
+}
+window.initGoogleSignIn = initGoogleSignIn;
+
+function handleGoogleCredential(response){
+  const el = document.getElementById('authError');
+  if(el) el.textContent = '';
+  const credential = firebase.auth.GoogleAuthProvider.credential(response.credential);
+  auth.signInWithCredential(credential).catch(err => {
+    if(el) el.textContent = 'ログインに失敗しました: ' + err.message;
+  });
+}
+
+const AppAuth = {
   copyLink(){
     const msg = document.getElementById('copyLinkMsg');
     const url = location.href;
@@ -1452,11 +1482,10 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('authInAppBrowserName').textContent = `(${inAppName}のアプリ内ブラウザを検出しました)`;
   }
 
-  // signInWithRedirect の結果(またはエラー)を受け取る
-  auth.getRedirectResult().catch(err => {
-    const el = document.getElementById('authError');
-    if(el) el.textContent = 'ログインに失敗しました: ' + err.message;
-  });
+  // GISスクリプトがonloadより先に読み込み済みだった場合のフォールバック
+  if(window.google && google.accounts && google.accounts.id){
+    initGoogleSignIn();
+  }
 
   auth.onAuthStateChanged(user => {
     if(user){
