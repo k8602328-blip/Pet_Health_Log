@@ -1,0 +1,1407 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>どうぶつ健康手帳 - プロトタイプ</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<style>
+  :root{
+    --bg:#FFF8F0;
+    --card:#FFFFFF;
+    --primary:#FB923C;
+    --primary-dark:#EA7C1F;
+    --accent:#5FA8A0;
+    --text:#3A2E28;
+    --muted:#8A7C73;
+    --border:#F0E2D3;
+    --danger:#E4634F;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:"Hiragino Sans","Hiragino Kaku Gothic ProN",Meiryo,"Segoe UI",sans-serif;
+    background:var(--bg);
+    color:var(--text);
+  }
+  .app{max-width:920px;margin:0 auto;padding:0 16px 60px;}
+  header.topbar{
+    display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;
+    padding:18px 4px;
+  }
+  .brand{font-size:22px;font-weight:700;color:var(--primary-dark);}
+  .pet-switch{display:flex;gap:8px;align-items:center;}
+  select, input[type=text], input[type=number], input[type=date], textarea{
+    font-family:inherit;font-size:14px;padding:8px 10px;border:1px solid var(--border);
+    border-radius:8px;background:#fff;color:var(--text);
+  }
+  textarea{resize:vertical;width:100%;}
+  button{
+    font-family:inherit;font-size:14px;padding:8px 14px;border-radius:8px;border:none;
+    background:var(--primary);color:#fff;cursor:pointer;font-weight:600;
+  }
+  button.secondary{background:#fff;color:var(--primary-dark);border:1px solid var(--primary);}
+  button.ghost{background:transparent;color:var(--muted);border:1px solid var(--border);}
+  button.danger{background:var(--danger);}
+  button:hover{filter:brightness(0.95);}
+  nav.tabs{display:flex;gap:6px;border-bottom:2px solid var(--border);margin-bottom:20px;flex-wrap:wrap;}
+  .tab-btn{
+    background:transparent;color:var(--muted);font-weight:600;border-radius:8px 8px 0 0;
+    padding:10px 16px;border:none;
+  }
+  .tab-btn.active{color:var(--primary-dark);background:var(--card);border:2px solid var(--border);border-bottom:2px solid var(--card);margin-bottom:-2px;}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px;margin-bottom:16px;}
+  .card h3{margin-top:0;}
+  .empty{color:var(--muted);text-align:center;padding:40px 20px;}
+  .stat-row{display:flex;gap:14px;flex-wrap:wrap;}
+  .stat{background:#FFF3E6;border-radius:10px;padding:12px 16px;min-width:120px;}
+  .stat .label{font-size:12px;color:var(--muted);}
+  .stat .value{font-size:20px;font-weight:700;color:var(--primary-dark);}
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--border);vertical-align:top;}
+  th{color:var(--muted);font-weight:600;font-size:12px;}
+  .tag{display:inline-block;background:#FDEBD3;color:var(--primary-dark);border-radius:6px;padding:2px 7px;font-size:11px;margin:1px;}
+  .row{display:flex;gap:10px;flex-wrap:wrap;}
+  .field{display:flex;flex-direction:column;gap:4px;margin-bottom:12px;}
+  .field label{font-size:12px;color:var(--muted);font-weight:600;}
+  .checks{display:flex;flex-wrap:wrap;gap:8px;}
+  .checks label{display:flex;align-items:center;gap:4px;font-size:13px;background:#FBF3EA;padding:5px 9px;border-radius:8px;cursor:pointer;}
+  .modal-backdrop{
+    position:fixed;inset:0;background:rgba(58,46,40,0.45);display:flex;align-items:center;justify-content:center;
+    padding:16px;z-index:50;
+  }
+  .modal{background:#fff;border-radius:16px;padding:22px;max-width:520px;width:100%;max-height:88vh;overflow-y:auto;}
+  .hidden{display:none !important;}
+  .actions-cell{white-space:nowrap;}
+  .actions-cell button{padding:4px 8px;font-size:12px;margin-right:4px;}
+  .muted{color:var(--muted);font-size:12px;}
+  .chart-wrap{position:relative;height:280px;margin-bottom:10px;}
+  .hint{background:#FFF3CD;color:#8a6d1f;border:1px solid #F5E1A4;border-radius:8px;padding:8px 12px;font-size:12px;margin-bottom:12px;line-height:1.5;}
+  .med-card{border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px;}
+  .med-card .med-title{font-weight:700;font-size:15px;}
+  .med-card img{max-width:140px;border-radius:8px;margin-top:8px;display:block;}
+  .status-active{color:#2E7D32;font-weight:600;font-size:12px;}
+  .status-ended{color:var(--muted);font-size:12px;}
+  .fecal-row{display:flex;align-items:center;gap:14px;padding:10px 4px;border-bottom:1px solid var(--border);}
+  .fecal-row:last-child{border-bottom:none;}
+  .fecal-icon{flex-shrink:0;}
+  .fecal-text .fecal-title{font-weight:700;font-size:13px;}
+  .fecal-text .fecal-desc{font-size:12px;color:var(--muted);}
+  .cibdai-item{display:flex;flex-direction:column;gap:3px;margin-bottom:10px;}
+  .cibdai-item label{font-size:12px;font-weight:600;color:var(--muted);}
+  .pet-toggle{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);margin-top:10px;}
+  #printArea{display:none;}
+  @media print{
+    body *{visibility:hidden;}
+    #printArea, #printArea *{visibility:visible;}
+    #printArea{display:block;position:absolute;top:0;left:0;width:100%;padding:20px;}
+    #printArea h1{font-size:20px;}
+    #printArea table{width:100%;border-collapse:collapse;font-size:12px;}
+    #printArea th,#printArea td{border:1px solid #ccc;padding:5px;}
+  }
+</style>
+</head>
+<body>
+
+<div id="authScreen" class="modal-backdrop">
+  <div class="modal" style="text-align:center;">
+    <div class="brand" style="margin-bottom:6px;">🐾 どうぶつ健康手帳</div>
+    <p class="muted">ログインすると記録がクラウドに保存され、別の端末からも同じデータにアクセスできます。</p>
+    <button onclick="AppAuth.signIn()">Googleでログイン</button>
+    <p class="muted" id="authError" style="color:var(--danger);"></p>
+  </div>
+</div>
+
+<div class="app">
+  <header class="topbar">
+    <div class="brand">🐾 どうぶつ健康手帳</div>
+    <div id="userBar" class="muted" style="font-size:12px;"></div>
+    <div class="pet-switch">
+      <select id="petSelect" onchange="App.selectPet(this.value)"></select>
+      <button class="secondary" onclick="App.openPetModal()">+ ペット追加</button>
+    </div>
+  </header>
+
+  <nav class="tabs" id="tabsNav">
+    <button class="tab-btn" data-tab="home" onclick="App.switchTab('home')">ホーム</button>
+    <button class="tab-btn" data-tab="list" onclick="App.switchTab('list')">記録一覧</button>
+    <button class="tab-btn" data-tab="chart" onclick="App.switchTab('chart')">グラフ</button>
+    <button class="tab-btn" data-tab="meds" onclick="App.switchTab('meds')">お薬</button>
+    <button class="tab-btn" data-tab="prev" onclick="App.switchTab('prev')">予防</button>
+    <button class="tab-btn" data-tab="visits" onclick="App.switchTab('visits')">受診歴</button>
+    <button class="tab-btn" data-tab="export" onclick="App.switchTab('export')">出力</button>
+  </nav>
+
+  <main id="mainContent"></main>
+</div>
+
+<div id="petModalBackdrop" class="modal-backdrop hidden">
+  <div class="modal">
+    <h3>ペットを登録</h3>
+    <form id="petForm">
+      <div class="field"><label>名前</label><input type="text" id="petName" required></div>
+      <div class="row">
+        <div class="field"><label>種類</label>
+          <select id="petSpecies"><option value="犬">犬</option><option value="猫">猫</option><option value="その他">その他</option></select>
+        </div>
+        <div class="field"><label>品種(任意)</label><input type="text" id="petBreed"></div>
+      </div>
+      <div class="field"><label>誕生日(任意)</label><input type="date" id="petBirthday"></div>
+      <div class="row" style="justify-content:flex-end;margin-top:8px;">
+        <button type="button" class="ghost" onclick="App.closePetModal()">キャンセル</button>
+        <button type="submit">登録する</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div id="recordModalBackdrop" class="modal-backdrop hidden">
+  <div class="modal">
+    <h3 id="recordModalTitle">記録を追加</h3>
+    <form id="recordForm">
+      <input type="hidden" id="recordId">
+      <div class="row">
+        <div class="field"><label>日付</label><input type="date" id="rDate" required></div>
+        <div class="field"><label>体重(kg・任意)</label><input type="number" step="0.01" min="0" id="rWeight" placeholder="例: 4.20"></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>食欲</label>
+          <select id="rAppetite"><option value="良好">良好</option><option value="普通">普通</option><option value="不良">不良</option><option value="絶食">絶食</option></select>
+        </div>
+        <div class="field"><label>飲水量</label>
+          <select id="rWater">
+            <option value="いつも通り">いつも通り</option>
+            <option value="心なしか多い気がする">心なしか多い気がする</option>
+            <option value="明らかに多い(お皿がすぐ空になる/何度も飲みに行く)">明らかに多い(お皿がすぐ空になる/何度も飲みに行く)</option>
+            <option value="あまり飲んでいない">あまり飲んでいない</option>
+            <option value="わからない">わからない</option>
+          </select>
+        </div>
+      </div>
+      <div class="row">
+        <div class="field" style="flex:1;">
+          <label>便(糞便スコア) <button type="button" class="ghost" style="padding:2px 8px;font-size:11px;" onclick="App.openFecalGuide()">見本を見る</button></label>
+          <select id="rStool"></select>
+        </div>
+        <div class="field"><label>尿</label>
+          <select id="rUrine">
+            <option value="いつも通り">いつも通り</option>
+            <option value="心なしか回数・量が増えた気がする">心なしか回数・量が増えた気がする</option>
+            <option value="明らかに多い(トイレシートがすぐ濡れる/回数が多い)">明らかに多い(トイレシートがすぐ濡れる/回数が多い)</option>
+            <option value="出る量・回数が少ない">出る量・回数が少ない</option>
+            <option value="わからない">わからない</option>
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label>気になる症状(複数選択可)</label>
+        <div class="checks" id="rSymptoms"></div>
+      </div>
+      <div class="field">
+        <label>今日飲んだ薬(「お薬」タブで登録した薬から選択)</label>
+        <div class="checks" id="rMeds"></div>
+      </div>
+      <div class="field hidden" id="rCibdaiSection">
+        <label>CIBDAIスコア(慢性腸疾患のモニタリング)</label>
+        <div id="rCibdaiFields"></div>
+        <div class="hint" id="rCibdaiTotal"></div>
+      </div>
+      <div class="field"><label>メモ</label><textarea id="rMemo" rows="3" placeholder="様子や気づいたことなど"></textarea></div>
+      <div class="row" style="justify-content:flex-end;margin-top:8px;">
+        <button type="button" class="ghost" onclick="App.closeRecordModal()">キャンセル</button>
+        <button type="submit">保存する</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div id="medModalBackdrop" class="modal-backdrop hidden">
+  <div class="modal">
+    <h3 id="medModalTitle">お薬を登録</h3>
+    <p class="hint">薬品名や用量が分からない場合は空欄でOKです。薬袋や診療明細の写真を貼っておくと、次回受診時に主治医へ確認する際の手がかりになります。</p>
+    <form id="medForm">
+      <input type="hidden" id="medId">
+      <div class="field"><label>薬の名前(分かれば)</label><input type="text" id="medName" placeholder="例: メトロニダゾール"></div>
+      <div class="field"><label>用途・薬袋の記載(例: 胃腸の薬)</label><input type="text" id="medPurpose" placeholder="例: 胃腸の薬"></div>
+      <div class="field"><label>用量・飲み方(分かれば)</label><input type="text" id="medDosage" placeholder="例: 5mg錠 1回1錠 1日2回"></div>
+      <div class="row">
+        <div class="field"><label>開始日</label><input type="date" id="medStart"></div>
+        <div class="field"><label>終了日(継続中なら空欄)</label><input type="date" id="medEnd"></div>
+      </div>
+      <div class="field"><label>処方元(病院名など・任意)</label><input type="text" id="medPrescriber"></div>
+      <div class="field"><label>薬袋・お薬手帳の写真(任意)</label><input type="file" id="medPhoto" accept="image/*"></div>
+      <div id="medPhotoPreviewWrap" class="field hidden"><img id="medPhotoPreview" style="max-width:160px;border-radius:8px;"><button type="button" class="ghost" onclick="App.clearMedPhoto()">写真を削除</button></div>
+      <div class="field"><label>メモ</label><textarea id="medMemo" rows="2" placeholder="気になる点など"></textarea></div>
+      <div class="row" style="justify-content:flex-end;margin-top:8px;">
+        <button type="button" class="ghost" onclick="App.closeMedModal()">キャンセル</button>
+        <button type="submit">保存する</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div id="prevModalBackdrop" class="modal-backdrop hidden">
+  <div class="modal">
+    <h3 id="prevModalTitle">予防接種・予防投薬を登録</h3>
+    <form id="prevForm">
+      <input type="hidden" id="prevId">
+      <div class="field"><label>種類</label>
+        <select id="prevCategory">
+          <option value="ワクチン">ワクチン</option>
+          <option value="フィラリア予防">フィラリア予防</option>
+          <option value="ノミダニ予防">ノミダニ予防</option>
+          <option value="その他">その他</option>
+        </select>
+      </div>
+      <div class="field"><label>名称(ワクチン名・薬品名/分かれば)</label><input type="text" id="prevName" placeholder="例: 混合ワクチン(5種)"></div>
+      <div class="row">
+        <div class="field"><label>実施日</label><input type="date" id="prevDate" required></div>
+        <div class="field"><label>次回予定日(任意)</label><input type="date" id="prevNext"></div>
+      </div>
+      <div class="field"><label>実施した病院(任意)</label><input type="text" id="prevClinic"></div>
+      <div class="field"><label>メモ</label><textarea id="prevMemo" rows="2"></textarea></div>
+      <div class="row" style="justify-content:flex-end;margin-top:8px;">
+        <button type="button" class="ghost" onclick="App.closePrevModal()">キャンセル</button>
+        <button type="submit">保存する</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div id="visitModalBackdrop" class="modal-backdrop hidden">
+  <div class="modal">
+    <h3 id="visitModalTitle">受診記録を登録</h3>
+    <form id="visitForm">
+      <input type="hidden" id="visitId">
+      <div class="row">
+        <div class="field"><label>受診日</label><input type="date" id="visitDate" required></div>
+        <div class="field"><label>病院名</label><input type="text" id="visitClinic"></div>
+      </div>
+      <div class="field"><label>相談内容・主訴</label><input type="text" id="visitReason" placeholder="例: 3日前から嘔吐が続く"></div>
+      <div class="field"><label>診断名・疾患名(分かれば)</label><input type="text" id="visitDiagnosis" placeholder="例: 急性胃腸炎"></div>
+      <div class="field"><label>治療内容(任意)</label><textarea id="visitTreatment" rows="2" placeholder="点滴、投薬内容など"></textarea></div>
+      <div class="field"><label>次回受診予定(任意)</label><input type="date" id="visitFollowUp"></div>
+      <div class="field"><label>メモ</label><textarea id="visitMemo" rows="2"></textarea></div>
+      <div class="row" style="justify-content:flex-end;margin-top:8px;">
+        <button type="button" class="ghost" onclick="App.closeVisitModal()">キャンセル</button>
+        <button type="submit">保存する</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div id="fecalGuideModalBackdrop" class="modal-backdrop hidden">
+  <div class="modal">
+    <h3>糞便スコアの見本</h3>
+    <p class="muted">写真ではなく目安の説明です。近いと思うものを選んでください。迷ったら前後どちらかで大丈夫です。</p>
+    <div id="fecalGuideList"></div>
+    <div class="row" style="justify-content:flex-end;margin-top:8px;">
+      <button type="button" onclick="App.closeFecalGuide()">閉じる</button>
+    </div>
+  </div>
+</div>
+
+<div id="printArea"></div>
+
+<script>
+// ▼▼▼ 自分のFirebaseプロジェクトの設定に置き換えてください(Firebaseコンソール > プロジェクトの設定 > マイアプリ) ▼▼▼
+const firebaseConfig = {
+  apiKey: "AIzaSyAXekz_f6TKwi-fgiTm856ZfQsEtadR6UA",
+  authDomain: "pet-health-log-8dba7.firebaseapp.com",
+  projectId: "pet-health-log-8dba7",
+  storageBucket: "pet-health-log-8dba7.firebasestorage.app",
+  messagingSenderId: "594019463341",
+  appId: "1:594019463341:web:dd13840661b6d083add624",
+  measurementId: "G-LH5W1D0Y1C"
+};
+// ▲▲▲ ここまで ▲▲▲
+
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+db.enablePersistence({ synchronizeTabs: true }).catch(() => {});
+
+let currentUser = null;
+let firestoreUnsubscribers = [];
+
+function userDocRef(){ return db.collection('users').doc(currentUser.uid); }
+function colRef(name){ return userDocRef().collection(name); }
+
+const SYMPTOM_OPTIONS = ['嘔吐','下痢','元気消失','咳','くしゃみ','痒み','震え','呼吸が荒い','食欲不振','その他'];
+const PREV_CATEGORIES = ['ワクチン','フィラリア予防','ノミダニ予防','その他'];
+
+const FECAL_SCALE = [
+  { v:1, title:'1: コロコロ(非常に硬い)', desc:'小さく硬い塊。踏ん張っても少量しか出ず、拾っても何も残らない。' },
+  { v:2, title:'2: 硬め', desc:'形はしっかりしているが乾燥気味。表面にひび割れが見えることも。' },
+  { v:3, title:'3: 理想的', desc:'適度な硬さで形が保たれていて、拾うと地面にわずかに跡が残る程度。' },
+  { v:4, title:'4: やや軟らかい', desc:'形はあるが湿っていて、拾うとつぶれやすい。' },
+  { v:5, title:'5: 軟らかい(形が崩れやすい)', desc:'山盛りになるが形をほぼ保てない。拾うと地面に多く残る。' },
+  { v:6, title:'6: 泥状', desc:'形がなく、まとまりのない泥のような状態。' },
+  { v:7, title:'7: 水様(下痢)', desc:'水たまりのような液状で、まったく形がない。' }
+];
+
+const CIBDAI_ITEMS = [
+  { key:'attitude', label:'元気・活動性', options:['正常','軽度の低下','中等度の低下(活動量が目に見えて減る)','著しい低下(ぐったりしている)'] },
+  { key:'appetite', label:'食欲', options:['正常','軽度の低下','中等度の低下(半分以下しか食べない日がある)','ほとんど食べない'] },
+  { key:'vomiting', label:'嘔吐の頻度', options:['なし','週1回未満','週1〜2回','週2回以上・ほぼ毎日'] },
+  { key:'consistency', label:'便の性状', options:['正常','時々軟便','しばしば軟便〜水様便','ほぼ常に水様便'] },
+  { key:'frequency', label:'排便回数', options:['正常(1〜2回/日)','軽度増加(3〜4回/日)','中等度増加(5〜6回/日)','著しい増加(7回以上/日)'] },
+  { key:'weightLoss', label:'体重減少', options:['なし','軽度(5%未満)','中等度(5〜10%)','重度(10%以上)'] }
+];
+
+let state = {
+  pets: [],
+  records: [],
+  medications: [],
+  preventions: [],
+  visits: [],
+  currentPetId: null,
+  activeTab: 'home',
+  editingRecordId: null,
+  editingMedId: null,
+  editingPrevId: null,
+  editingVisitId: null,
+  medPhotoData: null,
+  chartRange: 30,
+  weightChart: null,
+  symptomChart: null
+};
+
+function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
+
+function attachFirestoreListeners(){
+  const collections = ['pets','records','medications','preventions','visits'];
+  collections.forEach(name => {
+    const unsub = colRef(name).onSnapshot(snap => {
+      state[name] = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      if(name === 'pets' && !state.currentPetId && state.pets.length > 0){
+        state.currentPetId = state.pets[0].id;
+      }
+      App.render();
+    }, err => console.error('Firestore error (' + name + '):', err));
+    firestoreUnsubscribers.push(unsub);
+  });
+  const unsubUser = userDocRef().onSnapshot(doc => {
+    const data = doc.data() || {};
+    if(data.currentPetId && data.currentPetId !== state.currentPetId){
+      state.currentPetId = data.currentPetId;
+      App.render();
+    }
+  });
+  firestoreUnsubscribers.push(unsubUser);
+}
+function detachFirestoreListeners(){
+  firestoreUnsubscribers.forEach(u => u());
+  firestoreUnsubscribers = [];
+  state = { ...state, pets:[], records:[], medications:[], preventions:[], visits:[], currentPetId:null };
+}
+
+function petRecords(){
+  return state.records
+    .filter(r => r.petId === state.currentPetId)
+    .sort((a,b) => a.date < b.date ? 1 : -1);
+}
+function petMedications(){
+  return state.medications
+    .filter(m => m.petId === state.currentPetId)
+    .sort((a,b) => (b.startDate||'').localeCompare(a.startDate||''));
+}
+function petPreventions(){
+  return state.preventions
+    .filter(p => p.petId === state.currentPetId)
+    .sort((a,b) => (b.date||'').localeCompare(a.date||''));
+}
+function petVisits(){
+  return state.visits
+    .filter(v => v.petId === state.currentPetId)
+    .sort((a,b) => (b.date||'').localeCompare(a.date||''));
+}
+function latestPrevByCategory(category){
+  const items = petPreventions().filter(p => p.category === category);
+  return items.length ? items[0] : null;
+}
+function stoolLabel(v){
+  if(v === '' || v == null) return '-';
+  const item = FECAL_SCALE.find(f => String(f.v) === String(v));
+  return item ? item.title : v;
+}
+function fecalIconStyle(v){
+  const n = Number(v);
+  const width = 16 + n * 7;
+  const height = Math.max(6, 22 - n * 2.2);
+  const radius = Math.max(15, 50 - n * 5);
+  const opacity = n <= 5 ? 1 : (n === 6 ? 0.85 : 0.6);
+  const bg = n <= 3 ? '#5C3A21' : (n <= 5 ? '#8A6244' : (n === 6 ? '#A98B6E' : '#B7A98F'));
+  return `width:${width}px;height:${height}px;border-radius:${radius}%;background:${bg};opacity:${opacity};`;
+}
+function cibdaiSeverity(total){
+  if(total <= 3) return '臨床的寛解の目安';
+  if(total <= 5) return '軽度';
+  if(total <= 8) return '中等度';
+  return '重度';
+}
+function cibdaiTotal(scores){
+  return CIBDAI_ITEMS.reduce((sum, it) => sum + (scores && scores[it.key] != null ? Number(scores[it.key]) : 0), 0);
+}
+function isMedActiveOn(m, dateStr){
+  const d = dateStr || new Date().toISOString().slice(0,10);
+  return (!m.startDate || m.startDate <= d) && (!m.endDate || m.endDate >= d);
+}
+function medLabel(m){
+  if(m.name) return m.name;
+  if(m.purpose) return m.purpose + '(名称不明)';
+  return '名称未記入の薬';
+}
+function currentPet(){
+  return state.pets.find(p => p.id === state.currentPetId) || null;
+}
+function fmtDate(d){
+  const dt = new Date(d + 'T00:00:00');
+  return dt.toLocaleDateString('ja-JP', {year:'numeric', month:'2-digit', day:'2-digit'});
+}
+function ageString(birthday){
+  if(!birthday) return '';
+  const b = new Date(birthday + 'T00:00:00');
+  const now = new Date();
+  let years = now.getFullYear() - b.getFullYear();
+  let months = now.getMonth() - b.getMonth();
+  if(now.getDate() < b.getDate()) months -= 1;
+  if(months < 0){ years -= 1; months += 12; }
+  if(years < 0) return '';
+  return years + '歳' + months + 'ヶ月';
+}
+
+const App = {
+  wireEvents(){
+    document.getElementById('petForm').addEventListener('submit', e => this.submitPet(e));
+    document.getElementById('recordForm').addEventListener('submit', e => this.submitRecord(e));
+    document.getElementById('medForm').addEventListener('submit', e => this.submitMed(e));
+    document.getElementById('prevForm').addEventListener('submit', e => this.submitPrev(e));
+    document.getElementById('visitForm').addEventListener('submit', e => this.submitVisit(e));
+    document.getElementById('rDate').addEventListener('change', () => this.buildMedChecks());
+    document.getElementById('medPhoto').addEventListener('change', e => this.handleMedPhoto(e));
+    this.buildSymptomChecks();
+    this.buildStoolSelect();
+    this.buildFecalGuide();
+  },
+
+  start(){
+    this.switchTab('home');
+  },
+
+  buildStoolSelect(){
+    const sel = document.getElementById('rStool');
+    sel.innerHTML = FECAL_SCALE.map(f => `<option value="${f.v}">${f.title}</option>`).join('');
+    sel.value = '3';
+  },
+
+  buildFecalGuide(){
+    const wrap = document.getElementById('fecalGuideList');
+    wrap.innerHTML = FECAL_SCALE.map(f => `
+      <div class="fecal-row">
+        <div class="fecal-icon" style="${fecalIconStyle(f.v)}"></div>
+        <div class="fecal-text"><div class="fecal-title">${f.title}</div><div class="fecal-desc">${f.desc}</div></div>
+      </div>
+    `).join('');
+  },
+  openFecalGuide(){ document.getElementById('fecalGuideModalBackdrop').classList.remove('hidden'); },
+  closeFecalGuide(){ document.getElementById('fecalGuideModalBackdrop').classList.add('hidden'); },
+
+  toggleCibdai(petId){
+    const pet = state.pets.find(p => p.id === petId);
+    if(!pet) return;
+    colRef('pets').doc(petId).update({ trackCibdai: !pet.trackCibdai });
+  },
+
+  buildCibdaiSection(existingScores){
+    const section = document.getElementById('rCibdaiSection');
+    const pet = currentPet();
+    if(!pet || !pet.trackCibdai){
+      section.classList.add('hidden');
+      return;
+    }
+    section.classList.remove('hidden');
+    const fields = document.getElementById('rCibdaiFields');
+    fields.innerHTML = CIBDAI_ITEMS.map(it => `
+      <div class="cibdai-item">
+        <label>${it.label}</label>
+        <select data-cibdai="${it.key}">
+          ${it.options.map((opt, i) => `<option value="${i}">${i}: ${opt}</option>`).join('')}
+        </select>
+      </div>
+    `).join('');
+    if(existingScores){
+      CIBDAI_ITEMS.forEach(it => {
+        const sel = fields.querySelector(`[data-cibdai="${it.key}"]`);
+        if(sel && existingScores[it.key] != null) sel.value = existingScores[it.key];
+      });
+    }
+    fields.querySelectorAll('select').forEach(sel => sel.addEventListener('change', () => this.updateCibdaiTotal()));
+    this.updateCibdaiTotal();
+  },
+
+  updateCibdaiTotal(){
+    const fields = document.getElementById('rCibdaiFields');
+    const scores = {};
+    CIBDAI_ITEMS.forEach(it => {
+      const sel = fields.querySelector(`[data-cibdai="${it.key}"]`);
+      scores[it.key] = sel ? Number(sel.value) : 0;
+    });
+    const total = cibdaiTotal(scores);
+    document.getElementById('rCibdaiTotal').textContent = `合計スコア: ${total} 点(${cibdaiSeverity(total)}) ※目安です。診断は主治医の判断に従ってください。`;
+  },
+
+  buildSymptomChecks(){
+    const wrap = document.getElementById('rSymptoms');
+    wrap.innerHTML = SYMPTOM_OPTIONS.map(s =>
+      `<label><input type="checkbox" value="${s}"> ${s}</label>`
+    ).join('');
+  },
+
+  buildMedChecks(checkedIds){
+    const wrap = document.getElementById('rMeds');
+    if(!wrap) return;
+    const dateVal = document.getElementById('rDate').value;
+    const meds = petMedications().filter(m => isMedActiveOn(m, dateVal));
+    const checked = checkedIds || Array.from(wrap.querySelectorAll('input:checked')).map(cb => cb.value);
+    if(meds.length === 0){
+      wrap.innerHTML = `<span class="muted">この日に該当する登録済みの薬がありません(「お薬」タブで登録できます)</span>`;
+      return;
+    }
+    wrap.innerHTML = meds.map(m =>
+      `<label><input type="checkbox" value="${m.id}" ${checked.includes(m.id)?'checked':''}> ${medLabel(m)}</label>`
+    ).join('');
+  },
+
+  renderPetSelect(){
+    const sel = document.getElementById('petSelect');
+    if(state.pets.length === 0){
+      sel.innerHTML = `<option value="">ペット未登録</option>`;
+      return;
+    }
+    sel.innerHTML = state.pets.map(p =>
+      `<option value="${p.id}" ${p.id===state.currentPetId?'selected':''}>${p.species==='犬'?'🐶':(p.species==='猫'?'🐱':'🐾')} ${p.name}</option>`
+    ).join('');
+  },
+
+  selectPet(id){
+    state.currentPetId = id;
+    userDocRef().set({ currentPetId: id }, { merge: true });
+    this.render();
+  },
+
+  openPetModal(){
+    document.getElementById('petModalBackdrop').classList.remove('hidden');
+  },
+  closePetModal(){
+    document.getElementById('petModalBackdrop').classList.add('hidden');
+    document.getElementById('petForm').reset();
+  },
+  submitPet(e){
+    e.preventDefault();
+    const id = uid();
+    const data = {
+      name: document.getElementById('petName').value.trim(),
+      species: document.getElementById('petSpecies').value,
+      breed: document.getElementById('petBreed').value.trim(),
+      birthday: document.getElementById('petBirthday').value || '',
+      trackCibdai: false
+    };
+    colRef('pets').doc(id).set(data);
+    state.currentPetId = id;
+    userDocRef().set({ currentPetId: id }, { merge: true });
+    this.closePetModal();
+    this.renderPetSelect();
+    this.render();
+  },
+
+  openRecordModal(recordId){
+    state.editingRecordId = recordId || null;
+    const title = document.getElementById('recordModalTitle');
+    const form = document.getElementById('recordForm');
+    form.reset();
+    document.querySelectorAll('#rSymptoms input').forEach(cb => cb.checked = false);
+    if(recordId){
+      const r = state.records.find(x => x.id === recordId);
+      title.textContent = '記録を編集';
+      document.getElementById('recordId').value = r.id;
+      document.getElementById('rDate').value = r.date;
+      document.getElementById('rWeight').value = r.weight ?? '';
+      document.getElementById('rAppetite').value = r.appetite;
+      document.getElementById('rWater').value = r.water;
+      document.getElementById('rStool').value = r.stool;
+      document.getElementById('rUrine').value = r.urine;
+      document.getElementById('rMemo').value = r.memo || '';
+      document.querySelectorAll('#rSymptoms input').forEach(cb => {
+        cb.checked = (r.symptoms || []).includes(cb.value);
+      });
+      this.buildMedChecks(r.medsGiven || []);
+      this.buildCibdaiSection(r.cibdai || null);
+    } else {
+      title.textContent = '記録を追加';
+      document.getElementById('recordId').value = '';
+      document.getElementById('rDate').value = new Date().toISOString().slice(0,10);
+      document.getElementById('rStool').value = '3';
+      this.buildMedChecks([]);
+      this.buildCibdaiSection(null);
+    }
+    document.getElementById('recordModalBackdrop').classList.remove('hidden');
+  },
+  closeRecordModal(){
+    document.getElementById('recordModalBackdrop').classList.add('hidden');
+    state.editingRecordId = null;
+  },
+  submitRecord(e){
+    e.preventDefault();
+    if(!state.currentPetId){ alert('先にペットを登録してください'); return; }
+    const id = document.getElementById('recordId').value;
+    const symptoms = Array.from(document.querySelectorAll('#rSymptoms input:checked')).map(cb => cb.value);
+    const medsGiven = Array.from(document.querySelectorAll('#rMeds input:checked')).map(cb => cb.value);
+    const pet = currentPet();
+    let cibdai = null;
+    if(pet && pet.trackCibdai){
+      cibdai = {};
+      CIBDAI_ITEMS.forEach(it => {
+        const sel = document.querySelector(`#rCibdaiFields [data-cibdai="${it.key}"]`);
+        cibdai[it.key] = sel ? Number(sel.value) : 0;
+      });
+    }
+    const data = {
+      petId: state.currentPetId,
+      date: document.getElementById('rDate').value,
+      weight: document.getElementById('rWeight').value ? parseFloat(document.getElementById('rWeight').value) : null,
+      appetite: document.getElementById('rAppetite').value,
+      water: document.getElementById('rWater').value,
+      stool: document.getElementById('rStool').value,
+      urine: document.getElementById('rUrine').value,
+      symptoms,
+      medsGiven,
+      cibdai,
+      memo: document.getElementById('rMemo').value.trim()
+    };
+    const docId = id || uid();
+    colRef('records').doc(docId).set(data);
+    this.closeRecordModal();
+  },
+  deleteRecord(id){
+    if(!confirm('この記録を削除しますか?')) return;
+    colRef('records').doc(id).delete();
+  },
+
+  handleMedPhoto(e){
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const maxDim = 800;
+        let w = img.width, h = img.height;
+        if(w > maxDim || h > maxDim){
+          if(w > h){ h = Math.round(h * maxDim / w); w = maxDim; }
+          else { w = Math.round(w * maxDim / h); h = maxDim; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        // Firestoreの1ドキュメント1MB制限に収まるよう、圧縮したJPEGとして保存する
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
+        state.medPhotoData = dataUrl;
+        document.getElementById('medPhotoPreview').src = dataUrl;
+        document.getElementById('medPhotoPreviewWrap').classList.remove('hidden');
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  },
+  clearMedPhoto(){
+    state.medPhotoData = null;
+    document.getElementById('medPhoto').value = '';
+    document.getElementById('medPhotoPreviewWrap').classList.add('hidden');
+  },
+
+  openMedModal(medId){
+    state.editingMedId = medId || null;
+    state.medPhotoData = null;
+    const title = document.getElementById('medModalTitle');
+    const form = document.getElementById('medForm');
+    form.reset();
+    document.getElementById('medPhotoPreviewWrap').classList.add('hidden');
+    if(medId){
+      const m = state.medications.find(x => x.id === medId);
+      title.textContent = 'お薬を編集';
+      document.getElementById('medId').value = m.id;
+      document.getElementById('medName').value = m.name || '';
+      document.getElementById('medPurpose').value = m.purpose || '';
+      document.getElementById('medDosage').value = m.dosage || '';
+      document.getElementById('medStart').value = m.startDate || '';
+      document.getElementById('medEnd').value = m.endDate || '';
+      document.getElementById('medPrescriber').value = m.prescriber || '';
+      document.getElementById('medMemo').value = m.memo || '';
+      if(m.photo){
+        state.medPhotoData = m.photo;
+        document.getElementById('medPhotoPreview').src = m.photo;
+        document.getElementById('medPhotoPreviewWrap').classList.remove('hidden');
+      }
+    } else {
+      title.textContent = 'お薬を登録';
+      document.getElementById('medId').value = '';
+      document.getElementById('medStart').value = new Date().toISOString().slice(0,10);
+    }
+    document.getElementById('medModalBackdrop').classList.remove('hidden');
+  },
+  closeMedModal(){
+    document.getElementById('medModalBackdrop').classList.add('hidden');
+    state.editingMedId = null;
+  },
+  submitMed(e){
+    e.preventDefault();
+    if(!state.currentPetId){ alert('先にペットを登録してください'); return; }
+    const id = document.getElementById('medId').value;
+    const data = {
+      petId: state.currentPetId,
+      name: document.getElementById('medName').value.trim(),
+      purpose: document.getElementById('medPurpose').value.trim(),
+      dosage: document.getElementById('medDosage').value.trim(),
+      startDate: document.getElementById('medStart').value || '',
+      endDate: document.getElementById('medEnd').value || '',
+      prescriber: document.getElementById('medPrescriber').value.trim(),
+      memo: document.getElementById('medMemo').value.trim(),
+      photo: state.medPhotoData
+    };
+    const docId = id || uid();
+    colRef('medications').doc(docId).set(data);
+    this.closeMedModal();
+  },
+  deleteMed(id){
+    if(!confirm('この薬の記録を削除しますか?')) return;
+    colRef('medications').doc(id).delete();
+  },
+
+  openPrevModal(prevId){
+    state.editingPrevId = prevId || null;
+    const title = document.getElementById('prevModalTitle');
+    const form = document.getElementById('prevForm');
+    form.reset();
+    if(prevId){
+      const p = state.preventions.find(x => x.id === prevId);
+      title.textContent = '予防接種・予防投薬を編集';
+      document.getElementById('prevId').value = p.id;
+      document.getElementById('prevCategory').value = p.category;
+      document.getElementById('prevName').value = p.name || '';
+      document.getElementById('prevDate').value = p.date || '';
+      document.getElementById('prevNext').value = p.nextDate || '';
+      document.getElementById('prevClinic').value = p.clinic || '';
+      document.getElementById('prevMemo').value = p.memo || '';
+    } else {
+      title.textContent = '予防接種・予防投薬を登録';
+      document.getElementById('prevId').value = '';
+      document.getElementById('prevDate').value = new Date().toISOString().slice(0,10);
+    }
+    document.getElementById('prevModalBackdrop').classList.remove('hidden');
+  },
+  closePrevModal(){
+    document.getElementById('prevModalBackdrop').classList.add('hidden');
+    state.editingPrevId = null;
+  },
+  submitPrev(e){
+    e.preventDefault();
+    if(!state.currentPetId){ alert('先にペットを登録してください'); return; }
+    const id = document.getElementById('prevId').value;
+    const data = {
+      petId: state.currentPetId,
+      category: document.getElementById('prevCategory').value,
+      name: document.getElementById('prevName').value.trim(),
+      date: document.getElementById('prevDate').value,
+      nextDate: document.getElementById('prevNext').value || '',
+      clinic: document.getElementById('prevClinic').value.trim(),
+      memo: document.getElementById('prevMemo').value.trim()
+    };
+    const docId = id || uid();
+    colRef('preventions').doc(docId).set(data);
+    this.closePrevModal();
+  },
+  deletePrev(id){
+    if(!confirm('この記録を削除しますか?')) return;
+    colRef('preventions').doc(id).delete();
+  },
+
+  openVisitModal(visitId){
+    state.editingVisitId = visitId || null;
+    const title = document.getElementById('visitModalTitle');
+    const form = document.getElementById('visitForm');
+    form.reset();
+    if(visitId){
+      const v = state.visits.find(x => x.id === visitId);
+      title.textContent = '受診記録を編集';
+      document.getElementById('visitId').value = v.id;
+      document.getElementById('visitDate').value = v.date || '';
+      document.getElementById('visitClinic').value = v.clinic || '';
+      document.getElementById('visitReason').value = v.reason || '';
+      document.getElementById('visitDiagnosis').value = v.diagnosis || '';
+      document.getElementById('visitTreatment').value = v.treatment || '';
+      document.getElementById('visitFollowUp').value = v.followUpDate || '';
+      document.getElementById('visitMemo').value = v.memo || '';
+    } else {
+      title.textContent = '受診記録を登録';
+      document.getElementById('visitId').value = '';
+      document.getElementById('visitDate').value = new Date().toISOString().slice(0,10);
+    }
+    document.getElementById('visitModalBackdrop').classList.remove('hidden');
+  },
+  closeVisitModal(){
+    document.getElementById('visitModalBackdrop').classList.add('hidden');
+    state.editingVisitId = null;
+  },
+  submitVisit(e){
+    e.preventDefault();
+    if(!state.currentPetId){ alert('先にペットを登録してください'); return; }
+    const id = document.getElementById('visitId').value;
+    const data = {
+      petId: state.currentPetId,
+      date: document.getElementById('visitDate').value,
+      clinic: document.getElementById('visitClinic').value.trim(),
+      reason: document.getElementById('visitReason').value.trim(),
+      diagnosis: document.getElementById('visitDiagnosis').value.trim(),
+      treatment: document.getElementById('visitTreatment').value.trim(),
+      followUpDate: document.getElementById('visitFollowUp').value || '',
+      memo: document.getElementById('visitMemo').value.trim()
+    };
+    const docId = id || uid();
+    colRef('visits').doc(docId).set(data);
+    this.closeVisitModal();
+  },
+  deleteVisit(id){
+    if(!confirm('この受診記録を削除しますか?')) return;
+    colRef('visits').doc(id).delete();
+  },
+
+  switchTab(tab){
+    state.activeTab = tab;
+    document.querySelectorAll('.tab-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.tab === tab);
+    });
+    this.render();
+  },
+
+  render(){
+    this.renderPetSelect();
+    const main = document.getElementById('mainContent');
+    if(state.pets.length === 0){
+      main.innerHTML = `<div class="card empty">
+        <p>まだペットが登録されていません。</p>
+        <button onclick="App.openPetModal()">+ 最初のペットを登録する</button>
+      </div>`;
+      return;
+    }
+    if(state.activeTab === 'home') return this.renderHome();
+    if(state.activeTab === 'list') return this.renderList();
+    if(state.activeTab === 'chart') return this.renderChartTab();
+    if(state.activeTab === 'meds') return this.renderMedsTab();
+    if(state.activeTab === 'prev') return this.renderPrevTab();
+    if(state.activeTab === 'visits') return this.renderVisitsTab();
+    if(state.activeTab === 'export') return this.renderExportTab();
+  },
+
+  renderHome(){
+    const pet = currentPet();
+    const records = petRecords();
+    const latest = records[0];
+    const today = new Date().toISOString().slice(0,10);
+    const main = document.getElementById('mainContent');
+
+    const prevStatHtml = PREV_CATEGORIES.filter(c => c !== 'その他').map(cat => {
+      const p = latestPrevByCategory(cat);
+      let valueHtml = '未登録';
+      if(p){
+        if(p.nextDate){
+          const overdue = p.nextDate < today;
+          valueHtml = `${fmtDate(p.nextDate)}${overdue ? ' <span style="color:var(--danger);">(期限切れ)</span>' : ''}`;
+        } else {
+          valueHtml = `前回 ${fmtDate(p.date)}`;
+        }
+      }
+      return `<div class="stat"><div class="label">${cat}(次回予定)</div><div class="value" style="font-size:15px;">${valueHtml}</div></div>`;
+    }).join('');
+
+    const visits = petVisits();
+    const lastVisit = visits[0];
+    const lastWithCibdai = records.find(r => r.cibdai);
+
+    main.innerHTML = `
+      <div class="card">
+        <h3>${pet.species==='犬'?'🐶':(pet.species==='猫'?'🐱':'🐾')} ${pet.name} ${pet.breed?('('+pet.breed+')'):''}</h3>
+        <div class="muted">${pet.birthday ? (fmtDate(pet.birthday) + ' 生まれ ・ ' + ageString(pet.birthday)) : '誕生日未登録'}</div>
+        <div class="stat-row" style="margin-top:14px;">
+          <div class="stat"><div class="label">記録日数</div><div class="value">${records.length}日</div></div>
+          <div class="stat"><div class="label">最新の体重</div><div class="value">${latest && latest.weight ? latest.weight + ' kg' : '-'}</div></div>
+          <div class="stat"><div class="label">最終記録日</div><div class="value">${latest ? fmtDate(latest.date) : '-'}</div></div>
+          ${pet.trackCibdai ? `<div class="stat"><div class="label">最新CIBDAI</div><div class="value">${lastWithCibdai ? cibdaiTotal(lastWithCibdai.cibdai) + '点(' + cibdaiSeverity(cibdaiTotal(lastWithCibdai.cibdai)) + ')' : '-'}</div></div>` : ''}
+        </div>
+        <div style="margin-top:16px;"><button onclick="App.openRecordModal()">+ 今日の記録を追加</button></div>
+        <label class="pet-toggle">
+          <input type="checkbox" ${pet.trackCibdai ? 'checked' : ''} onchange="App.toggleCibdai('${pet.id}')">
+          CIBDAIスコアも記録する(慢性腸疾患・IBDのモニタリング向け)
+        </label>
+      </div>
+      <div class="card">
+        <div class="row" style="justify-content:space-between;align-items:center;">
+          <h3 style="margin:0;">予防接種・ノミダニ/フィラリア予防</h3>
+          <button class="secondary" onclick="App.switchTab('prev')">管理する</button>
+        </div>
+        <div class="stat-row" style="margin-top:10px;">${prevStatHtml}</div>
+      </div>
+      <div class="card">
+        <div class="row" style="justify-content:space-between;align-items:center;">
+          <h3 style="margin:0;">直近の受診歴</h3>
+          <button class="secondary" onclick="App.switchTab('visits')">管理する</button>
+        </div>
+        ${lastVisit ? `
+          <div class="muted">${fmtDate(lastVisit.date)} ${lastVisit.clinic ? '・'+lastVisit.clinic : ''}</div>
+          <div style="margin-top:4px;"><strong>${lastVisit.diagnosis || '診断名は未記入'}</strong></div>
+          ${lastVisit.reason ? `<div class="muted" style="margin-top:2px;">${lastVisit.reason}</div>` : ''}
+        ` : '<div class="empty">まだ受診記録がありません</div>'}
+      </div>
+      <div class="card">
+        <h3>最近の記録</h3>
+        ${records.length === 0 ? '<div class="empty">まだ記録がありません</div>' : `
+        <table>
+          <tr><th>日付</th><th>体重</th><th>食欲</th><th>症状</th><th>投薬</th><th></th></tr>
+          ${records.slice(0,5).map(r => `
+            <tr>
+              <td>${fmtDate(r.date)}</td>
+              <td>${r.weight ? r.weight+'kg' : '-'}</td>
+              <td>${r.appetite}</td>
+              <td>${(r.symptoms||[]).map(s=>`<span class="tag">${s}</span>`).join('') || '-'}</td>
+              <td>${(r.medsGiven||[]).map(id => { const m = state.medications.find(x=>x.id===id); return m ? `<span class="tag">💊 ${medLabel(m)}</span>` : ''; }).join('') || '-'}</td>
+              <td class="actions-cell"><button class="secondary" onclick="App.openRecordModal('${r.id}')">編集</button></td>
+            </tr>
+          `).join('')}
+        </table>`}
+      </div>
+    `;
+  },
+
+  renderList(){
+    const records = petRecords();
+    const pet = currentPet();
+    const showCibdai = pet && pet.trackCibdai;
+    const main = document.getElementById('mainContent');
+    main.innerHTML = `
+      <div class="card">
+        <div class="row" style="justify-content:space-between;align-items:center;">
+          <h3 style="margin:0;">記録一覧 (${records.length}件)</h3>
+          <button onclick="App.openRecordModal()">+ 記録を追加</button>
+        </div>
+        ${records.length === 0 ? '<div class="empty">まだ記録がありません</div>' : `
+        <table>
+          <tr><th>日付</th><th>体重</th><th>食欲</th><th>飲水</th><th>便(スコア)</th><th>尿</th><th>症状</th>${showCibdai ? '<th>CIBDAI</th>' : ''}<th>投薬</th><th>メモ</th><th></th></tr>
+          ${records.map(r => `
+            <tr>
+              <td>${fmtDate(r.date)}</td>
+              <td>${r.weight ? r.weight+'kg' : '-'}</td>
+              <td>${r.appetite}</td>
+              <td>${r.water}</td>
+              <td>${stoolLabel(r.stool)}</td>
+              <td>${r.urine}</td>
+              <td>${(r.symptoms||[]).map(s=>`<span class="tag">${s}</span>`).join('') || '-'}</td>
+              ${showCibdai ? `<td>${r.cibdai ? cibdaiTotal(r.cibdai) + '点(' + cibdaiSeverity(cibdaiTotal(r.cibdai)) + ')' : '-'}</td>` : ''}
+              <td>${(r.medsGiven||[]).map(id => { const m = state.medications.find(x=>x.id===id); return m ? `<span class="tag">💊 ${medLabel(m)}</span>` : ''; }).join('') || '-'}</td>
+              <td class="muted">${r.memo || '-'}</td>
+              <td class="actions-cell">
+                <button class="secondary" onclick="App.openRecordModal('${r.id}')">編集</button>
+                <button class="danger" onclick="App.deleteRecord('${r.id}')">削除</button>
+              </td>
+            </tr>
+          `).join('')}
+        </table>`}
+      </div>
+    `;
+  },
+
+  renderMedsTab(){
+    const meds = petMedications();
+    const today = new Date().toISOString().slice(0,10);
+    const active = meds.filter(m => isMedActiveOn(m, today));
+    const past = meds.filter(m => !isMedActiveOn(m, today));
+    const main = document.getElementById('mainContent');
+    const cardHtml = m => `
+      <div class="med-card">
+        <div class="row" style="justify-content:space-between;">
+          <div>
+            <div class="med-title">${medLabel(m)}</div>
+            <div class="${isMedActiveOn(m, today) ? 'status-active' : 'status-ended'}">${isMedActiveOn(m, today) ? '● 服用中' : '服用終了'}</div>
+          </div>
+          <div class="actions-cell">
+            <button class="secondary" onclick="App.openMedModal('${m.id}')">編集</button>
+            <button class="danger" onclick="App.deleteMed('${m.id}')">削除</button>
+          </div>
+        </div>
+        ${(!m.name || !m.dosage) ? `<div class="hint">${!m.name ? '薬品名' : ''}${(!m.name && !m.dosage) ? '・' : ''}${!m.dosage ? '用量' : ''}が未記入です。次回の受診時に「このお薬の名前と用量を教えてください」と聞いて記録しておくと安心です。</div>` : ''}
+        <table style="margin-top:6px;">
+          ${m.dosage ? `<tr><th style="width:80px;">用量</th><td>${m.dosage}</td></tr>` : ''}
+          <tr><th>期間</th><td>${m.startDate ? fmtDate(m.startDate) : '不明'} 〜 ${m.endDate ? fmtDate(m.endDate) : '継続中'}</td></tr>
+          ${m.prescriber ? `<tr><th>処方元</th><td>${m.prescriber}</td></tr>` : ''}
+          ${m.memo ? `<tr><th>メモ</th><td>${m.memo}</td></tr>` : ''}
+        </table>
+        ${m.photo ? `<img src="${m.photo}" alt="薬袋の写真">` : ''}
+      </div>
+    `;
+    main.innerHTML = `
+      <div class="card">
+        <div class="row" style="justify-content:space-between;align-items:center;">
+          <h3 style="margin:0;">お薬手帳</h3>
+          <button onclick="App.openMedModal()">+ お薬を登録</button>
+        </div>
+        <p class="hint">お薬手帳や薬袋の記載がない場合は、名前や用量が空欄のまま登録できます。診察時に主治医へ確認できたら、あとから編集して追記してください。</p>
+        ${meds.length === 0 ? '<div class="empty">まだお薬が登録されていません</div>' : ''}
+        ${active.length > 0 ? `<h3 style="font-size:14px;color:var(--muted);">服用中</h3>${active.map(cardHtml).join('')}` : ''}
+        ${past.length > 0 ? `<h3 style="font-size:14px;color:var(--muted);">過去の服用</h3>${past.map(cardHtml).join('')}` : ''}
+      </div>
+    `;
+  },
+
+  renderPrevTab(){
+    const items = petPreventions();
+    const today = new Date().toISOString().slice(0,10);
+    const main = document.getElementById('mainContent');
+    const rowHtml = p => `
+      <tr>
+        <td>${p.category}</td>
+        <td>${p.name || '-'}</td>
+        <td>${fmtDate(p.date)}</td>
+        <td>${p.nextDate ? (fmtDate(p.nextDate) + (p.nextDate < today ? ' <span class="status-ended" style="color:var(--danger);">(期限切れ)</span>' : '')) : '-'}</td>
+        <td>${p.clinic || '-'}</td>
+        <td class="actions-cell">
+          <button class="secondary" onclick="App.openPrevModal('${p.id}')">編集</button>
+          <button class="danger" onclick="App.deletePrev('${p.id}')">削除</button>
+        </td>
+      </tr>
+    `;
+    main.innerHTML = `
+      <div class="card">
+        <div class="row" style="justify-content:space-between;align-items:center;">
+          <h3 style="margin:0;">予防接種・ノミダニ/フィラリア予防</h3>
+          <button onclick="App.openPrevModal()">+ 記録を追加</button>
+        </div>
+        ${items.length === 0 ? '<div class="empty">まだ記録がありません</div>' : `
+        <table>
+          <tr><th>種類</th><th>名称</th><th>実施日</th><th>次回予定</th><th>病院</th><th></th></tr>
+          ${items.map(rowHtml).join('')}
+        </table>`}
+      </div>
+    `;
+  },
+
+  renderVisitsTab(){
+    const visits = petVisits();
+    const main = document.getElementById('mainContent');
+    const cardHtml = v => `
+      <div class="med-card">
+        <div class="row" style="justify-content:space-between;">
+          <div>
+            <div class="med-title">${fmtDate(v.date)} ${v.clinic ? '・' + v.clinic : ''}</div>
+            <div class="muted">${v.reason || ''}</div>
+          </div>
+          <div class="actions-cell">
+            <button class="secondary" onclick="App.openVisitModal('${v.id}')">編集</button>
+            <button class="danger" onclick="App.deleteVisit('${v.id}')">削除</button>
+          </div>
+        </div>
+        <table style="margin-top:6px;">
+          <tr><th style="width:110px;">診断名・疾患名</th><td>${v.diagnosis || '(未記入)'}</td></tr>
+          ${v.treatment ? `<tr><th>治療内容</th><td>${v.treatment}</td></tr>` : ''}
+          ${v.followUpDate ? `<tr><th>次回受診予定</th><td>${fmtDate(v.followUpDate)}</td></tr>` : ''}
+          ${v.memo ? `<tr><th>メモ</th><td>${v.memo}</td></tr>` : ''}
+        </table>
+      </div>
+    `;
+    main.innerHTML = `
+      <div class="card">
+        <div class="row" style="justify-content:space-between;align-items:center;">
+          <h3 style="margin:0;">受診歴</h3>
+          <button onclick="App.openVisitModal()">+ 受診記録を追加</button>
+        </div>
+        <p class="hint">診断名がその場で分からなくても大丈夫です。あとで確認できたら編集して追記してください。</p>
+        ${visits.length === 0 ? '<div class="empty">まだ受診記録がありません</div>' : visits.map(cardHtml).join('')}
+      </div>
+    `;
+  },
+
+  renderChartTab(){
+    const main = document.getElementById('mainContent');
+    main.innerHTML = `
+      <div class="card">
+        <div class="row" style="justify-content:space-between;align-items:center;">
+          <h3 style="margin:0;">体重の推移</h3>
+          <select id="rangeSelect" onchange="App.setChartRange(this.value)">
+            <option value="7">直近7日</option>
+            <option value="30" selected>直近30日</option>
+            <option value="90">直近90日</option>
+            <option value="0">全期間</option>
+          </select>
+        </div>
+        <div class="chart-wrap"><canvas id="weightChartCanvas"></canvas></div>
+      </div>
+      <div class="card">
+        <h3>症状の出現回数</h3>
+        <div class="chart-wrap"><canvas id="symptomChartCanvas"></canvas></div>
+      </div>
+    `;
+    document.getElementById('rangeSelect').value = state.chartRange;
+    this.drawCharts();
+  },
+
+  filterByRange(records, days){
+    if(!days || days === '0' || days === 0) return records;
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - Number(days));
+    return records.filter(r => new Date(r.date + 'T00:00:00') >= cutoff);
+  },
+
+  setChartRange(v){
+    state.chartRange = v;
+    this.drawCharts();
+  },
+
+  drawCharts(){
+    const records = this.filterByRange(petRecords(), state.chartRange).slice().sort((a,b)=> a.date < b.date ? -1 : 1);
+
+    const weightData = records.filter(r => r.weight != null);
+    const wCtx = document.getElementById('weightChartCanvas');
+    if(state.weightChart) state.weightChart.destroy();
+    state.weightChart = new Chart(wCtx, {
+      type: 'line',
+      data: {
+        labels: weightData.map(r => fmtDate(r.date)),
+        datasets: [{
+          label: '体重 (kg)',
+          data: weightData.map(r => r.weight),
+          borderColor: '#FB923C',
+          backgroundColor: 'rgba(251,146,60,0.15)',
+          tension: 0.25,
+          fill: true,
+          pointRadius: 3
+        }]
+      },
+      options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}} }
+    });
+
+    const symptomCounts = {};
+    records.forEach(r => (r.symptoms||[]).forEach(s => symptomCounts[s] = (symptomCounts[s]||0) + 1));
+    const labels = Object.keys(symptomCounts);
+    const sCtx = document.getElementById('symptomChartCanvas');
+    if(state.symptomChart) state.symptomChart.destroy();
+    state.symptomChart = new Chart(sCtx, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [{
+          label: '回数',
+          data: labels.map(l => symptomCounts[l]),
+          backgroundColor: '#5FA8A0'
+        }]
+      },
+      options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true, ticks:{stepSize:1}}} }
+    });
+  },
+
+  renderExportTab(){
+    const records = petRecords();
+    const today = new Date().toISOString().slice(0,10);
+    const monthAgo = new Date(Date.now() - 30*24*60*60*1000).toISOString().slice(0,10);
+    const defaultFrom = records.length ? records[records.length-1].date : monthAgo;
+    const main = document.getElementById('mainContent');
+    main.innerHTML = `
+      <div class="card">
+        <h3>主治医への共有レポートを出力</h3>
+        <div class="row">
+          <div class="field"><label>開始日</label><input type="date" id="exFrom" value="${defaultFrom}"></div>
+          <div class="field"><label>終了日</label><input type="date" id="exTo" value="${today}"></div>
+        </div>
+        <div class="row">
+          <button onclick="App.printReport()">🖨 レポートを印刷 / PDF保存</button>
+          <button class="secondary" onclick="App.downloadCSV()">CSVをダウンロード</button>
+        </div>
+        <p class="muted">「印刷 / PDF保存」を押すと印刷ダイアログが開きます。送信先を「PDFに保存」にすればそのままPDFファイルとして書き出せます。</p>
+      </div>
+    `;
+  },
+
+  getExportRange(){
+    const from = document.getElementById('exFrom').value;
+    const to = document.getElementById('exTo').value;
+    const records = petRecords().filter(r => (!from || r.date >= from) && (!to || r.date <= to))
+      .sort((a,b) => a.date < b.date ? -1 : 1);
+    return { from, to, records };
+  },
+
+  printReport(){
+    const pet = currentPet();
+    const { from, to, records } = this.getExportRange();
+    if(records.length === 0){ alert('選択した期間に記録がありません'); return; }
+
+    const tmpCanvas = document.createElement('canvas');
+    tmpCanvas.width = 700; tmpCanvas.height = 260;
+    document.body.appendChild(tmpCanvas);
+    const weightData = records.filter(r => r.weight != null);
+    let chartImg = '';
+    if(weightData.length > 0){
+      const tmpChart = new Chart(tmpCanvas, {
+        type:'line',
+        data:{ labels: weightData.map(r=>fmtDate(r.date)), datasets:[{label:'体重(kg)', data: weightData.map(r=>r.weight), borderColor:'#FB923C', backgroundColor:'rgba(251,146,60,0.15)', fill:true, tension:0.25}] },
+        options:{ responsive:false, animation:false, plugins:{legend:{display:true}} }
+      });
+      chartImg = tmpChart.toBase64Image();
+      tmpChart.destroy();
+    }
+    document.body.removeChild(tmpCanvas);
+
+    const medLookup = id => state.medications.find(x => x.id === id);
+    const showCibdai = pet.trackCibdai;
+    const rowsHtml = records.map(r => `
+      <tr>
+        <td>${fmtDate(r.date)}</td>
+        <td>${r.weight ? r.weight+'kg' : '-'}</td>
+        <td>${r.appetite}</td>
+        <td>${r.water}</td>
+        <td>${stoolLabel(r.stool)}</td>
+        <td>${r.urine}</td>
+        <td>${(r.symptoms||[]).join('、') || '-'}</td>
+        ${showCibdai ? `<td>${r.cibdai ? cibdaiTotal(r.cibdai) + '点(' + cibdaiSeverity(cibdaiTotal(r.cibdai)) + ')' : '-'}</td>` : ''}
+        <td>${(r.medsGiven||[]).map(id => { const m = medLookup(id); return m ? medLabel(m) : ''; }).filter(Boolean).join('、') || '-'}</td>
+        <td>${r.memo || ''}</td>
+      </tr>
+    `).join('');
+
+    const meds = petMedications();
+    const medsHtml = meds.length === 0 ? '' : `
+      <h2 style="font-size:15px;margin-top:18px;">投薬状況</h2>
+      <table>
+        <tr><th>薬</th><th>用量</th><th>期間</th><th>処方元</th></tr>
+        ${meds.map(m => `
+          <tr>
+            <td>${medLabel(m)}</td>
+            <td>${m.dosage || '(未確認)'}</td>
+            <td>${m.startDate ? fmtDate(m.startDate) : '不明'} 〜 ${m.endDate ? fmtDate(m.endDate) : '継続中'}</td>
+            <td>${m.prescriber || ''}</td>
+          </tr>
+        `).join('')}
+      </table>
+    `;
+
+    const prevs = petPreventions();
+    const prevsHtml = prevs.length === 0 ? '' : `
+      <h2 style="font-size:15px;margin-top:18px;">予防接種・ノミダニ/フィラリア予防</h2>
+      <table>
+        <tr><th>種類</th><th>名称</th><th>実施日</th><th>次回予定</th><th>病院</th></tr>
+        ${prevs.map(p => `
+          <tr>
+            <td>${p.category}</td>
+            <td>${p.name || '-'}</td>
+            <td>${fmtDate(p.date)}</td>
+            <td>${p.nextDate ? fmtDate(p.nextDate) : '-'}</td>
+            <td>${p.clinic || ''}</td>
+          </tr>
+        `).join('')}
+      </table>
+    `;
+
+    const visits = petVisits();
+    const visitsHtml = visits.length === 0 ? '' : `
+      <h2 style="font-size:15px;margin-top:18px;">受診歴</h2>
+      <table>
+        <tr><th>受診日</th><th>病院</th><th>主訴</th><th>診断名</th><th>治療内容</th></tr>
+        ${visits.map(v => `
+          <tr>
+            <td>${fmtDate(v.date)}</td>
+            <td>${v.clinic || ''}</td>
+            <td>${v.reason || ''}</td>
+            <td>${v.diagnosis || '(未記入)'}</td>
+            <td>${v.treatment || ''}</td>
+          </tr>
+        `).join('')}
+      </table>
+    `;
+
+    document.getElementById('printArea').innerHTML = `
+      <h1>体調記録レポート</h1>
+      <p>${pet.name}(${pet.species}${pet.breed ? '・'+pet.breed : ''}) ${pet.birthday ? '/ ' + ageString(pet.birthday) : ''}</p>
+      <p>期間: ${from ? fmtDate(from) : '-'} 〜 ${to ? fmtDate(to) : '-'} (作成日: ${fmtDate(new Date().toISOString().slice(0,10))})</p>
+      ${chartImg ? `<img src="${chartImg}" style="width:100%;max-width:600px;">` : ''}
+      ${visitsHtml}
+      ${medsHtml}
+      ${prevsHtml}
+      <h2 style="font-size:15px;margin-top:18px;">日々の記録</h2>
+      <table>
+        <tr><th>日付</th><th>体重</th><th>食欲</th><th>飲水</th><th>便(スコア)</th><th>尿</th><th>症状</th>${showCibdai ? '<th>CIBDAI</th>' : ''}<th>投薬</th><th>メモ</th></tr>
+        ${rowsHtml}
+      </table>
+    `;
+    window.print();
+  },
+
+  downloadCSV(){
+    const pet = currentPet();
+    const { records } = this.getExportRange();
+    if(records.length === 0){ alert('選択した期間に記録がありません'); return; }
+    const medLookup = id => state.medications.find(x => x.id === id);
+    const showCibdai = pet.trackCibdai;
+    const header = ['日付','体重(kg)','食欲','飲水','便(スコア)','尿','症状', ...(showCibdai ? ['CIBDAI'] : []), '投薬','メモ'];
+    const rows = records.map(r => [
+      r.date, r.weight ?? '', r.appetite, r.water, stoolLabel(r.stool), r.urine, (r.symptoms||[]).join('/'),
+      ...(showCibdai ? [r.cibdai ? (cibdaiTotal(r.cibdai) + '点(' + cibdaiSeverity(cibdaiTotal(r.cibdai)) + ')') : ''] : []),
+      (r.medsGiven||[]).map(id => { const m = medLookup(id); return m ? medLabel(m) : ''; }).filter(Boolean).join('/'),
+      (r.memo||'').replace(/\n/g,' ')
+    ]);
+    const csv = [header, ...rows].map(row => row.map(cell => `"${String(cell).replace(/"/g,'""')}"`).join(',')).join('\r\n');
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${pet.name}_体調記録.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+};
+
+window.App = App;
+
+const AppAuth = {
+  signIn(){
+    document.getElementById('authError').textContent = '';
+    const provider = new firebase.auth.GoogleAuthProvider();
+    auth.signInWithPopup(provider).catch(err => {
+      document.getElementById('authError').textContent = 'ログインに失敗しました: ' + err.message;
+    });
+  },
+  signOut(){
+    detachFirestoreListeners();
+    auth.signOut();
+  }
+};
+window.AppAuth = AppAuth;
+
+document.addEventListener('DOMContentLoaded', () => {
+  App.wireEvents();
+  auth.onAuthStateChanged(user => {
+    if(user){
+      currentUser = user;
+      document.getElementById('authScreen').classList.add('hidden');
+      document.getElementById('userBar').innerHTML =
+        `${user.displayName || user.email} <button class="ghost" onclick="AppAuth.signOut()">ログアウト</button>`;
+      attachFirestoreListeners();
+      App.start();
+    } else {
+      currentUser = null;
+      document.getElementById('authScreen').classList.remove('hidden');
+      document.getElementById('userBar').innerHTML = '';
+    }
+  });
+});
+</script>
+</body>
+</html>
