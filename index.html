@@ -17,6 +17,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-functions-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js"></script>
 <script src="https://accounts.google.com/gsi/client" async defer onload="typeof initGoogleSignIn === 'function' && initGoogleSignIn()"></script>
 <style>
   :root{
@@ -261,6 +262,15 @@
         <div class="field"><label>終了日(継続中なら空欄)</label><input type="date" id="medEnd"></div>
       </div>
       <div class="field"><label>処方元(病院名など・任意)</label><input type="text" id="medPrescriber"></div>
+      <div id="medReminderField" class="field">
+        <label>リマインダー時刻(治療サポートプラン)</label>
+        <input type="text" id="medReminderTimes" placeholder="例: 08:00, 20:00(5分刻み)">
+        <p class="hint">カンマ区切りで複数指定できます。この時刻になったら通知します。</p>
+      </div>
+      <div id="medReminderUpsell" class="field hidden">
+        <label>リマインダー時刻</label>
+        <p class="hint">投薬リマインダー通知は治療サポートプランで利用できます。 <button type="button" class="ghost" style="padding:2px 8px;font-size:11px;" onclick="App.closeMedModal(); App.openUpgradeModal();">アップグレードを見る</button></p>
+      </div>
       <div class="field"><label>薬袋・お薬手帳の写真(任意)</label><input type="file" id="medPhoto" accept="image/*"></div>
       <div id="medPhotoPreviewWrap" class="field hidden"><img id="medPhotoPreview" style="max-width:160px;border-radius:8px;"><button type="button" class="ghost" onclick="App.clearMedPhoto()">写真を削除</button></div>
       <div class="field"><label>メモ</label><textarea id="medMemo" rows="2" placeholder="気になる点など"></textarea></div>
@@ -360,6 +370,10 @@ const firebaseConfig = {
 };
 // ▲▲▲ ここまで ▲▲▲
 
+// ③投薬リマインダー通知(FCM)用のVAPIDキー。Firebaseコンソール >
+// プロジェクトの設定 > Cloud Messaging > ウェブ構成 > 「鍵ペアを生成」で発行できる。
+const FCM_VAPID_KEY = "";
+
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
@@ -367,6 +381,23 @@ const db = firebase.firestore();
 // リージョンを明示しないと既定のus-central1を呼んでしまい失敗する。
 const functions = firebase.app().functions('asia-northeast1');
 db.enablePersistence({ synchronizeTabs: true }).catch(() => {});
+
+// SafariなどFCMに対応していないブラウザでもエラーで落ちないようにガードする。
+let messaging = null;
+try {
+  if (firebase.messaging.isSupported()) {
+    messaging = firebase.messaging();
+    // フォアグラウンド(アプリを見ている間)は自動でOS通知が出ないため、手動で表示する。
+    messaging.onMessage((payload) => {
+      const n = payload.notification || {};
+      if (Notification.permission === 'granted') {
+        new Notification(n.title || 'どうぶつ健康手帳', { body: n.body || '' });
+      }
+    });
+  }
+} catch (e) {
+  console.warn('FCM is not supported in this browser.', e);
+}
 
 let currentUser = null;
 let firestoreUnsubscribers = [];
@@ -729,6 +760,33 @@ const App = {
       </div>
     `).join('');
   },
+  async enableNotifications(){
+    if(!messaging){
+      alert('このブラウザは通知に対応していません。');
+      return;
+    }
+    if(!FCM_VAPID_KEY){
+      console.error('FCM_VAPID_KEY is not set.');
+      alert('通知機能の設定が未完了です(開発者向け: FCM_VAPID_KEYが未設定)。');
+      return;
+    }
+    try{
+      const permission = await Notification.requestPermission();
+      if(permission !== 'granted'){
+        alert('通知が許可されませんでした。ブラウザやOSの通知設定から許可できます。');
+        return;
+      }
+      const token = await messaging.getToken({ vapidKey: FCM_VAPID_KEY });
+      const registerFcmToken = functions.httpsCallable('registerFcmToken');
+      await registerFcmToken({ token });
+      alert('投薬リマインダー通知を有効にしました。');
+      this.render();
+    } catch(err){
+      console.error('enableNotifications failed', err);
+      alert('通知の設定に失敗しました。時間をおいて再度お試しください。');
+    }
+  },
+
   async purchase(item){
     const btn = document.querySelector(`#upgradeItemList [data-upgrade-item="${item}"]`);
     const errorEl = document.getElementById('upgradeError');
@@ -874,6 +932,11 @@ const App = {
     const form = document.getElementById('medForm');
     form.reset();
     document.getElementById('medPhotoPreviewWrap').classList.add('hidden');
+
+    const subscribed = !!(state.entitlements && state.entitlements.subscriptionActive);
+    document.getElementById('medReminderField').classList.toggle('hidden', !subscribed);
+    document.getElementById('medReminderUpsell').classList.toggle('hidden', subscribed);
+
     if(medId){
       const m = state.medications.find(x => x.id === medId);
       title.textContent = 'お薬を編集';
@@ -885,6 +948,7 @@ const App = {
       document.getElementById('medEnd').value = m.endDate || '';
       document.getElementById('medPrescriber').value = m.prescriber || '';
       document.getElementById('medMemo').value = m.memo || '';
+      document.getElementById('medReminderTimes').value = (m.reminderTimes || []).join(', ');
       if(m.photo){
         state.medPhotoData = m.photo;
         document.getElementById('medPhotoPreview').src = m.photo;
@@ -904,6 +968,26 @@ const App = {
   submitMed(e){
     e.preventDefault();
     if(!state.currentPetId){ alert('先にペットを登録してください'); return; }
+
+    const subscribed = !!(state.entitlements && state.entitlements.subscriptionActive);
+    let reminderTimes = [];
+    if(subscribed){
+      const raw = document.getElementById('medReminderTimes').value.trim();
+      const timePattern = /^([01]\d|2[0-3]):[0-5][05]$/; // 5分刻みのHH:MMのみ許可(通知は5分おきにチェックするため)
+      const invalid = [];
+      if(raw){
+        raw.split(',').map(s => s.trim()).filter(Boolean).forEach(t => {
+          if(timePattern.test(t)) reminderTimes.push(t);
+          else invalid.push(t);
+        });
+      }
+      if(invalid.length > 0){
+        alert(`リマインダー時刻の形式が正しくありません(5分刻みのHH:MMで入力してください): ${invalid.join(', ')}`);
+        return;
+      }
+      reminderTimes = [...new Set(reminderTimes)].sort();
+    }
+
     const id = document.getElementById('medId').value;
     const data = {
       petId: state.currentPetId,
@@ -914,7 +998,8 @@ const App = {
       endDate: document.getElementById('medEnd').value || '',
       prescriber: document.getElementById('medPrescriber').value.trim(),
       memo: document.getElementById('medMemo').value.trim(),
-      photo: state.medPhotoData
+      photo: state.medPhotoData,
+      reminderTimes
     };
     const docId = id || uid();
     colRef('medications').doc(docId).set(data);
@@ -1195,17 +1280,22 @@ const App = {
           ${m.dosage ? `<tr><th style="width:80px;">用量</th><td>${m.dosage}</td></tr>` : ''}
           <tr><th>期間</th><td>${m.startDate ? fmtDate(m.startDate) : '不明'} 〜 ${m.endDate ? fmtDate(m.endDate) : '継続中'}</td></tr>
           ${m.prescriber ? `<tr><th>処方元</th><td>${m.prescriber}</td></tr>` : ''}
+          ${(m.reminderTimes||[]).length > 0 ? `<tr><th>リマインダー</th><td>🔔 ${m.reminderTimes.join('、')}</td></tr>` : ''}
           ${m.memo ? `<tr><th>メモ</th><td>${m.memo}</td></tr>` : ''}
         </table>
         ${m.photo ? `<img src="${m.photo}" alt="薬袋の写真">` : ''}
       </div>
     `;
+    const subscribed = !!(state.entitlements && state.entitlements.subscriptionActive);
+    const notifGranted = ('Notification' in window) && Notification.permission === 'granted';
     main.innerHTML = `
       <div class="card">
         <div class="row" style="justify-content:space-between;align-items:center;">
           <h3 style="margin:0;">お薬手帳</h3>
           <button onclick="App.openMedModal()">+ お薬を登録</button>
         </div>
+        ${subscribed && !notifGranted ? `<div class="row" style="margin-top:6px;"><button class="secondary" onclick="App.enableNotifications()">🔔 投薬リマインダー通知を有効にする</button></div>` : ''}
+        ${subscribed && notifGranted ? `<p class="hint">🔔 投薬リマインダー通知は有効です。各お薬の編集画面から通知時刻を設定できます。</p>` : ''}
         <p class="hint">お薬手帳や薬袋の記載がない場合は、名前や用量が空欄のまま登録できます。診察時に主治医へ確認できたら、あとから編集して追記してください。</p>
         ${meds.length === 0 ? '<div class="empty">まだお薬が登録されていません</div>' : ''}
         ${active.length > 0 ? `<h3 style="font-size:14px;color:var(--muted);">服用中</h3>${active.map(cardHtml).join('')}` : ''}
