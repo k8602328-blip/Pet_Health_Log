@@ -779,6 +779,9 @@ const App = {
       // GitHub Pagesはサブパス(/Pet_Health_Log/)配信のため、Service Workerの既定の
       // 探索先(ドメイン直下)には無い。相対パスで明示的に登録して渡す必要がある。
       const swRegistration = await navigator.serviceWorker.register('firebase-messaging-sw.js');
+      // 登録直後はまだinstalling段階でactiveでないことがあり、その状態でPushManager.subscribe()
+      // すると失敗する。readyでactive化を待ってから購読する。
+      await navigator.serviceWorker.ready;
       const token = await messaging.getToken({ vapidKey: FCM_VAPID_KEY, serviceWorkerRegistration: swRegistration });
       const registerFcmToken = functions.httpsCallable('registerFcmToken');
       await registerFcmToken({ token });
