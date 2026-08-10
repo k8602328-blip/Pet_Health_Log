@@ -1364,6 +1364,9 @@ const App = {
     const today = new Date().toISOString().slice(0,10);
     const monthAgo = new Date(Date.now() - 30*24*60*60*1000).toISOString().slice(0,10);
     const defaultFrom = records.length ? records[records.length-1].date : monthAgo;
+    const ent = state.entitlements || {};
+    const freeRemaining = Math.max(0, 2 - (ent.reportCreditsUsedThisMonth || 0));
+    const purchasedRemaining = ent.reportCreditsPurchased || 0;
     const main = document.getElementById('mainContent');
     main.innerHTML = `
       <div class="card">
@@ -1377,6 +1380,7 @@ const App = {
           <button class="secondary" onclick="App.downloadCSV()">CSVをダウンロード</button>
         </div>
         <p class="muted">「印刷 / PDF保存」を押すと印刷ダイアログが開きます。送信先を「PDFに保存」にすればそのままPDFファイルとして書き出せます。</p>
+        <p class="muted">今月の無料出力: 残り${freeRemaining}回(目安) / 購入した追加パック: 残り${purchasedRemaining}回</p>
       </div>
     `;
   },
@@ -1389,7 +1393,33 @@ const App = {
     return { from, to, records };
   },
 
-  printReport(){
+  /**
+   * レポート出力(印刷/CSV)を1回消費できるか、サーバー(consumeReportCredit)に確認する。
+   * 消費できなければアップグレードモーダルを出してfalseを返す。
+   */
+  async consumeReportCreditOrPrompt(){
+    try{
+      const consumeReportCredit = functions.httpsCallable('consumeReportCredit');
+      await consumeReportCredit();
+      return true;
+    } catch(err){
+      if(err.code === 'functions/resource-exhausted'){
+        this.openUpgradeModal('今月の無料出力回数(2回)と購入済みパックを使い切りました。追加パックを購入すると引き続き出力できます。');
+      } else {
+        console.error('consumeReportCredit failed', err);
+        alert('出力の確認処理に失敗しました。時間をおいて再度お試しください。');
+      }
+      return false;
+    }
+  },
+
+  async printReport(){
+    const printBtn = document.querySelector('#mainContent button[onclick="App.printReport()"]');
+    if(printBtn){ printBtn.disabled = true; }
+    const ok = await this.consumeReportCreditOrPrompt();
+    if(printBtn){ printBtn.disabled = false; }
+    if(!ok) return;
+
     const pet = currentPet();
     const { from, to, records } = this.getExportRange();
     if(records.length === 0){ alert('選択した期間に記録がありません'); return; }
@@ -1494,7 +1524,13 @@ const App = {
     window.print();
   },
 
-  downloadCSV(){
+  async downloadCSV(){
+    const csvBtn = document.querySelector('#mainContent button[onclick="App.downloadCSV()"]');
+    if(csvBtn){ csvBtn.disabled = true; }
+    const ok = await this.consumeReportCreditOrPrompt();
+    if(csvBtn){ csvBtn.disabled = false; }
+    if(!ok) return;
+
     const pet = currentPet();
     const { records } = this.getExportRange();
     if(records.length === 0){ alert('選択した期間に記録がありません'); return; }
