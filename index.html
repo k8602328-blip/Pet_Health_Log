@@ -453,11 +453,20 @@ function attachFirestoreListeners(){
     }, err => console.error('Firestore error (' + name + '):', err));
     firestoreUnsubscribers.push(unsub);
   });
+  let userDocLoaded = false;
   const unsubUser = userDocRef().onSnapshot(doc => {
     const data = doc.data() || {};
     state.entitlements = data.entitlements || null;
-    if(data.currentPetId && data.currentPetId !== state.currentPetId){
-      state.currentPetId = data.currentPetId;
+    // currentPetIdは初回読み込み時だけリモートの値を採用する。以降はselectPet/submitPet
+    // などローカルの操作が唯一の正とする。ここで毎回リモート値を反映すると、
+    // 自分の書き込みより古いスナップショットが後から届いた場合に選択中のペットが
+    // 意図せず巻き戻ってしまうことがある(存在しないpetIdを指してrender()が
+    // 例外で止まる原因になっていた)。
+    if(!userDocLoaded){
+      userDocLoaded = true;
+      if(data.currentPetId){
+        state.currentPetId = data.currentPetId;
+      }
     }
     App.render();
   });
@@ -1031,6 +1040,12 @@ const App = {
         <button onclick="App.openPetModal()">+ 最初のペットを登録する</button>
       </div>`;
       return;
+    }
+    // currentPetIdが何らかの理由で実在しないペットを指している場合(データ同期のタイミング
+    // 差など)に、以降の描画がpet.xxxで例外を起こして画面が固まるのを防ぐフォールバック。
+    if(!currentPet()){
+      state.currentPetId = state.pets[0].id;
+      this.renderPetSelect();
     }
     if(state.activeTab === 'home') return this.renderHome();
     if(state.activeTab === 'list') return this.renderList();
