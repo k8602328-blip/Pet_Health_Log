@@ -16,6 +16,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-functions-compat.js"></script>
 <script src="https://accounts.google.com/gsi/client" async defer onload="typeof initGoogleSignIn === 'function' && initGoogleSignIn()"></script>
 <style>
   :root{
@@ -101,6 +102,12 @@
   .fecal-text .fecal-desc{font-size:12px;color:var(--muted);}
   .cibdai-item{display:flex;flex-direction:column;gap:3px;margin-bottom:10px;}
   .cibdai-item label{font-size:12px;font-weight:600;color:var(--muted);}
+  .upgrade-row{display:flex;align-items:center;gap:12px;padding:12px 4px;border-bottom:1px solid var(--border);}
+  .upgrade-row:last-child{border-bottom:none;}
+  .upgrade-text{flex:1;}
+  .upgrade-text .upgrade-title{font-weight:700;font-size:13px;}
+  .upgrade-text .upgrade-price{font-size:12px;color:var(--primary-dark);font-weight:600;}
+  .upgrade-text .upgrade-desc{font-size:12px;color:var(--muted);margin-top:2px;}
   .pet-toggle{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);margin-top:10px;}
   #printArea{display:none;}
   @media print{
@@ -143,6 +150,7 @@
     <div class="pet-switch">
       <select id="petSelect" onchange="App.selectPet(this.value)"></select>
       <button class="secondary" onclick="App.openPetModal()">+ ペット追加</button>
+      <button class="ghost" onclick="App.openUpgradeModal()">⭐ アップグレード</button>
     </div>
   </header>
 
@@ -325,6 +333,18 @@
   </div>
 </div>
 
+<div id="upgradeModalBackdrop" class="modal-backdrop hidden">
+  <div class="modal">
+    <h3>アップグレード</h3>
+    <p class="muted" id="upgradeModalMessage" style="display:none;"></p>
+    <div id="upgradeItemList"></div>
+    <p class="muted" id="upgradeError" style="color:var(--danger);"></p>
+    <div class="row" style="justify-content:flex-end;margin-top:8px;">
+      <button type="button" class="ghost" onclick="App.closeUpgradeModal()">閉じる</button>
+    </div>
+  </div>
+</div>
+
 <div id="printArea"></div>
 
 <script>
@@ -343,6 +363,9 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
+// Cloud FunctionsはFirestoreと同じasia-northeast1にデプロイされているため、
+// リージョンを明示しないと既定のus-central1を呼んでしまい失敗する。
+const functions = firebase.app().functions('asia-northeast1');
 db.enablePersistence({ synchronizeTabs: true }).catch(() => {});
 
 let currentUser = null;
@@ -373,6 +396,15 @@ const CIBDAI_ITEMS = [
   { key:'weightLoss', label:'体重減少', options:['なし','軽度(5%未満)','中等度(5〜10%)','重度(10%以上)'] }
 ];
 
+// 課金Cloud Functions(createCheckoutSession)側のPRICE_IDSマップと対応するキー。
+// 実際の価格IDはサーバー側だけが持っており、クライアントはこのキーしか送らない。
+const UPGRADE_ITEMS = [
+  { item:'extraPet', label:'追加ペットスロット', price:'¥150(買い切り)', desc:'2匹目以降のペットを追加登録できます。' },
+  { item:'reportPack', label:'レポート出力 追加パック(5回分)', price:'¥300(買い切り)', desc:'PDF/CSVレポート出力を追加5回分利用できます。' },
+  { item:'supportPlan', label:'治療サポートプラン', price:'¥480/月', desc:'投薬リマインダー・写真添付・傾向分析がセットで使えます。' },
+  { item:'familySeat', label:'家族共有 追加席(1人分)', price:'¥200/月', desc:'ご本人以外の家族にもこのペットの記録を共有できます(1人分)。' }
+];
+
 let state = {
   pets: [],
   records: [],
@@ -388,7 +420,8 @@ let state = {
   medPhotoData: null,
   chartRange: 30,
   weightChart: null,
-  symptomChart: null
+  symptomChart: null,
+  entitlements: null
 };
 
 function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
@@ -422,17 +455,18 @@ function attachFirestoreListeners(){
   });
   const unsubUser = userDocRef().onSnapshot(doc => {
     const data = doc.data() || {};
+    state.entitlements = data.entitlements || null;
     if(data.currentPetId && data.currentPetId !== state.currentPetId){
       state.currentPetId = data.currentPetId;
-      App.render();
     }
+    App.render();
   });
   firestoreUnsubscribers.push(unsubUser);
 }
 function detachFirestoreListeners(){
   firestoreUnsubscribers.forEach(u => u());
   firestoreUnsubscribers = [];
-  state = { ...state, pets:[], records:[], medications:[], preventions:[], visits:[], currentPetId:null };
+  state = { ...state, pets:[], records:[], medications:[], preventions:[], visits:[], currentPetId:null, entitlements:null };
 }
 
 function petRecords(){
@@ -526,6 +560,21 @@ const App = {
 
   start(){
     this.switchTab('home');
+  },
+
+  handleCheckoutRedirect(){
+    const params = new URLSearchParams(location.search);
+    const checkout = params.get('checkout');
+    if(checkout === 'success'){
+      alert('お支払いが完了しました。反映まで数秒かかることがあります。');
+    } else if(checkout === 'cancel'){
+      alert('決済がキャンセルされました。購入は行われていません。');
+    }
+    if(checkout){
+      params.delete('checkout');
+      const newSearch = params.toString();
+      history.replaceState(null, '', location.pathname + (newSearch ? `?${newSearch}` : ''));
+    }
   },
 
   buildStoolSelect(){
@@ -630,11 +679,61 @@ const App = {
   },
 
   openPetModal(){
+    const purchased = state.entitlements ? state.entitlements.petSlotsPurchased : 0;
+    const limit = 1 + purchased;
+    if(state.pets.length >= limit){
+      this.openUpgradeModal('無料枠(1匹)を超えています。追加ペットスロットを購入すると、もっと多くのペットを登録できます。');
+      return;
+    }
     document.getElementById('petModalBackdrop').classList.remove('hidden');
   },
   closePetModal(){
     document.getElementById('petModalBackdrop').classList.add('hidden');
     document.getElementById('petForm').reset();
+  },
+
+  openUpgradeModal(message){
+    const msgEl = document.getElementById('upgradeModalMessage');
+    if(message){
+      msgEl.textContent = message;
+      msgEl.style.display = '';
+    } else {
+      msgEl.style.display = 'none';
+    }
+    document.getElementById('upgradeError').textContent = '';
+    this.renderUpgradeItems();
+    document.getElementById('upgradeModalBackdrop').classList.remove('hidden');
+  },
+  closeUpgradeModal(){
+    document.getElementById('upgradeModalBackdrop').classList.add('hidden');
+  },
+  renderUpgradeItems(){
+    const wrap = document.getElementById('upgradeItemList');
+    wrap.innerHTML = UPGRADE_ITEMS.map(it => `
+      <div class="upgrade-row">
+        <div class="upgrade-text">
+          <div class="upgrade-title">${it.label}</div>
+          <div class="upgrade-price">${it.price}</div>
+          <div class="upgrade-desc">${it.desc}</div>
+        </div>
+        <button type="button" data-upgrade-item="${it.item}" onclick="App.purchase('${it.item}')">購入する</button>
+      </div>
+    `).join('');
+  },
+  async purchase(item){
+    const btn = document.querySelector(`#upgradeItemList [data-upgrade-item="${item}"]`);
+    const errorEl = document.getElementById('upgradeError');
+    errorEl.textContent = '';
+    if(btn){ btn.disabled = true; btn.textContent = '処理中...'; }
+    try{
+      const createCheckoutSession = functions.httpsCallable('createCheckoutSession');
+      const result = await createCheckoutSession({ item });
+      window.location.href = result.data.url;
+    } catch(err){
+      console.error('createCheckoutSession failed', err);
+      errorEl.textContent = '決済ページを開けませんでした。時間をおいて再度お試しください。';
+      if(btn){ btn.disabled = false; btn.textContent = '購入する'; }
+    }
   },
   submitPet(e){
     e.preventDefault();
@@ -1495,6 +1594,7 @@ document.addEventListener('DOMContentLoaded', () => {
         `${user.displayName || user.email} <button class="ghost" onclick="AppAuth.signOut()">ログアウト</button>`;
       attachFirestoreListeners();
       App.start();
+      App.handleCheckoutRedirect();
     } else {
       currentUser = null;
       document.getElementById('authScreen').classList.remove('hidden');
