@@ -472,6 +472,15 @@ function detectInAppBrowser(){
   return match ? match.name : null;
 }
 
+// iPhoneのSafariはホーム画面に追加してPWAとして開かないとWeb Pushが一切機能しない
+// (通知の許可ダイアログ自体が出ない)ため、投薬リマインダー通知の案内を出し分けるのに使う。
+function needsIosHomeScreenForPush(){
+  const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+  const isStandalone = window.navigator.standalone === true
+    || window.matchMedia('(display-mode: standalone)').matches;
+  return isIos && !isStandalone;
+}
+
 function attachFirestoreListeners(){
   const collections = ['pets','records','medications','preventions','visits'];
   collections.forEach(name => {
@@ -761,6 +770,10 @@ const App = {
     `).join('');
   },
   async enableNotifications(){
+    if(needsIosHomeScreenForPush()){
+      alert('iPhoneでは、Safariの共有ボタンから「ホーム画面に追加」し、そのアイコンから開いた状態でないと通知を有効にできません。');
+      return;
+    }
     if(!messaging){
       alert('このブラウザは通知に対応していません。');
       return;
@@ -1294,13 +1307,17 @@ const App = {
     `;
     const subscribed = !!(state.entitlements && state.entitlements.subscriptionActive);
     const notifGranted = ('Notification' in window) && Notification.permission === 'granted';
+    const iosNeedsHomeScreen = needsIosHomeScreenForPush();
     main.innerHTML = `
       <div class="card">
         <div class="row" style="justify-content:space-between;align-items:center;">
           <h3 style="margin:0;">お薬手帳</h3>
           <button onclick="App.openMedModal()">+ お薬を登録</button>
         </div>
-        ${subscribed ? `
+        ${subscribed && iosNeedsHomeScreen ? `
+          <p class="hint">📱 iPhoneでは、Safariの共有ボタンから「ホーム画面に追加」し、そのアイコンから開いた状態でないと通知が使えません(通常のSafariのタブでは許可ダイアログ自体が出ません)。</p>
+        ` : ''}
+        ${subscribed && !iosNeedsHomeScreen ? `
           <div class="row" style="margin-top:6px;align-items:center;">
             <button class="secondary" onclick="App.enableNotifications()">🔔 ${notifGranted ? '通知の設定を確認・更新する' : '投薬リマインダー通知を有効にする'}</button>
             ${notifGranted ? '<span class="hint" style="margin:0;">ブラウザの通知は許可済みです</span>' : ''}
