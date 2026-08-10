@@ -776,7 +776,10 @@ const App = {
         alert('通知が許可されませんでした。ブラウザやOSの通知設定から許可できます。');
         return;
       }
-      const token = await messaging.getToken({ vapidKey: FCM_VAPID_KEY });
+      // GitHub Pagesはサブパス(/Pet_Health_Log/)配信のため、Service Workerの既定の
+      // 探索先(ドメイン直下)には無い。相対パスで明示的に登録して渡す必要がある。
+      const swRegistration = await navigator.serviceWorker.register('firebase-messaging-sw.js');
+      const token = await messaging.getToken({ vapidKey: FCM_VAPID_KEY, serviceWorkerRegistration: swRegistration });
       const registerFcmToken = functions.httpsCallable('registerFcmToken');
       await registerFcmToken({ token });
       alert('投薬リマインダー通知を有効にしました。');
