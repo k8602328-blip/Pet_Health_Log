@@ -1297,8 +1297,12 @@ const App = {
           <h3 style="margin:0;">お薬手帳</h3>
           <button onclick="App.openMedModal()">+ お薬を登録</button>
         </div>
-        ${subscribed && !notifGranted ? `<div class="row" style="margin-top:6px;"><button class="secondary" onclick="App.enableNotifications()">🔔 投薬リマインダー通知を有効にする</button></div>` : ''}
-        ${subscribed && notifGranted ? `<p class="hint">🔔 投薬リマインダー通知は有効です。各お薬の編集画面から通知時刻を設定できます。</p>` : ''}
+        ${subscribed ? `
+          <div class="row" style="margin-top:6px;align-items:center;">
+            <button class="secondary" onclick="App.enableNotifications()">🔔 ${notifGranted ? '通知の設定を確認・更新する' : '投薬リマインダー通知を有効にする'}</button>
+            ${notifGranted ? '<span class="hint" style="margin:0;">ブラウザの通知は許可済みです</span>' : ''}
+          </div>
+        ` : ''}
         <p class="hint">お薬手帳や薬袋の記載がない場合は、名前や用量が空欄のまま登録できます。診察時に主治医へ確認できたら、あとから編集して追記してください。</p>
         ${meds.length === 0 ? '<div class="empty">まだお薬が登録されていません</div>' : ''}
         ${active.length > 0 ? `<h3 style="font-size:14px;color:var(--muted);">服用中</h3>${active.map(cardHtml).join('')}` : ''}
