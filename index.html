@@ -532,6 +532,7 @@ let state = {
   symptomChart: null,
   entitlements: null,
   linkedOwnerUid: null,
+  knownHouseholdUid: null,
   familyEmails: []
 };
 
@@ -821,7 +822,8 @@ const App = {
         // 読めれば(=招待元のfamilyEmailsに自分のメールが載っていれば)成功する
         await db.collection('users').doc(inviteUid).get();
         state.linkedOwnerUid = inviteUid;
-        await ownUserDocRef().set({ linkedOwnerUid: inviteUid }, { merge: true });
+        state.knownHouseholdUid = inviteUid;
+        await ownUserDocRef().set({ linkedOwnerUid: inviteUid, knownHouseholdUid: inviteUid }, { merge: true });
         // オーナー側の管理画面で「誰が参加しているか」が名前で分かるように、
         // 自分の表示名をオーナーのfamilyMembersサブコレクションに書いておく。
         await db.collection('users').doc(inviteUid).collection('familyMembers').doc(currentUser.uid).set({
@@ -842,7 +844,9 @@ const App = {
     if(!state.linkedOwnerUid){
       try{
         const ownSnap = await ownUserDocRef().get();
-        state.linkedOwnerUid = ownSnap.data()?.linkedOwnerUid || null;
+        const ownData = ownSnap.data() || {};
+        state.linkedOwnerUid = ownData.linkedOwnerUid || null;
+        state.knownHouseholdUid = ownData.knownHouseholdUid || null;
       } catch(err){
         console.error('自分のプロフィールの取得に失敗', err);
       }
@@ -856,6 +860,23 @@ const App = {
     ownUserDocRef().set({ linkedOwnerUid: null }, { merge: true })
       .then(() => { attachFirestoreListeners(); this.render(); })
       .catch(err => { console.error('leaveHousehold failed', err); alert('処理に失敗しました。'); });
+  },
+
+  // 一度家族共有から離れた後、招待リンクを持っていなくてもワンクリックで
+  // 同じ共有データに戻れるようにする(knownHouseholdUidは離脱時にもクリアしない)。
+  rejoinHousehold(){
+    if(!state.knownHouseholdUid) return;
+    detachFirestoreListeners();
+    state.linkedOwnerUid = state.knownHouseholdUid;
+    ownUserDocRef().set({ linkedOwnerUid: state.linkedOwnerUid }, { merge: true })
+      .then(() => { attachFirestoreListeners(); this.render(); })
+      .catch(err => {
+        console.error('rejoinHousehold failed', err);
+        state.linkedOwnerUid = null;
+        attachFirestoreListeners();
+        this.render();
+        alert('共有データへのアクセスに失敗しました。オーナー側で招待が解除されている可能性があります。');
+      });
   },
 
   openFamilyModal(){
@@ -1551,6 +1572,9 @@ const App = {
     if(state.linkedOwnerUid){
       banner.classList.remove('hidden');
       banner.innerHTML = `<span>👪 家族共有として、他の方のペット記録を閲覧・編集中です</span><button onclick="App.leaveHousehold()">自分のデータに戻る</button>`;
+    } else if(state.knownHouseholdUid){
+      banner.classList.remove('hidden');
+      banner.innerHTML = `<span>👪 家族共有に参加しています</span><button onclick="App.rejoinHousehold()">共有データを見る</button>`;
     } else {
       banner.classList.add('hidden');
       banner.innerHTML = '';
