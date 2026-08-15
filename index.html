@@ -460,30 +460,12 @@ const db = firebase.firestore();
 const functions = firebase.app().functions('asia-northeast1');
 db.enablePersistence({ synchronizeTabs: true }).catch(() => {});
 
-// SafariなどFCMに対応していないブラウザでもエラーで落ちないようにガードする。
+// messagingはページ読み込み時には初期化しない(あえて遅延させる)。
+// firebase.messaging()を早期に呼ぶと、SDKが内部でデフォルトのService Workerを
+// 探しにいく動きにつながり、GitHub Pagesのサブパス(/Pet_Health_Log/)配信の下では
+// それが失敗して、決済などの無関係な機能まで巻き込んで落ちることがあった。
+// 通知を実際に使う(App.enableNotifications())タイミングまで初期化を遅らせることで回避する。
 let messaging = null;
-try {
-  if (firebase.messaging.isSupported()) {
-    messaging = firebase.messaging();
-    // フォアグラウンド(アプリを見ている間)は自動でOS通知が出ないため、手動で表示する。
-    messaging.onMessage((payload) => {
-      const n = payload.notification || {};
-      if (Notification.permission === 'granted') {
-        new Notification(n.title || 'どうぶつ健康手帳', { body: n.body || '' });
-      }
-    });
-    // Firebase SDKは他の機能(Cloud Functions呼び出しなど)の際にも内部で
-    // デフォルトのService Workerを探しにいくことがある。GitHub Pagesはサブパス
-    // (/Pet_Health_Log/)配信のため、ページ読み込み時に前もって正しい場所へ
-    // 登録しておかないと、無関係な機能(決済など)まで巻き込んで失敗することがある。
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('firebase-messaging-sw.js')
-        .catch(err => console.warn('FCM service worker registration failed', err));
-    }
-  }
-} catch (e) {
-  console.warn('FCM is not supported in this browser.', e);
-}
 
 let currentUser = null;
 let firestoreUnsubscribers = [];
@@ -1132,7 +1114,7 @@ const App = {
       alert('iPhoneでは、Safariの共有ボタンから「ホーム画面に追加」し、そのアイコンから開いた状態でないと通知を有効にできません。');
       return;
     }
-    if(!messaging){
+    if(!('Notification' in window) || !firebase.messaging.isSupported()){
       alert('このブラウザは通知に対応していません。');
       return;
     }
@@ -1153,6 +1135,17 @@ const App = {
       // 登録直後はまだinstalling段階でactiveでないことがあり、その状態でPushManager.subscribe()
       // すると失敗する。readyでactive化を待ってから購読する。
       await navigator.serviceWorker.ready;
+      // messaging()自体もここで初めて初期化する(理由は上のコメント参照)。
+      if(!messaging){
+        messaging = firebase.messaging();
+        // フォアグラウンド(アプリを見ている間)は自動でOS通知が出ないため、手動で表示する。
+        messaging.onMessage((payload) => {
+          const n = payload.notification || {};
+          if (Notification.permission === 'granted') {
+            new Notification(n.title || 'どうぶつ健康手帳', { body: n.body || '' });
+          }
+        });
+      }
       const token = await messaging.getToken({ vapidKey: FCM_VAPID_KEY, serviceWorkerRegistration: swRegistration });
       const registerFcmToken = functions.httpsCallable('registerFcmToken');
       await registerFcmToken({ token });
