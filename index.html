@@ -115,6 +115,14 @@
   .photo-thumb button{position:absolute;top:-6px;right:-6px;width:20px;height:20px;padding:0;border-radius:50%;line-height:1;font-size:12px;}
   .record-photos{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;}
   .record-photos img{width:64px;height:64px;object-fit:cover;border-radius:6px;border:1px solid var(--border);cursor:pointer;}
+  .chip-list{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
+  .chip{display:inline-flex;align-items:center;gap:6px;background:var(--bg);border:1px solid var(--border);border-radius:999px;padding:4px 6px 4px 12px;font-size:13px;}
+  .chip button{width:18px;height:18px;padding:0;border-radius:50%;line-height:1;font-size:11px;}
+  .med-dose-row{padding:8px 0;border-bottom:1px solid var(--border);}
+  .med-dose-row:last-child{border-bottom:none;}
+  .med-dose-name{font-weight:600;font-size:13px;margin-bottom:4px;}
+  .med-dose-boxes{display:flex;flex-wrap:wrap;gap:12px;}
+  .tag-warn{background:#FCE8D8;color:#B5540A;}
   .pet-toggle{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);margin-top:10px;}
   #printArea{display:none;}
   @media print{
@@ -272,7 +280,17 @@
       <input type="hidden" id="medId">
       <div class="field"><label>薬の名前(分かれば)</label><input type="text" id="medName" placeholder="例: メトロニダゾール"></div>
       <div class="field"><label>用途・薬袋の記載(例: 胃腸の薬)</label><input type="text" id="medPurpose" placeholder="例: 胃腸の薬"></div>
-      <div class="field"><label>用量・飲み方(分かれば)</label><input type="text" id="medDosage" placeholder="例: 5mg錠 1回1錠 1日2回"></div>
+      <div class="field"><label>用量・飲み方(分かれば)</label><input type="text" id="medDosage" placeholder="例: 5mg錠 1回1錠"></div>
+      <div class="field">
+        <label>1日の回数</label>
+        <select id="medDosesPerDay">
+          <option value="1">1日1回</option>
+          <option value="2">1日2回</option>
+          <option value="3">1日3回</option>
+          <option value="4">1日4回</option>
+        </select>
+        <p class="hint">記録画面で、この回数ぶんチェックボックスが出るようになります(例: 朝・夜)。</p>
+      </div>
       <div class="row">
         <div class="field"><label>開始日</label><input type="date" id="medStart"></div>
         <div class="field"><label>終了日(継続中なら空欄)</label><input type="date" id="medEnd"></div>
@@ -280,8 +298,12 @@
       <div class="field"><label>処方元(病院名など・任意)</label><input type="text" id="medPrescriber"></div>
       <div id="medReminderField" class="field">
         <label>リマインダー時刻(治療サポートプラン)</label>
-        <input type="text" id="medReminderTimes" placeholder="例: 08:00, 20:00(5分刻み)">
-        <p class="hint">カンマ区切りで複数指定できます。この時刻になったら通知します。</p>
+        <div class="row" style="align-items:flex-end;">
+          <div class="field" style="flex:0 0 auto;"><input type="time" id="medReminderTimeInput" step="300"></div>
+          <button type="button" class="secondary" onclick="App.addReminderTime()">+ 追加</button>
+        </div>
+        <div id="medReminderTimeList" class="chip-list"></div>
+        <p class="hint">5分刻みで指定できます。この時刻になったら通知します。</p>
       </div>
       <div id="medReminderUpsell" class="field hidden">
         <label>リマインダー時刻</label>
@@ -466,6 +488,7 @@ let state = {
   editingVisitId: null,
   medPhotoData: null,
   recordPhotos: [],
+  reminderTimesDraft: [],
   chartRange: 30,
   weightChart: null,
   symptomChart: null,
@@ -620,6 +643,18 @@ function medLabel(m){
 function currentPet(){
   return state.pets.find(p => p.id === state.currentPetId) || null;
 }
+// medsGiven({ [medId]: boolean[] })を、表示・出力用の要約(投薬名・何回中何回済みか)に変換する
+function medsGivenTags(medsGiven){
+  if(!medsGiven) return [];
+  return Object.keys(medsGiven).map(medId => {
+    const m = state.medications.find(x => x.id === medId);
+    if(!m) return null;
+    const doses = medsGiven[medId] || [];
+    const total = Math.max(m.dosesPerDay || 1, doses.length);
+    const given = doses.filter(Boolean).length;
+    return { label: medLabel(m), given, total, complete: total > 0 && given >= total };
+  }).filter(Boolean);
+}
 function fmtDate(d){
   const dt = new Date(d + 'T00:00:00');
   return dt.toLocaleDateString('ja-JP', {year:'numeric', month:'2-digit', day:'2-digit'});
@@ -739,19 +774,39 @@ const App = {
     ).join('');
   },
 
-  buildMedChecks(checkedIds){
+  // medsGivenは { [medId]: boolean[] } という形。配列の添字が「その日の何回目の投薬か」を表す。
+  buildMedChecks(medsGiven){
     const wrap = document.getElementById('rMeds');
     if(!wrap) return;
     const dateVal = document.getElementById('rDate').value;
     const meds = petMedications().filter(m => isMedActiveOn(m, dateVal));
-    const checked = checkedIds || Array.from(wrap.querySelectorAll('input:checked')).map(cb => cb.value);
+    // 引数無し(日付変更時の再描画)は、今チェック済みの状態を保ったまま薬の一覧だけ更新する
+    const current = medsGiven || this.collectMedsGiven();
     if(meds.length === 0){
       wrap.innerHTML = `<span class="muted">この日に該当する登録済みの薬がありません(「お薬」タブで登録できます)</span>`;
       return;
     }
-    wrap.innerHTML = meds.map(m =>
-      `<label><input type="checkbox" value="${m.id}" ${checked.includes(m.id)?'checked':''}> ${medLabel(m)}</label>`
-    ).join('');
+    wrap.innerHTML = meds.map(m => {
+      const doses = Math.max(1, m.dosesPerDay || 1);
+      const checkedDoses = current[m.id] || [];
+      const doseLabels = (m.reminderTimes && m.reminderTimes.length === doses)
+        ? m.reminderTimes
+        : Array.from({ length: doses }, (_, i) => doses === 1 ? '服用' : `${i + 1}回目`);
+      const boxes = doseLabels.map((label, i) => `
+        <label class="dose-check"><input type="checkbox" data-med="${m.id}" data-dose="${i}" ${checkedDoses[i] ? 'checked' : ''}> ${label}</label>
+      `).join('');
+      return `<div class="med-dose-row"><div class="med-dose-name">${medLabel(m)}</div><div class="med-dose-boxes">${boxes}</div></div>`;
+    }).join('');
+  },
+  collectMedsGiven(){
+    const result = {};
+    document.querySelectorAll('#rMeds input[type=checkbox]').forEach(cb => {
+      const medId = cb.dataset.med;
+      const dose = Number(cb.dataset.dose);
+      if(!result[medId]) result[medId] = [];
+      result[medId][dose] = cb.checked;
+    });
+    return result;
   },
 
   renderPetSelect(){
@@ -909,7 +964,7 @@ const App = {
       document.querySelectorAll('#rSymptoms input').forEach(cb => {
         cb.checked = (r.symptoms || []).includes(cb.value);
       });
-      this.buildMedChecks(r.medsGiven || []);
+      this.buildMedChecks(r.medsGiven || {});
       this.buildCibdaiSection(r.cibdai || null);
       if(subscribed) state.recordPhotos = [...(r.photos || [])];
     } else {
@@ -917,7 +972,7 @@ const App = {
       document.getElementById('recordId').value = '';
       document.getElementById('rDate').value = new Date().toISOString().slice(0,10);
       document.getElementById('rStool').value = '3';
-      this.buildMedChecks([]);
+      this.buildMedChecks({});
       this.buildCibdaiSection(null);
     }
     this.renderRecordPhotoGrid();
@@ -932,7 +987,7 @@ const App = {
     if(!state.currentPetId){ alert('先にペットを登録してください'); return; }
     const id = document.getElementById('recordId').value;
     const symptoms = Array.from(document.querySelectorAll('#rSymptoms input:checked')).map(cb => cb.value);
-    const medsGiven = Array.from(document.querySelectorAll('#rMeds input:checked')).map(cb => cb.value);
+    const medsGiven = this.collectMedsGiven();
     const pet = currentPet();
     let cibdai = null;
     if(pet && pet.trackCibdai){
@@ -1022,6 +1077,7 @@ const App = {
     const subscribed = !!(state.entitlements && state.entitlements.subscriptionActive);
     document.getElementById('medReminderField').classList.toggle('hidden', !subscribed);
     document.getElementById('medReminderUpsell').classList.toggle('hidden', subscribed);
+    state.reminderTimesDraft = [];
 
     if(medId){
       const m = state.medications.find(x => x.id === medId);
@@ -1030,11 +1086,12 @@ const App = {
       document.getElementById('medName').value = m.name || '';
       document.getElementById('medPurpose').value = m.purpose || '';
       document.getElementById('medDosage').value = m.dosage || '';
+      document.getElementById('medDosesPerDay').value = String(m.dosesPerDay || 1);
       document.getElementById('medStart').value = m.startDate || '';
       document.getElementById('medEnd').value = m.endDate || '';
       document.getElementById('medPrescriber').value = m.prescriber || '';
       document.getElementById('medMemo').value = m.memo || '';
-      document.getElementById('medReminderTimes').value = (m.reminderTimes || []).join(', ');
+      if(subscribed) state.reminderTimesDraft = [...(m.reminderTimes || [])];
       if(m.photo){
         state.medPhotoData = m.photo;
         document.getElementById('medPhotoPreview').src = m.photo;
@@ -1043,36 +1100,47 @@ const App = {
     } else {
       title.textContent = 'お薬を登録';
       document.getElementById('medId').value = '';
+      document.getElementById('medDosesPerDay').value = '1';
       document.getElementById('medStart').value = new Date().toISOString().slice(0,10);
     }
+    this.renderReminderTimeList();
     document.getElementById('medModalBackdrop').classList.remove('hidden');
   },
   closeMedModal(){
     document.getElementById('medModalBackdrop').classList.add('hidden');
     state.editingMedId = null;
   },
+  addReminderTime(){
+    const input = document.getElementById('medReminderTimeInput');
+    const t = input.value; // <input type="time" step="300">はHH:MM(5分刻み)を保証する
+    if(!t) return;
+    if(!state.reminderTimesDraft.includes(t)){
+      state.reminderTimesDraft.push(t);
+      state.reminderTimesDraft.sort();
+    }
+    input.value = '';
+    this.renderReminderTimeList();
+  },
+  removeReminderTime(t){
+    state.reminderTimesDraft = state.reminderTimesDraft.filter(x => x !== t);
+    this.renderReminderTimeList();
+  },
+  renderReminderTimeList(){
+    const wrap = document.getElementById('medReminderTimeList');
+    if(state.reminderTimesDraft.length === 0){
+      wrap.innerHTML = `<span class="muted">まだ時刻が追加されていません</span>`;
+      return;
+    }
+    wrap.innerHTML = state.reminderTimesDraft.map(t => `
+      <span class="chip">🔔 ${t}<button type="button" class="ghost" onclick="App.removeReminderTime('${t}')">×</button></span>
+    `).join('');
+  },
   submitMed(e){
     e.preventDefault();
     if(!state.currentPetId){ alert('先にペットを登録してください'); return; }
 
     const subscribed = !!(state.entitlements && state.entitlements.subscriptionActive);
-    let reminderTimes = [];
-    if(subscribed){
-      const raw = document.getElementById('medReminderTimes').value.trim();
-      const timePattern = /^([01]\d|2[0-3]):[0-5][05]$/; // 5分刻みのHH:MMのみ許可(通知は5分おきにチェックするため)
-      const invalid = [];
-      if(raw){
-        raw.split(',').map(s => s.trim()).filter(Boolean).forEach(t => {
-          if(timePattern.test(t)) reminderTimes.push(t);
-          else invalid.push(t);
-        });
-      }
-      if(invalid.length > 0){
-        alert(`リマインダー時刻の形式が正しくありません(5分刻みのHH:MMで入力してください): ${invalid.join(', ')}`);
-        return;
-      }
-      reminderTimes = [...new Set(reminderTimes)].sort();
-    }
+    const reminderTimes = subscribed ? [...state.reminderTimesDraft] : [];
 
     const id = document.getElementById('medId').value;
     const data = {
@@ -1080,6 +1148,7 @@ const App = {
       name: document.getElementById('medName').value.trim(),
       purpose: document.getElementById('medPurpose').value.trim(),
       dosage: document.getElementById('medDosage').value.trim(),
+      dosesPerDay: Number(document.getElementById('medDosesPerDay').value) || 1,
       startDate: document.getElementById('medStart').value || '',
       endDate: document.getElementById('medEnd').value || '',
       prescriber: document.getElementById('medPrescriber').value.trim(),
@@ -1290,14 +1359,15 @@ const App = {
         <h3>最近の記録</h3>
         ${records.length === 0 ? '<div class="empty">まだ記録がありません</div>' : `
         <table>
-          <tr><th>日付</th><th>体重</th><th>食欲</th><th>症状</th><th>投薬</th><th></th></tr>
+          <tr><th>日付</th><th>体重</th><th>食欲</th><th>症状</th><th>投薬</th><th>写真</th><th></th></tr>
           ${records.slice(0,5).map(r => `
             <tr>
               <td>${fmtDate(r.date)}</td>
               <td>${r.weight ? r.weight+'kg' : '-'}</td>
               <td>${r.appetite}</td>
               <td>${(r.symptoms||[]).map(s=>`<span class="tag">${s}</span>`).join('') || '-'}</td>
-              <td>${(r.medsGiven||[]).map(id => { const m = state.medications.find(x=>x.id===id); return m ? `<span class="tag">💊 ${medLabel(m)}</span>` : ''; }).join('') || '-'}</td>
+              <td>${medsGivenTags(r.medsGiven).map(t => `<span class="tag ${t.complete ? '' : 'tag-warn'}">💊 ${t.label}(${t.given}/${t.total})</span>`).join('') || '-'}</td>
+              <td>${(r.photos||[]).length > 0 ? `📷 ${r.photos.length}` : '-'}</td>
               <td class="actions-cell"><button class="secondary" onclick="App.openRecordModal('${r.id}')">編集</button></td>
             </tr>
           `).join('')}
@@ -1330,7 +1400,7 @@ const App = {
               <td>${r.urine}</td>
               <td>${(r.symptoms||[]).map(s=>`<span class="tag">${s}</span>`).join('') || '-'}</td>
               ${showCibdai ? `<td>${r.cibdai ? cibdaiTotal(r.cibdai) + '点(' + cibdaiSeverity(cibdaiTotal(r.cibdai)) + ')' : '-'}</td>` : ''}
-              <td>${(r.medsGiven||[]).map(id => { const m = state.medications.find(x=>x.id===id); return m ? `<span class="tag">💊 ${medLabel(m)}</span>` : ''; }).join('') || '-'}</td>
+              <td>${medsGivenTags(r.medsGiven).map(t => `<span class="tag ${t.complete ? '' : 'tag-warn'}">💊 ${t.label}(${t.given}/${t.total})</span>`).join('') || '-'}</td>
               <td class="muted">${r.memo || '-'}</td>
               <td>${(r.photos||[]).length > 0 ? `<div class="record-photos">${r.photos.map(src => `<img src="${src}" onclick="window.open(this.src)">`).join('')}</div>` : '-'}</td>
               <td class="actions-cell">
@@ -1365,6 +1435,7 @@ const App = {
         ${(!m.name || !m.dosage) ? `<div class="hint">${!m.name ? '薬品名' : ''}${(!m.name && !m.dosage) ? '・' : ''}${!m.dosage ? '用量' : ''}が未記入です。次回の受診時に「このお薬の名前と用量を教えてください」と聞いて記録しておくと安心です。</div>` : ''}
         <table style="margin-top:6px;">
           ${m.dosage ? `<tr><th style="width:80px;">用量</th><td>${m.dosage}</td></tr>` : ''}
+          <tr><th>回数</th><td>1日${m.dosesPerDay || 1}回</td></tr>
           <tr><th>期間</th><td>${m.startDate ? fmtDate(m.startDate) : '不明'} 〜 ${m.endDate ? fmtDate(m.endDate) : '継続中'}</td></tr>
           ${m.prescriber ? `<tr><th>処方元</th><td>${m.prescriber}</td></tr>` : ''}
           ${(m.reminderTimes||[]).length > 0 ? `<tr><th>リマインダー</th><td>🔔 ${m.reminderTimes.join('、')}</td></tr>` : ''}
@@ -1625,7 +1696,6 @@ const App = {
     }
     document.body.removeChild(tmpCanvas);
 
-    const medLookup = id => state.medications.find(x => x.id === id);
     const showCibdai = pet.trackCibdai;
     const rowsHtml = records.map(r => `
       <tr>
@@ -1637,7 +1707,7 @@ const App = {
         <td>${r.urine}</td>
         <td>${(r.symptoms||[]).join('、') || '-'}</td>
         ${showCibdai ? `<td>${r.cibdai ? cibdaiTotal(r.cibdai) + '点(' + cibdaiSeverity(cibdaiTotal(r.cibdai)) + ')' : '-'}</td>` : ''}
-        <td>${(r.medsGiven||[]).map(id => { const m = medLookup(id); return m ? medLabel(m) : ''; }).filter(Boolean).join('、') || '-'}</td>
+        <td>${medsGivenTags(r.medsGiven).map(t => `${t.label}(${t.given}/${t.total})`).join('、') || '-'}</td>
         <td>${r.memo || ''}</td>
       </tr>
     `).join('');
@@ -1719,13 +1789,12 @@ const App = {
     const pet = currentPet();
     const { records } = this.getExportRange();
     if(records.length === 0){ alert('選択した期間に記録がありません'); return; }
-    const medLookup = id => state.medications.find(x => x.id === id);
     const showCibdai = pet.trackCibdai;
     const header = ['日付','体重(kg)','食欲','飲水','便(スコア)','尿','症状', ...(showCibdai ? ['CIBDAI'] : []), '投薬','メモ'];
     const rows = records.map(r => [
       r.date, r.weight ?? '', r.appetite, r.water, stoolLabel(r.stool), r.urine, (r.symptoms||[]).join('/'),
       ...(showCibdai ? [r.cibdai ? (cibdaiTotal(r.cibdai) + '点(' + cibdaiSeverity(cibdaiTotal(r.cibdai)) + ')') : ''] : []),
-      (r.medsGiven||[]).map(id => { const m = medLookup(id); return m ? medLabel(m) : ''; }).filter(Boolean).join('/'),
+      medsGivenTags(r.medsGiven).map(t => `${t.label}(${t.given}/${t.total})`).join('/'),
       (r.memo||'').replace(/\n/g,' ')
     ]);
     const csv = [header, ...rows].map(row => row.map(cell => `"${String(cell).replace(/"/g,'""')}"`).join(',')).join('\r\n');
