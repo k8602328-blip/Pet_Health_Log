@@ -402,16 +402,18 @@
     <h3>家族共有</h3>
 
     <div id="familyOwnerSection">
-      <p class="hint">招待リンクを家族に送って、同じ記録を一緒に見られるようにします。本人は無料、追加する家族は1人ごとに追加席が必要です。</p>
+      <p class="hint">家族や同居している方を招待して、同じ手帳を一緒に使えるようにします。ご本人(あなた)は無料で、招待するメンバー1人ごとにメンバー枠が必要です。</p>
+      <p class="hint">※ログインはGoogleアカウントのみ対応のため、招待できるのはGoogleアカウントのメールアドレスに限られます。</p>
       <p id="familySeatStatus" class="hint" style="font-weight:600;"></p>
+      <label style="font-size:13px;font-weight:600;">メンバー</label>
       <div id="familyEmailList" class="chip-list"></div>
       <div class="row" style="margin-top:10px;">
-        <input type="email" id="familyEmailInput" placeholder="招待する家族のメールアドレス">
+        <input type="email" id="familyEmailInput" placeholder="招待するメンバーのメールアドレス">
         <button type="button" class="secondary" onclick="App.addFamilyEmail()">+ 追加</button>
       </div>
       <p class="muted" id="familyError" style="color:var(--danger);"></p>
       <div class="field" style="margin-top:14px;">
-        <label>招待リンク(追加したメールアドレスでログインしてもらってください)</label>
+        <label>招待リンク(上で追加したメールアドレスでログインしてもらってください)</label>
         <div class="row">
           <input type="text" id="familyInviteUrl" readonly style="flex:1;">
           <button type="button" class="secondary" onclick="App.copyInviteLink()">コピー</button>
@@ -812,7 +814,14 @@ const App = {
         await db.collection('users').doc(inviteUid).get();
         state.linkedOwnerUid = inviteUid;
         await ownUserDocRef().set({ linkedOwnerUid: inviteUid }, { merge: true });
-        alert('家族共有に参加しました。');
+        // オーナー側の管理画面で「誰が参加しているか」が名前で分かるように、
+        // 自分の表示名をオーナーのfamilyMembersサブコレクションに書いておく。
+        await db.collection('users').doc(inviteUid).collection('familyMembers').doc(currentUser.uid).set({
+          email: currentUser.email,
+          displayName: currentUser.displayName || currentUser.email,
+          joinedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        });
+        alert('健康手帳のメンバーに参加しました。');
       } catch(err){
         console.error('招待の受け入れに失敗', err);
         alert('招待の受け入れに失敗しました。招待された本人のメールアドレスでログインしているか確認してください。');
@@ -850,24 +859,45 @@ const App = {
   closeFamilyModal(){
     document.getElementById('familyModalBackdrop').classList.add('hidden');
   },
-  renderFamilyModal(){
+  async renderFamilyModal(){
     const isMember = !!state.linkedOwnerUid;
     document.getElementById('familyOwnerSection').classList.toggle('hidden', isMember);
     document.getElementById('familyMemberSection').classList.toggle('hidden', !isMember);
+    if(isMember) return;
 
-    if(isMember){
-      return;
-    }
     const seats = (state.entitlements && state.entitlements.familySeatsPurchased) || 0;
-    document.getElementById('familySeatStatus').textContent = `${state.familyEmails.length} / ${seats}人分 利用中`;
-    const list = document.getElementById('familyEmailList');
-    list.innerHTML = state.familyEmails.length === 0
-      ? `<span class="muted">まだ家族が追加されていません</span>`
-      : state.familyEmails.map(email => `
-          <span class="chip">${email}<button type="button" class="ghost" onclick="App.removeFamilyEmail('${email}')">×</button></span>
-        `).join('');
+    const used = state.familyEmails.length;
+    const remaining = Math.max(0, seats - used);
+    document.getElementById('familySeatStatus').textContent =
+      `招待中のメンバー: ${used}人(あと${remaining}人 招待できます)`;
+
     const inviteUrl = `${location.origin}${location.pathname}?invite=${currentUser.uid}`;
     document.getElementById('familyInviteUrl').value = inviteUrl;
+
+    const list = document.getElementById('familyEmailList');
+    if(state.familyEmails.length === 0){
+      list.innerHTML = `<span class="muted">まだメンバーが追加されていません</span>`;
+      return;
+    }
+    list.innerHTML = `<span class="muted">読み込み中...</span>`;
+
+    // 参加済みメンバーは表示名を、まだリンクを開いていない相手は「招待中」を出す。
+    const membersByEmail = {};
+    try{
+      const snap = await ownUserDocRef().collection('familyMembers').get();
+      snap.forEach(doc => {
+        const d = doc.data();
+        if(d.email) membersByEmail[d.email] = d.displayName || d.email;
+      });
+    } catch(err){
+      console.error('familyMembers fetch failed', err);
+    }
+
+    list.innerHTML = state.familyEmails.map(email => {
+      const name = membersByEmail[email];
+      const label = name ? `${name}` : `${email}(招待中・未参加)`;
+      return `<span class="chip">${label}<button type="button" class="ghost" onclick="App.removeFamilyEmail('${email}')">×</button></span>`;
+    }).join('');
   },
   async addFamilyEmail(){
     const input = document.getElementById('familyEmailInput');
@@ -885,12 +915,14 @@ const App = {
     }
     if(state.familyEmails.length >= seats){
       this.closeFamilyModal();
-      this.openUpgradeModal('家族共有の追加席が上限に達しています。追加席を購入すると、もっと家族を招待できます。');
+      this.openUpgradeModal('メンバー枠が上限に達しています。追加すると、もっとメンバーを招待できます。');
       return;
     }
     try{
       await ownUserDocRef().update({ familyEmails: [...state.familyEmails, email] });
       input.value = '';
+      state.familyEmails = [...state.familyEmails, email];
+      this.renderFamilyModal();
     } catch(err){
       console.error('addFamilyEmail failed', err);
       errorEl.textContent = '追加に失敗しました。時間をおいて再度お試しください。';
@@ -899,6 +931,10 @@ const App = {
   async removeFamilyEmail(email){
     try{
       await ownUserDocRef().update({ familyEmails: state.familyEmails.filter(e => e !== email) });
+      const snap = await ownUserDocRef().collection('familyMembers').where('email', '==', email).get();
+      await Promise.all(snap.docs.map(doc => doc.ref.delete()));
+      state.familyEmails = state.familyEmails.filter(e => e !== email);
+      this.renderFamilyModal();
     } catch(err){
       console.error('removeFamilyEmail failed', err);
       alert('削除に失敗しました。');
