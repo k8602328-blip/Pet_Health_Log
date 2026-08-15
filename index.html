@@ -123,6 +123,8 @@
   .med-dose-name{font-weight:600;font-size:13px;margin-bottom:4px;}
   .med-dose-boxes{display:flex;flex-wrap:wrap;gap:12px;}
   .tag-warn{background:#FCE8D8;color:#B5540A;}
+  #householdBanner{background:var(--accent);color:#fff;padding:8px 24px;font-size:13px;display:flex;justify-content:space-between;align-items:center;gap:12px;}
+  #householdBanner button{background:transparent;color:#fff;border:1px solid rgba(255,255,255,0.6);padding:4px 10px;}
   .pet-toggle{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);margin-top:10px;}
   #printArea{display:none;}
   @media print{
@@ -165,9 +167,11 @@
     <div class="pet-switch">
       <select id="petSelect" onchange="App.selectPet(this.value)"></select>
       <button class="secondary" onclick="App.openPetModal()">+ ペット追加</button>
+      <button class="ghost" onclick="App.openFamilyModal()">👪 家族共有</button>
       <button class="ghost" onclick="App.openUpgradeModal()">⭐ アップグレード</button>
     </div>
   </header>
+  <div id="householdBanner" class="hidden"></div>
 
   <nav class="tabs" id="tabsNav">
     <button class="tab-btn" data-tab="home" onclick="App.switchTab('home')">ホーム</button>
@@ -393,6 +397,40 @@
   </div>
 </div>
 
+<div id="familyModalBackdrop" class="modal-backdrop hidden">
+  <div class="modal">
+    <h3>家族共有</h3>
+
+    <div id="familyOwnerSection">
+      <p class="hint">招待リンクを家族に送って、同じ記録を一緒に見られるようにします。本人は無料、追加する家族は1人ごとに追加席が必要です。</p>
+      <p id="familySeatStatus" class="hint" style="font-weight:600;"></p>
+      <div id="familyEmailList" class="chip-list"></div>
+      <div class="row" style="margin-top:10px;">
+        <input type="email" id="familyEmailInput" placeholder="招待する家族のメールアドレス">
+        <button type="button" class="secondary" onclick="App.addFamilyEmail()">+ 追加</button>
+      </div>
+      <p class="muted" id="familyError" style="color:var(--danger);"></p>
+      <div class="field" style="margin-top:14px;">
+        <label>招待リンク(追加したメールアドレスでログインしてもらってください)</label>
+        <div class="row">
+          <input type="text" id="familyInviteUrl" readonly style="flex:1;">
+          <button type="button" class="secondary" onclick="App.copyInviteLink()">コピー</button>
+        </div>
+        <p class="muted" id="familyCopyMsg" style="min-height:18px;"></p>
+      </div>
+    </div>
+
+    <div id="familyMemberSection" class="hidden">
+      <p class="hint">現在、家族共有に参加して他の方の記録を閲覧・編集しています。</p>
+      <button type="button" class="danger" onclick="App.closeFamilyModal(); App.leaveHousehold();">家族共有から抜けて自分のデータに戻る</button>
+    </div>
+
+    <div class="row" style="justify-content:flex-end;margin-top:8px;">
+      <button type="button" class="ghost" onclick="App.closeFamilyModal()">閉じる</button>
+    </div>
+  </div>
+</div>
+
 <div id="printArea"></div>
 
 <script>
@@ -440,7 +478,12 @@ try {
 let currentUser = null;
 let firestoreUnsubscribers = [];
 
-function userDocRef(){ return db.collection('users').doc(currentUser.uid); }
+// ⑤家族共有: 招待された家族として閲覧中は、自分のuidではなく招待元(オーナー)のuidの
+// データを読み書きする。それ以外(オーナー本人)は自分のuidのまま。
+function dataUid(){ return state.linkedOwnerUid || currentUser.uid; }
+// linkedOwnerUidの読み書きなど、「本人自身のアカウント」を指す必要がある場面専用。
+function ownUserDocRef(){ return db.collection('users').doc(currentUser.uid); }
+function userDocRef(){ return db.collection('users').doc(dataUid()); }
 function colRef(name){ return userDocRef().collection(name); }
 
 const SYMPTOM_OPTIONS = ['嘔吐','下痢','元気消失','咳','くしゃみ','痒み','震え','呼吸が荒い','食欲不振','その他'];
@@ -492,7 +535,9 @@ let state = {
   chartRange: 30,
   weightChart: null,
   symptomChart: null,
-  entitlements: null
+  entitlements: null,
+  linkedOwnerUid: null,
+  familyEmails: []
 };
 
 function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
@@ -563,6 +608,7 @@ function attachFirestoreListeners(){
   const unsubUser = userDocRef().onSnapshot(doc => {
     const data = doc.data() || {};
     state.entitlements = data.entitlements || null;
+    state.familyEmails = data.familyEmails || [];
     // currentPetIdは初回読み込み時だけリモートの値を採用する。以降はselectPet/submitPet
     // などローカルの操作が唯一の正とする。ここで毎回リモート値を反映すると、
     // 自分の書き込みより古いスナップショットが後から届いた場合に選択中のペットが
@@ -581,7 +627,7 @@ function attachFirestoreListeners(){
 function detachFirestoreListeners(){
   firestoreUnsubscribers.forEach(u => u());
   firestoreUnsubscribers = [];
-  state = { ...state, pets:[], records:[], medications:[], preventions:[], visits:[], currentPetId:null, entitlements:null };
+  state = { ...state, pets:[], records:[], medications:[], preventions:[], visits:[], currentPetId:null, entitlements:null, familyEmails:[] };
 }
 
 function petRecords(){
@@ -748,6 +794,127 @@ const App = {
       params.delete('checkout');
       const newSearch = params.toString();
       history.replaceState(null, '', location.pathname + (newSearch ? `?${newSearch}` : ''));
+    }
+  },
+
+  /**
+   * ⑤家族共有。ログイン直後に、URLの?invite=ownerUidを受け入れるか、
+   * 既に参加済みの家族関係(自分のドキュメントのlinkedOwnerUid)を復元する。
+   * 以降のFirestoreアクセスはすべてこれで決まったdataUid()を使う。
+   */
+  async resolveHousehold(){
+    const params = new URLSearchParams(location.search);
+    const inviteUid = params.get('invite');
+
+    if(inviteUid && inviteUid !== currentUser.uid){
+      try{
+        // 読めれば(=招待元のfamilyEmailsに自分のメールが載っていれば)成功する
+        await db.collection('users').doc(inviteUid).get();
+        state.linkedOwnerUid = inviteUid;
+        await ownUserDocRef().set({ linkedOwnerUid: inviteUid }, { merge: true });
+        alert('家族共有に参加しました。');
+      } catch(err){
+        console.error('招待の受け入れに失敗', err);
+        alert('招待の受け入れに失敗しました。招待された本人のメールアドレスでログインしているか確認してください。');
+      }
+      params.delete('invite');
+      const newSearch = params.toString();
+      history.replaceState(null, '', location.pathname + (newSearch ? `?${newSearch}` : ''));
+    }
+
+    if(!state.linkedOwnerUid){
+      try{
+        const ownSnap = await ownUserDocRef().get();
+        state.linkedOwnerUid = ownSnap.data()?.linkedOwnerUid || null;
+      } catch(err){
+        console.error('自分のプロフィールの取得に失敗', err);
+      }
+    }
+  },
+
+  leaveHousehold(){
+    if(!confirm('家族共有から抜けて、自分のデータに戻りますか?')) return;
+    detachFirestoreListeners();
+    state.linkedOwnerUid = null;
+    ownUserDocRef().set({ linkedOwnerUid: null }, { merge: true })
+      .then(() => { attachFirestoreListeners(); this.render(); })
+      .catch(err => { console.error('leaveHousehold failed', err); alert('処理に失敗しました。'); });
+  },
+
+  openFamilyModal(){
+    document.getElementById('familyError').textContent = '';
+    document.getElementById('familyEmailInput').value = '';
+    this.renderFamilyModal();
+    document.getElementById('familyModalBackdrop').classList.remove('hidden');
+  },
+  closeFamilyModal(){
+    document.getElementById('familyModalBackdrop').classList.add('hidden');
+  },
+  renderFamilyModal(){
+    const isMember = !!state.linkedOwnerUid;
+    document.getElementById('familyOwnerSection').classList.toggle('hidden', isMember);
+    document.getElementById('familyMemberSection').classList.toggle('hidden', !isMember);
+
+    if(isMember){
+      return;
+    }
+    const seats = (state.entitlements && state.entitlements.familySeatsPurchased) || 0;
+    document.getElementById('familySeatStatus').textContent = `${state.familyEmails.length} / ${seats}人分 利用中`;
+    const list = document.getElementById('familyEmailList');
+    list.innerHTML = state.familyEmails.length === 0
+      ? `<span class="muted">まだ家族が追加されていません</span>`
+      : state.familyEmails.map(email => `
+          <span class="chip">${email}<button type="button" class="ghost" onclick="App.removeFamilyEmail('${email}')">×</button></span>
+        `).join('');
+    const inviteUrl = `${location.origin}${location.pathname}?invite=${currentUser.uid}`;
+    document.getElementById('familyInviteUrl').value = inviteUrl;
+  },
+  async addFamilyEmail(){
+    const input = document.getElementById('familyEmailInput');
+    const email = input.value.trim().toLowerCase();
+    const errorEl = document.getElementById('familyError');
+    errorEl.textContent = '';
+    if(!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
+      errorEl.textContent = 'メールアドレスの形式が正しくありません。';
+      return;
+    }
+    const seats = (state.entitlements && state.entitlements.familySeatsPurchased) || 0;
+    if(state.familyEmails.includes(email)){
+      errorEl.textContent = 'すでに追加されています。';
+      return;
+    }
+    if(state.familyEmails.length >= seats){
+      this.closeFamilyModal();
+      this.openUpgradeModal('家族共有の追加席が上限に達しています。追加席を購入すると、もっと家族を招待できます。');
+      return;
+    }
+    try{
+      await ownUserDocRef().update({ familyEmails: [...state.familyEmails, email] });
+      input.value = '';
+    } catch(err){
+      console.error('addFamilyEmail failed', err);
+      errorEl.textContent = '追加に失敗しました。時間をおいて再度お試しください。';
+    }
+  },
+  async removeFamilyEmail(email){
+    try{
+      await ownUserDocRef().update({ familyEmails: state.familyEmails.filter(e => e !== email) });
+    } catch(err){
+      console.error('removeFamilyEmail failed', err);
+      alert('削除に失敗しました。');
+    }
+  },
+  copyInviteLink(){
+    const input = document.getElementById('familyInviteUrl');
+    input.select();
+    const done = () => { document.getElementById('familyCopyMsg').textContent = 'コピーしました。'; };
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(input.value).then(done).catch(() => {
+        document.getElementById('familyCopyMsg').textContent = 'コピーできませんでした。手動で選択してコピーしてください。';
+      });
+    } else {
+      document.execCommand('copy');
+      done();
     }
   },
 
@@ -1317,7 +1484,19 @@ const App = {
     this.render();
   },
 
+  renderHouseholdBanner(){
+    const banner = document.getElementById('householdBanner');
+    if(state.linkedOwnerUid){
+      banner.classList.remove('hidden');
+      banner.innerHTML = `<span>👪 家族共有として、他の方のペット記録を閲覧・編集中です</span><button onclick="App.leaveHousehold()">自分のデータに戻る</button>`;
+    } else {
+      banner.classList.add('hidden');
+      banner.innerHTML = '';
+    }
+  },
+
   render(){
+    this.renderHouseholdBanner();
     this.renderPetSelect();
     const main = document.getElementById('mainContent');
     if(state.pets.length === 0){
@@ -1950,17 +2129,19 @@ document.addEventListener('DOMContentLoaded', () => {
     initGoogleSignIn();
   }
 
-  auth.onAuthStateChanged(user => {
+  auth.onAuthStateChanged(async user => {
     if(user){
       currentUser = user;
       document.getElementById('authScreen').classList.add('hidden');
       document.getElementById('userBar').innerHTML =
         `${user.displayName || user.email} <button class="ghost" onclick="AppAuth.signOut()">ログアウト</button>`;
+      await App.resolveHousehold();
       attachFirestoreListeners();
       App.start();
       App.handleCheckoutRedirect();
     } else {
       currentUser = null;
+      state.linkedOwnerUid = null;
       document.getElementById('authScreen').classList.remove('hidden');
       document.getElementById('userBar').innerHTML = '';
     }
