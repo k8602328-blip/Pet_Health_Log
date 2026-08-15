@@ -472,6 +472,14 @@ try {
         new Notification(n.title || 'どうぶつ健康手帳', { body: n.body || '' });
       }
     });
+    // Firebase SDKは他の機能(Cloud Functions呼び出しなど)の際にも内部で
+    // デフォルトのService Workerを探しにいくことがある。GitHub Pagesはサブパス
+    // (/Pet_Health_Log/)配信のため、ページ読み込み時に前もって正しい場所へ
+    // 登録しておかないと、無関係な機能(決済など)まで巻き込んで失敗することがある。
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('firebase-messaging-sw.js')
+        .catch(err => console.warn('FCM service worker registration failed', err));
+    }
   }
 } catch (e) {
   console.warn('FCM is not supported in this browser.', e);
