@@ -507,7 +507,7 @@ const CIBDAI_ITEMS = [
 // 実際の価格IDはサーバー側だけが持っており、クライアントはこのキーしか送らない。
 const UPGRADE_ITEMS = [
   { item:'extraPet', label:'追加ペットスロット', price:'¥150(買い切り)', desc:'2匹目以降のペットを追加登録できます。' },
-  { item:'reportPack', label:'レポート出力 追加パック(5回分)', price:'¥300(買い切り)', desc:'PDF/CSVレポート出力を追加5回分利用できます。' },
+  { item:'reportPack', label:'レポート出力 追加パック(5回分)', price:'¥300(買い切り)', desc:'PDFレポート出力を追加5回分利用できます。' },
   { item:'supportPlan', label:'治療サポートプラン', price:'¥480/月', desc:'投薬リマインダー・写真添付・傾向分析がセットで使えます。' },
   { item:'familySeat', label:'家族共有 追加席(1人分)', price:'¥200/月', desc:'ご本人以外の家族にもこのペットの記録を共有できます(1人分)。' }
 ];
@@ -1945,8 +1945,7 @@ const App = {
     const monthAgo = new Date(Date.now() - 30*24*60*60*1000).toISOString().slice(0,10);
     const defaultFrom = records.length ? records[records.length-1].date : monthAgo;
     const ent = state.entitlements || {};
-    const printFreeRemaining = Math.max(0, 1 - (ent.printCreditsUsedThisMonth || 0));
-    const csvFreeRemaining = Math.max(0, 1 - (ent.csvCreditsUsedThisMonth || 0));
+    const freeRemaining = Math.max(0, 1 - (ent.reportCreditsUsedThisMonth || 0));
     const purchasedRemaining = ent.reportCreditsPurchased || 0;
     const main = document.getElementById('mainContent');
     main.innerHTML = `
@@ -1958,10 +1957,9 @@ const App = {
         </div>
         <div class="row">
           <button onclick="App.printReport()">🖨 レポートを印刷 / PDF保存</button>
-          <button class="secondary" onclick="App.downloadCSV()">CSVをダウンロード</button>
         </div>
         <p class="muted">「印刷 / PDF保存」を押すと印刷ダイアログが開きます。送信先を「PDFに保存」にすればそのままPDFファイルとして書き出せます。</p>
-        <p class="muted">今月の無料印刷/PDF: 残り${printFreeRemaining}回 ・ 今月の無料CSV: 残り${csvFreeRemaining}回(目安) / 購入した追加パック: 残り${purchasedRemaining}回</p>
+        <p class="muted">今月の無料出力: 残り${freeRemaining}回(目安) / 購入した追加パック: 残り${purchasedRemaining}回</p>
       </div>
     `;
   },
@@ -1975,19 +1973,17 @@ const App = {
   },
 
   /**
-   * レポート出力(印刷/CSV)を1回消費できるか、サーバー(consumeReportCredit)に確認する。
-   * typeは'print'か'csv'で、それぞれ独立に月1回無料。消費できなければ
-   * アップグレードモーダルを出してfalseを返す。
+   * レポート出力(印刷/PDF)を1回消費できるか、サーバー(consumeReportCredit)に確認する。
+   * 消費できなければアップグレードモーダルを出してfalseを返す。
    */
-  async consumeReportCreditOrPrompt(type){
+  async consumeReportCreditOrPrompt(){
     try{
       const consumeReportCredit = functions.httpsCallable('consumeReportCredit');
-      await consumeReportCredit({ type });
+      await consumeReportCredit();
       return true;
     } catch(err){
       if(err.code === 'functions/resource-exhausted'){
-        const label = type === 'csv' ? 'CSV出力' : '印刷/PDF出力';
-        this.openUpgradeModal(`今月の無料${label}回数(1回)と購入済みパックを使い切りました。追加パックを購入すると引き続き出力できます。`);
+        this.openUpgradeModal('今月の無料出力回数(1回)と購入済みパックを使い切りました。追加パックを購入すると引き続き出力できます。');
       } else {
         console.error('consumeReportCredit failed', err);
         alert('出力の確認処理に失敗しました。時間をおいて再度お試しください。');
@@ -1999,7 +1995,7 @@ const App = {
   async printReport(){
     const printBtn = document.querySelector('#mainContent button[onclick="App.printReport()"]');
     if(printBtn){ printBtn.disabled = true; }
-    const ok = await this.consumeReportCreditOrPrompt('print');
+    const ok = await this.consumeReportCreditOrPrompt();
     if(printBtn){ printBtn.disabled = false; }
     if(!ok) return;
 
@@ -2104,34 +2100,6 @@ const App = {
       </table>
     `;
     window.print();
-  },
-
-  async downloadCSV(){
-    const csvBtn = document.querySelector('#mainContent button[onclick="App.downloadCSV()"]');
-    if(csvBtn){ csvBtn.disabled = true; }
-    const ok = await this.consumeReportCreditOrPrompt('csv');
-    if(csvBtn){ csvBtn.disabled = false; }
-    if(!ok) return;
-
-    const pet = currentPet();
-    const { records } = this.getExportRange();
-    if(records.length === 0){ alert('選択した期間に記録がありません'); return; }
-    const showCibdai = pet.trackCibdai;
-    const header = ['日付','体重(kg)','食欲','飲水','便(スコア)','尿','症状', ...(showCibdai ? ['CIBDAI'] : []), '投薬','メモ'];
-    const rows = records.map(r => [
-      r.date, r.weight ?? '', r.appetite, r.water, stoolLabel(r.stool), r.urine, (r.symptoms||[]).join('/'),
-      ...(showCibdai ? [r.cibdai ? (cibdaiTotal(r.cibdai) + '点(' + cibdaiSeverity(cibdaiTotal(r.cibdai)) + ')') : ''] : []),
-      medsGivenTags(r.medsGiven).map(t => `${t.label}(${t.given}/${t.total})`).join('/'),
-      (r.memo||'').replace(/\n/g,' ')
-    ]);
-    const csv = [header, ...rows].map(row => row.map(cell => `"${String(cell).replace(/"/g,'""')}"`).join(',')).join('\r\n');
-    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${pet.name}_体調記録.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
   }
 };
 
