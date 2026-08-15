@@ -109,6 +109,12 @@
   .upgrade-text .upgrade-title{font-weight:700;font-size:13px;}
   .upgrade-text .upgrade-price{font-size:12px;color:var(--primary-dark);font-weight:600;}
   .upgrade-text .upgrade-desc{font-size:12px;color:var(--muted);margin-top:2px;}
+  .photo-grid{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;}
+  .photo-thumb{position:relative;width:72px;height:72px;}
+  .photo-thumb img{width:100%;height:100%;object-fit:cover;border-radius:8px;border:1px solid var(--border);}
+  .photo-thumb button{position:absolute;top:-6px;right:-6px;width:20px;height:20px;padding:0;border-radius:50%;line-height:1;font-size:12px;}
+  .record-photos{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;}
+  .record-photos img{width:64px;height:64px;object-fit:cover;border-radius:6px;border:1px solid var(--border);cursor:pointer;}
   .pet-toggle{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);margin-top:10px;}
   #printArea{display:none;}
   @media print{
@@ -240,6 +246,16 @@
         <div class="hint" id="rCibdaiTotal"></div>
       </div>
       <div class="field"><label>メモ</label><textarea id="rMemo" rows="3" placeholder="様子や気づいたことなど"></textarea></div>
+      <div id="rPhotosField" class="field">
+        <label>写真(便・尿・患部など、治療サポートプラン)</label>
+        <input type="file" id="rPhotoInput" accept="image/*" multiple>
+        <p class="hint">1記録につき最大4枚まで添付できます。</p>
+        <div id="rPhotoPreviewGrid" class="photo-grid"></div>
+      </div>
+      <div id="rPhotosUpsell" class="field hidden">
+        <label>写真添付</label>
+        <p class="hint">記録への写真添付は治療サポートプランで利用できます。 <button type="button" class="ghost" style="padding:2px 8px;font-size:11px;" onclick="App.closeRecordModal(); App.openUpgradeModal();">アップグレードを見る</button></p>
+      </div>
       <div class="row" style="justify-content:flex-end;margin-top:8px;">
         <button type="button" class="ghost" onclick="App.closeRecordModal()">キャンセル</button>
         <button type="submit">保存する</button>
@@ -449,6 +465,7 @@ let state = {
   editingPrevId: null,
   editingVisitId: null,
   medPhotoData: null,
+  recordPhotos: [],
   chartRange: 30,
   weightChart: null,
   symptomChart: null,
@@ -456,6 +473,32 @@ let state = {
 };
 
 function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
+
+// Firestoreの1ドキュメント1MB制限に収まるよう、画像を圧縮したJPEGのdata URLにして返す。
+// 薬袋写真・記録写真の両方で共用する。
+function compressImageFile(file, maxDim = 800, quality = 0.6){
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        let w = img.width, h = img.height;
+        if(w > maxDim || h > maxDim){
+          if(w > h){ h = Math.round(h * maxDim / w); w = maxDim; }
+          else { w = Math.round(w * maxDim / h); h = maxDim; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = reject;
+      img.src = reader.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
 
 // LINEやInstagramなどのアプリ内ブラウザ(WebView)ではGoogleログインがブロックされるため検出する
 const IN_APP_BROWSER_PATTERNS = [
@@ -602,6 +645,7 @@ const App = {
     document.getElementById('visitForm').addEventListener('submit', e => this.submitVisit(e));
     document.getElementById('rDate').addEventListener('change', () => this.buildMedChecks());
     document.getElementById('medPhoto').addEventListener('change', e => this.handleMedPhoto(e));
+    document.getElementById('rPhotoInput').addEventListener('change', e => this.handleRecordPhotos(e));
     this.buildSymptomChecks();
     this.buildStoolSelect();
     this.buildFecalGuide();
@@ -845,6 +889,12 @@ const App = {
     const form = document.getElementById('recordForm');
     form.reset();
     document.querySelectorAll('#rSymptoms input').forEach(cb => cb.checked = false);
+
+    const subscribed = !!(state.entitlements && state.entitlements.subscriptionActive);
+    document.getElementById('rPhotosField').classList.toggle('hidden', !subscribed);
+    document.getElementById('rPhotosUpsell').classList.toggle('hidden', subscribed);
+    state.recordPhotos = [];
+
     if(recordId){
       const r = state.records.find(x => x.id === recordId);
       title.textContent = '記録を編集';
@@ -861,6 +911,7 @@ const App = {
       });
       this.buildMedChecks(r.medsGiven || []);
       this.buildCibdaiSection(r.cibdai || null);
+      if(subscribed) state.recordPhotos = [...(r.photos || [])];
     } else {
       title.textContent = '記録を追加';
       document.getElementById('recordId').value = '';
@@ -869,6 +920,7 @@ const App = {
       this.buildMedChecks([]);
       this.buildCibdaiSection(null);
     }
+    this.renderRecordPhotoGrid();
     document.getElementById('recordModalBackdrop').classList.remove('hidden');
   },
   closeRecordModal(){
@@ -890,6 +942,7 @@ const App = {
         cibdai[it.key] = sel ? Number(sel.value) : 0;
       });
     }
+    const subscribed = !!(state.entitlements && state.entitlements.subscriptionActive);
     const data = {
       petId: state.currentPetId,
       date: document.getElementById('rDate').value,
@@ -901,7 +954,8 @@ const App = {
       symptoms,
       medsGiven,
       cibdai,
-      memo: document.getElementById('rMemo').value.trim()
+      memo: document.getElementById('rMemo').value.trim(),
+      photos: subscribed ? state.recordPhotos : []
     };
     const docId = id || uid();
     colRef('records').doc(docId).set(data);
@@ -912,36 +966,49 @@ const App = {
     colRef('records').doc(id).delete();
   },
 
-  handleMedPhoto(e){
+  async handleMedPhoto(e){
     const file = e.target.files[0];
     if(!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const img = new Image();
-      img.onload = () => {
-        const maxDim = 800;
-        let w = img.width, h = img.height;
-        if(w > maxDim || h > maxDim){
-          if(w > h){ h = Math.round(h * maxDim / w); w = maxDim; }
-          else { w = Math.round(w * maxDim / h); h = maxDim; }
-        }
-        const canvas = document.createElement('canvas');
-        canvas.width = w; canvas.height = h;
-        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-        // Firestoreの1ドキュメント1MB制限に収まるよう、圧縮したJPEGとして保存する
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
-        state.medPhotoData = dataUrl;
-        document.getElementById('medPhotoPreview').src = dataUrl;
-        document.getElementById('medPhotoPreviewWrap').classList.remove('hidden');
-      };
-      img.src = reader.result;
-    };
-    reader.readAsDataURL(file);
+    const dataUrl = await compressImageFile(file);
+    state.medPhotoData = dataUrl;
+    document.getElementById('medPhotoPreview').src = dataUrl;
+    document.getElementById('medPhotoPreviewWrap').classList.remove('hidden');
   },
   clearMedPhoto(){
     state.medPhotoData = null;
     document.getElementById('medPhoto').value = '';
     document.getElementById('medPhotoPreviewWrap').classList.add('hidden');
+  },
+
+  async handleRecordPhotos(e){
+    const files = Array.from(e.target.files || []);
+    e.target.value = ''; // 同じファイルを続けて選べるようにする
+    const room = 4 - state.recordPhotos.length;
+    if(room <= 0){
+      alert('写真は1記録につき最大4枚までです。');
+      return;
+    }
+    for(const file of files.slice(0, room)){
+      const dataUrl = await compressImageFile(file);
+      state.recordPhotos.push(dataUrl);
+    }
+    if(files.length > room){
+      alert(`最大4枚までのため、${room}枚だけ追加しました。`);
+    }
+    this.renderRecordPhotoGrid();
+  },
+  removeRecordPhoto(index){
+    state.recordPhotos.splice(index, 1);
+    this.renderRecordPhotoGrid();
+  },
+  renderRecordPhotoGrid(){
+    const grid = document.getElementById('rPhotoPreviewGrid');
+    grid.innerHTML = state.recordPhotos.map((src, i) => `
+      <div class="photo-thumb">
+        <img src="${src}">
+        <button type="button" class="danger" onclick="App.removeRecordPhoto(${i})">×</button>
+      </div>
+    `).join('');
   },
 
   openMedModal(medId){
@@ -1252,7 +1319,7 @@ const App = {
         </div>
         ${records.length === 0 ? '<div class="empty">まだ記録がありません</div>' : `
         <table>
-          <tr><th>日付</th><th>体重</th><th>食欲</th><th>飲水</th><th>便(スコア)</th><th>尿</th><th>症状</th>${showCibdai ? '<th>CIBDAI</th>' : ''}<th>投薬</th><th>メモ</th><th></th></tr>
+          <tr><th>日付</th><th>体重</th><th>食欲</th><th>飲水</th><th>便(スコア)</th><th>尿</th><th>症状</th>${showCibdai ? '<th>CIBDAI</th>' : ''}<th>投薬</th><th>メモ</th><th>写真</th><th></th></tr>
           ${records.map(r => `
             <tr>
               <td>${fmtDate(r.date)}</td>
@@ -1265,6 +1332,7 @@ const App = {
               ${showCibdai ? `<td>${r.cibdai ? cibdaiTotal(r.cibdai) + '点(' + cibdaiSeverity(cibdaiTotal(r.cibdai)) + ')' : '-'}</td>` : ''}
               <td>${(r.medsGiven||[]).map(id => { const m = state.medications.find(x=>x.id===id); return m ? `<span class="tag">💊 ${medLabel(m)}</span>` : ''; }).join('') || '-'}</td>
               <td class="muted">${r.memo || '-'}</td>
+              <td>${(r.photos||[]).length > 0 ? `<div class="record-photos">${r.photos.map(src => `<img src="${src}" onclick="window.open(this.src)">`).join('')}</div>` : '-'}</td>
               <td class="actions-cell">
                 <button class="secondary" onclick="App.openRecordModal('${r.id}')">編集</button>
                 <button class="danger" onclick="App.deleteRecord('${r.id}')">削除</button>
