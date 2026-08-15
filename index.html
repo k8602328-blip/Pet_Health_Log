@@ -402,18 +402,18 @@
     <h3>家族共有</h3>
 
     <div id="familyOwnerSection">
-      <p class="hint">家族や同居している方を招待して、同じ手帳を一緒に使えるようにします。ご本人(あなた)は無料で、招待するメンバー1人ごとにメンバー枠が必要です。</p>
+      <p class="hint">家族や同居している方のメールアドレスを入力すると、招待メールが自動で送信されます。ご本人(あなた)は無料で、招待するメンバー1人ごとにメンバー枠が必要です。</p>
       <p class="hint">※ログインはGoogleアカウントのみ対応のため、招待できるのはGoogleアカウントのメールアドレスに限られます。</p>
       <p id="familySeatStatus" class="hint" style="font-weight:600;"></p>
       <label style="font-size:13px;font-weight:600;">メンバー</label>
       <div id="familyEmailList" class="chip-list"></div>
       <div class="row" style="margin-top:10px;">
         <input type="email" id="familyEmailInput" placeholder="招待するメンバーのメールアドレス">
-        <button type="button" class="secondary" onclick="App.addFamilyEmail()">+ 追加</button>
+        <button type="button" class="secondary" onclick="App.addFamilyEmail()">招待メールを送信</button>
       </div>
       <p class="muted" id="familyError" style="color:var(--danger);"></p>
       <div class="field" style="margin-top:14px;">
-        <label>招待リンク(上で追加したメールアドレスでログインしてもらってください)</label>
+        <label>招待リンク(メールが届かない場合は、こちらを直接共有してください)</label>
         <div class="row">
           <input type="text" id="familyInviteUrl" readonly style="flex:1;">
           <button type="button" class="secondary" onclick="App.copyInviteLink()">コピー</button>
@@ -901,6 +901,7 @@ const App = {
   },
   async addFamilyEmail(){
     const input = document.getElementById('familyEmailInput');
+    const btn = document.querySelector('#familyOwnerSection button[onclick="App.addFamilyEmail()"]');
     const email = input.value.trim().toLowerCase();
     const errorEl = document.getElementById('familyError');
     errorEl.textContent = '';
@@ -908,24 +909,25 @@ const App = {
       errorEl.textContent = 'メールアドレスの形式が正しくありません。';
       return;
     }
-    const seats = (state.entitlements && state.entitlements.familySeatsPurchased) || 0;
-    if(state.familyEmails.includes(email)){
-      errorEl.textContent = 'すでに追加されています。';
-      return;
-    }
-    if(state.familyEmails.length >= seats){
-      this.closeFamilyModal();
-      this.openUpgradeModal('メンバー枠が上限に達しています。追加すると、もっとメンバーを招待できます。');
-      return;
-    }
+    if(btn){ btn.disabled = true; btn.textContent = '送信中...'; }
     try{
-      await ownUserDocRef().update({ familyEmails: [...state.familyEmails, email] });
+      const inviteFamilyMember = functions.httpsCallable('inviteFamilyMember');
+      await inviteFamilyMember({ email });
       input.value = '';
-      state.familyEmails = [...state.familyEmails, email];
+      if(!state.familyEmails.includes(email)) state.familyEmails = [...state.familyEmails, email];
       this.renderFamilyModal();
     } catch(err){
       console.error('addFamilyEmail failed', err);
-      errorEl.textContent = '追加に失敗しました。時間をおいて再度お試しください。';
+      if(err.code === 'functions/resource-exhausted'){
+        this.closeFamilyModal();
+        this.openUpgradeModal('メンバー枠が上限に達しています。追加すると、もっとメンバーを招待できます。');
+      } else if(err.code === 'functions/already-exists'){
+        errorEl.textContent = 'すでに追加されています。';
+      } else {
+        errorEl.textContent = '招待メールの送信に失敗しました。時間をおいて再度お試しください。';
+      }
+    } finally {
+      if(btn){ btn.disabled = false; btn.textContent = '招待メールを送信'; }
     }
   },
   async removeFamilyEmail(email){
