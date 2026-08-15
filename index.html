@@ -17,7 +17,10 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-functions-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js"></script>
+<!-- firebase-messaging-compat.jsはあえてここで読み込まない。読み込んだ時点でFirebase
+     FunctionsのSDKがバックグラウンドで通知トークンを取得しようとする動きにつながり、
+     通知を全く使わないユーザーの決済などの操作まで巻き込んで失敗することがあった。
+     App.enableNotifications()内で実際に必要になったときだけ動的に読み込む。 -->
 <script src="https://accounts.google.com/gsi/client" async defer onload="typeof initGoogleSignIn === 'function' && initGoogleSignIn()"></script>
 <style>
   :root{
@@ -533,6 +536,21 @@ let state = {
 };
 
 function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
+
+let messagingScriptPromise = null;
+// 投薬リマインダー通知を実際に使う人だけがfirebase-messaging-compat.jsを読み込む。
+function loadMessagingScript(){
+  if(!messagingScriptPromise){
+    messagingScriptPromise = new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js';
+      s.onload = resolve;
+      s.onerror = () => { messagingScriptPromise = null; reject(new Error('failed to load firebase-messaging-compat.js')); };
+      document.head.appendChild(s);
+    });
+  }
+  return messagingScriptPromise;
+}
 
 // Firestoreの1ドキュメント1MB制限に収まるよう、画像を圧縮したJPEGのdata URLにして返す。
 // 薬袋写真・記録写真の両方で共用する。
@@ -1114,7 +1132,7 @@ const App = {
       alert('iPhoneでは、Safariの共有ボタンから「ホーム画面に追加」し、そのアイコンから開いた状態でないと通知を有効にできません。');
       return;
     }
-    if(!('Notification' in window) || !firebase.messaging.isSupported()){
+    if(!('Notification' in window)){
       alert('このブラウザは通知に対応していません。');
       return;
     }
@@ -1124,6 +1142,11 @@ const App = {
       return;
     }
     try{
+      await loadMessagingScript();
+      if(!firebase.messaging.isSupported()){
+        alert('このブラウザは通知に対応していません。');
+        return;
+      }
       const permission = await Notification.requestPermission();
       if(permission !== 'granted'){
         alert('通知が許可されませんでした。ブラウザやOSの通知設定から許可できます。');
