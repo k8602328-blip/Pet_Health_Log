@@ -1943,7 +1943,10 @@ const App = {
     const records = petRecords();
     const today = new Date().toISOString().slice(0,10);
     const monthAgo = new Date(Date.now() - 30*24*60*60*1000).toISOString().slice(0,10);
-    const defaultFrom = records.length ? records[records.length-1].date : monthAgo;
+    // 出力範囲は最大31日間までのため、最古の記録がそれより前でも
+    // デフォルトの開始日はmonthAgoより前には遡らせない。
+    const earliest = records.length ? records[records.length-1].date : null;
+    const defaultFrom = earliest && earliest > monthAgo ? earliest : monthAgo;
     const ent = state.entitlements || {};
     const freeRemaining = Math.max(0, 1 - (ent.reportCreditsUsedThisMonth || 0));
     const purchasedRemaining = ent.reportCreditsPurchased || 0;
@@ -1959,6 +1962,7 @@ const App = {
           <button onclick="App.printReport()">🖨 レポートを印刷 / PDF保存</button>
         </div>
         <p class="muted">「印刷 / PDF保存」を押すと印刷ダイアログが開きます。送信先を「PDFに保存」にすればそのままPDFファイルとして書き出せます。</p>
+        <p class="muted">1回の出力範囲は最大31日間までです。それ以前の記録が必要な場合は、期間を分けて複数回出力してください。</p>
         <p class="muted">今月の無料出力: 残り${freeRemaining}回(目安) / 購入した追加パック: 残り${purchasedRemaining}回</p>
       </div>
     `;
@@ -1993,6 +1997,15 @@ const App = {
   },
 
   async printReport(){
+    // 出力範囲は最大31日間まで。無料枠1回で全期間を出力できてしまうと
+    // 課金インセンティブが効かなくなるため、ここでクレジット消費前に弾く。
+    const { from, to, records } = this.getExportRange();
+    const days = (from && to) ? Math.round((new Date(to) - new Date(from)) / 86400000) + 1 : null;
+    if(!from || !to || days > 31){
+      alert('出力範囲を31日間に設定してください。');
+      return;
+    }
+
     const printBtn = document.querySelector('#mainContent button[onclick="App.printReport()"]');
     if(printBtn){ printBtn.disabled = true; }
     const ok = await this.consumeReportCreditOrPrompt();
@@ -2000,7 +2013,6 @@ const App = {
     if(!ok) return;
 
     const pet = currentPet();
-    const { from, to, records } = this.getExportRange();
     if(records.length === 0){ alert('選択した期間に記録がありません'); return; }
 
     const tmpCanvas = document.createElement('canvas');
