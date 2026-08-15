@@ -635,6 +635,52 @@ function isMedActiveOn(m, dateStr){
   const d = dateStr || new Date().toISOString().slice(0,10);
   return (!m.startDate || m.startDate <= d) && (!m.endDate || m.endDate >= d);
 }
+function daysAgoStr(days){
+  const d = new Date();
+  d.setDate(d.getDate() - days);
+  return d.toISOString().slice(0,10);
+}
+
+/**
+ * ⑥傾向分析。AI診断ではなく、あくまでルールベースの閾値検知に留める
+ * (体重の30日変化率、便スコアの直近7日間の悪化傾向)。
+ * 診断ではなく目安である旨は呼び出し側(UI)で必ず併記する。
+ */
+function analyzeTrends(records){
+  const alerts = [];
+
+  const weightRecords = records.filter(r => r.weight != null).slice().sort((a,b) => a.date < b.date ? -1 : 1);
+  if(weightRecords.length >= 2){
+    const latest = weightRecords[weightRecords.length - 1];
+    const cutoff = daysAgoStr(30);
+    let baseline = null;
+    for(const r of weightRecords){
+      if(r.date <= cutoff) baseline = r; // 30日以上前の記録の中で一番新しいものを基準にする
+    }
+    if(baseline && baseline.id !== latest.id && baseline.weight > 0){
+      const changePct = ((latest.weight - baseline.weight) / baseline.weight) * 100;
+      if(changePct <= -5){
+        alerts.push(`体重が${fmtDate(baseline.date)}から${Math.abs(changePct).toFixed(1)}%減少しています(${baseline.weight}kg → ${latest.weight}kg)`);
+      } else if(changePct >= 10){
+        alerts.push(`体重が${fmtDate(baseline.date)}から${changePct.toFixed(1)}%増加しています(${baseline.weight}kg → ${latest.weight}kg)`);
+      }
+    }
+  }
+
+  const stoolRecords = records.filter(r => r.stool !== null && r.stool !== undefined && r.stool !== '');
+  const avgDeviation = list => list.length === 0 ? null : list.reduce((s, r) => s + Math.abs(Number(r.stool) - 3), 0) / list.length;
+  const recentWindow = stoolRecords.filter(r => r.date >= daysAgoStr(7));
+  const priorWindow = stoolRecords.filter(r => r.date >= daysAgoStr(14) && r.date < daysAgoStr(7));
+  if(recentWindow.length >= 2 && priorWindow.length >= 2){
+    const recentAvg = avgDeviation(recentWindow);
+    const priorAvg = avgDeviation(priorWindow);
+    if(recentAvg - priorAvg >= 1){
+      alerts.push('直近7日間の便の状態が、その前の7日間と比べて理想(3)から離れる傾向にあります');
+    }
+  }
+
+  return alerts;
+}
 function medLabel(m){
   if(m.name) return m.name;
   if(m.purpose) return m.purpose + '(名称不明)';
@@ -1321,7 +1367,20 @@ const App = {
     const lastVisit = visits[0];
     const lastWithCibdai = records.find(r => r.cibdai);
 
+    const subscribed = !!(state.entitlements && state.entitlements.subscriptionActive);
+    const trendAlerts = subscribed ? analyzeTrends(records) : [];
+    const trendCardHtml = trendAlerts.length === 0 ? '' : `
+      <div class="card" style="border:1px solid var(--danger);">
+        <h3 style="margin:0 0 8px;">⚠️ 傾向のお知らせ</h3>
+        <ul style="margin:0;padding-left:18px;">
+          ${trendAlerts.map(a => `<li>${a}</li>`).join('')}
+        </ul>
+        <p class="hint" style="margin-top:8px;">※診断ではなく、記録の変化をお知らせする目安です。気になる場合は獣医師にご相談ください。</p>
+      </div>
+    `;
+
     main.innerHTML = `
+      ${trendCardHtml}
       <div class="card">
         <h3>${pet.species==='犬'?'🐶':(pet.species==='猫'?'🐱':'🐾')} ${pet.name} ${pet.breed?('('+pet.breed+')'):''}</h3>
         <div class="muted">${pet.birthday ? (fmtDate(pet.birthday) + ' 生まれ ・ ' + ageString(pet.birthday)) : '誕生日未登録'}</div>
