@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>iPhoneでの通知設定ガイド - どうぶつ健康手帳</title>
+<style>
+  :root{
+    --bg:#FFF8F0;
+    --card:#FFFFFF;
+    --primary:#FB923C;
+    --primary-dark:#EA7C1F;
+    --text:#3A2E28;
+    --muted:#8A7C73;
+    --border:#F0E2D3;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:"Hiragino Sans","Hiragino Kaku Gothic ProN",Meiryo,"Segoe UI",sans-serif;
+    background:var(--bg);
+    color:var(--text);
+  }
+  .wrap{max-width:520px;margin:0 auto;padding:24px 16px 60px;}
+  a{color:var(--primary-dark);}
+  h1{font-size:20px;color:var(--primary-dark);margin:0 0 8px;}
+  .lead{color:var(--muted);font-size:14px;line-height:1.7;margin:0 0 24px;}
+  .back{display:inline-block;margin-bottom:16px;font-size:14px;}
+  .step{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px;margin-bottom:16px;}
+  .step-num{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:var(--primary);color:#fff;font-weight:700;font-size:13px;margin-right:8px;flex-shrink:0;}
+  .step-title{display:flex;align-items:center;font-weight:700;font-size:15px;margin-bottom:10px;}
+  .step img{display:block;width:100%;border-radius:8px;border:1px solid var(--border);}
+  .note{background:#FFF3E0;border:1px solid #FDE0B8;border-radius:10px;padding:12px 14px;font-size:13px;line-height:1.7;margin-bottom:20px;}
+  .muted{color:var(--muted);font-size:12px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="./">← どうぶつ健康手帳に戻る</a>
+  <h1>📱 iPhoneでお薬の通知を受け取る設定</h1>
+  <p class="lead">
+    iPhoneのSafariでは、通常のブラウザのタブのままだと通知の許可自体が求められません。
+    以下の手順で「ホーム画面に追加」してからアプリのアイコンで開き直すことで、
+    アプリを閉じていても投薬リマインダー通知が届くようになります。
+  </p>
+  <div class="note">
+    ⚠️ ホーム画面に追加したアイコンは、通常のSafariとは別のログイン状態として扱われるため、
+    アイコンから開いた直後にもう一度Googleアカウントでのログインが必要です(手順⑧)。
+  </div>
+
+  <div class="step">
+    <div class="step-title"><span class="step-num">1</span>Safariでどうぶつ健康手帳を開く</div>
+    <img src="guide-images/step1.jpg" alt="Safariアプリを開く">
+  </div>
+
+  <div class="step">
+    <div class="step-title"><span class="step-num">2</span>Googleアカウントでログインする</div>
+    <img src="guide-images/step2.jpg" alt="Googleで続けるをタップ">
+  </div>
+
+  <div class="step">
+    <div class="step-title"><span class="step-num">3</span>画面右下の「…」をタップ</div>
+    <img src="guide-images/step3.jpg" alt="Safari右下のその他ボタンをタップ">
+  </div>
+
+  <div class="step">
+    <div class="step-title"><span class="step-num">4</span>「共有」をタップ</div>
+    <img src="guide-images/step4.jpg" alt="共有をタップ">
+  </div>
+
+  <div class="step">
+    <div class="step-title"><span class="step-num">5</span>「ホーム画面に追加」をタップ</div>
+    <img src="guide-images/step5.jpg" alt="ホーム画面に追加をタップ">
+  </div>
+
+  <div class="step">
+    <div class="step-title"><span class="step-num">6</span>右上の「追加」をタップ</div>
+    <img src="guide-images/step6.jpg" alt="追加をタップ">
+  </div>
+
+  <div class="step">
+    <div class="step-title"><span class="step-num">7</span>ホーム画面に追加されたアイコンをタップして開く</div>
+    <img src="guide-images/step7.jpg" alt="ホーム画面のアイコンをタップ">
+  </div>
+
+  <div class="step">
+    <div class="step-title"><span class="step-num">8</span>アイコンから開いた画面で、もう一度Googleアカウントでログインする</div>
+    <img src="guide-images/step8.jpg" alt="アイコンから開いた画面で再度ログイン">
+    <p class="muted" style="margin-top:10px;margin-bottom:0;">
+      ログイン後、「お薬」タブから「投薬リマインダー通知を有効にする」をタップすれば設定完了です。
+    </p>
+  </div>
+</div>
+</body>
+</html>

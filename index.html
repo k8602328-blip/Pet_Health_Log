@@ -1800,7 +1800,7 @@ const App = {
           <button onclick="App.openMedModal()">+ お薬を登録</button>
         </div>
         ${subscribed && iosNeedsHomeScreen ? `
-          <p class="hint">📱 iPhoneでは、Safariの共有ボタンから「ホーム画面に追加」し、そのアイコンから開いた状態でないと通知が使えません(通常のSafariのタブでは許可ダイアログ自体が出ません)。</p>
+          <p class="hint">📱 iPhoneでは、Safariの共有ボタンから「ホーム画面に追加」し、そのアイコンから開いた状態でないと通知が使えません(通常のSafariのタブでは許可ダイアログ自体が出ません)。<a href="guide.html" target="_blank">画像つきの設定手順を見る →</a></p>
         ` : ''}
         ${subscribed && !iosNeedsHomeScreen ? `
           <div class="row" style="margin-top:6px;align-items:center;">
