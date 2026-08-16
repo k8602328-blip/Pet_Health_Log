@@ -564,6 +564,16 @@ function loadMessagingScript(){
   return messagingScriptPromise;
 }
 
+// Service Worker自体はページ読み込み時に早めに登録しておく(通知を使うかどうかに関わらず)。
+// AndroidのChromeが「アプリをインストール」の判定にService Workerの有無を見ているため。
+// firebase-messaging-sw.js自身はメインページと別の実行コンテキストで動くので、
+// 上のfirebase-messaging-compat.js(メインページに<script>で置くとhttpsCallableを壊す
+// 既知の問題があった)を早期に読み込むことにはならず、この対策とは無関係に安全に登録できる。
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('firebase-messaging-sw.js')
+    .catch(err => console.error('early Service Worker registration failed', err));
+}
+
 // Firestoreの1ドキュメント1MB制限に収まるよう、画像を圧縮したJPEGのdata URLにして返す。
 // 薬袋写真・記録写真の両方で共用する。
 function compressImageFile(file, maxDim = 800, quality = 0.6){
