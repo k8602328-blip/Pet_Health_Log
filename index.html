@@ -98,6 +98,7 @@
   .med-card .med-title{font-weight:700;font-size:15px;}
   .med-card img{max-width:140px;border-radius:8px;margin-top:8px;display:block;}
   .status-active{color:#2E7D32;font-weight:600;font-size:12px;}
+  .status-paused{color:#B45309;font-weight:600;font-size:12px;}
   .status-ended{color:var(--muted);font-size:12px;}
   .fecal-row{display:flex;align-items:center;gap:14px;padding:10px 4px;border-bottom:1px solid var(--border);}
   .fecal-row:last-child{border-bottom:none;}
@@ -695,6 +696,7 @@ function cibdaiTotal(scores){
   return CIBDAI_ITEMS.reduce((sum, it) => sum + (scores && scores[it.key] != null ? Number(scores[it.key]) : 0), 0);
 }
 function isMedActiveOn(m, dateStr){
+  if(m.paused) return false;
   const d = dateStr || new Date().toISOString().slice(0,10);
   return (!m.startDate || m.startDate <= d) && (!m.endDate || m.endDate >= d);
 }
@@ -1445,6 +1447,9 @@ const App = {
     const reminderTimes = subscribed ? [...state.reminderTimesDraft] : [];
 
     const id = document.getElementById('medId').value;
+    // submitMed()はset()でドキュメント全体を上書きするため、休薬中フラグを
+    // 引き継がないと編集のたびに休薬が解除されてしまう。既存値を明示的に引き継ぐ。
+    const existing = id ? petMedications().find(m => m.id === id) : null;
     const data = {
       petId: state.currentPetId,
       name: document.getElementById('medName').value.trim(),
@@ -1456,7 +1461,8 @@ const App = {
       prescriber: document.getElementById('medPrescriber').value.trim(),
       memo: document.getElementById('medMemo').value.trim(),
       photo: state.medPhotoData,
-      reminderTimes
+      reminderTimes,
+      paused: existing ? !!existing.paused : false
     };
     const docId = id || uid();
     colRef('medications').doc(docId).set(data);
@@ -1465,6 +1471,14 @@ const App = {
   deleteMed(id){
     if(!confirm('この薬の記録を削除しますか?')) return;
     colRef('medications').doc(id).delete();
+  },
+  // 休薬中はリマインダー通知が止まり、日々の記録の投薬チェック欄にも出てこなくなる
+  // (isMedActiveOnがpausedを見て弾く)。再開時に登録し直す必要がないよう、
+  // 開始日・終了日はそのままにpausedフラグだけを切り替える。
+  toggleMedPause(id){
+    const m = petMedications().find(x => x.id === id);
+    if(!m) return;
+    colRef('medications').doc(id).update({ paused: !m.paused });
   },
 
   openPrevModal(prevId){
@@ -1747,17 +1761,19 @@ const App = {
   renderMedsTab(){
     const meds = petMedications();
     const today = new Date().toISOString().slice(0,10);
-    const active = meds.filter(m => isMedActiveOn(m, today));
-    const past = meds.filter(m => !isMedActiveOn(m, today));
+    const paused = meds.filter(m => m.paused);
+    const active = meds.filter(m => !m.paused && isMedActiveOn(m, today));
+    const past = meds.filter(m => !m.paused && !isMedActiveOn(m, today));
     const main = document.getElementById('mainContent');
     const cardHtml = m => `
       <div class="med-card">
         <div class="row" style="justify-content:space-between;">
           <div>
             <div class="med-title">${medLabel(m)}</div>
-            <div class="${isMedActiveOn(m, today) ? 'status-active' : 'status-ended'}">${isMedActiveOn(m, today) ? '● 服用中' : '服用終了'}</div>
+            <div class="${m.paused ? 'status-paused' : (isMedActiveOn(m, today) ? 'status-active' : 'status-ended')}">${m.paused ? '⏸ 休薬中' : (isMedActiveOn(m, today) ? '● 服用中' : '服用終了')}</div>
           </div>
           <div class="actions-cell">
+            ${!isMedActiveOn(m, today) && !m.paused ? '' : `<button class="secondary" onclick="App.toggleMedPause('${m.id}')">${m.paused ? '▶ 服用を再開する' : '⏸ 休薬にする'}</button>`}
             <button class="secondary" onclick="App.openMedModal('${m.id}')">編集</button>
             <button class="danger" onclick="App.deleteMed('${m.id}')">削除</button>
           </div>
@@ -1795,6 +1811,7 @@ const App = {
         <p class="hint">お薬手帳や薬袋の記載がない場合は、名前や用量が空欄のまま登録できます。診察時に主治医へ確認できたら、あとから編集して追記してください。</p>
         ${meds.length === 0 ? '<div class="empty">まだお薬が登録されていません</div>' : ''}
         ${active.length > 0 ? `<h3 style="font-size:14px;color:var(--muted);">服用中</h3>${active.map(cardHtml).join('')}` : ''}
+        ${paused.length > 0 ? `<h3 style="font-size:14px;color:var(--muted);">休薬中</h3>${paused.map(cardHtml).join('')}` : ''}
         ${past.length > 0 ? `<h3 style="font-size:14px;color:var(--muted);">過去の服用</h3>${past.map(cardHtml).join('')}` : ''}
       </div>
     `;
