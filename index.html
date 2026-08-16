@@ -134,6 +134,32 @@
   #homeScreenBanner button{background:transparent;color:var(--muted);border:none;font-size:16px;padding:0 4px;cursor:pointer;}
   .pet-toggle{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);margin-top:10px;}
   #printArea{display:none;}
+
+  /* 記録をコンパクトなカードにまとめて表示するモバイル向けビュー。
+     デスクトップの<table>はそのまま残し、CSSの幅切り替えだけで出し分ける。 */
+  .records-card-view{display:none;}
+  .record-card{border:1px solid var(--border);border-radius:10px;margin-bottom:8px;overflow:hidden;}
+  .record-card-header{display:flex;align-items:center;gap:8px;padding:10px 12px;cursor:pointer;}
+  .record-card-main{display:flex;align-items:baseline;gap:8px;font-weight:600;white-space:nowrap;}
+  .record-card-weight{color:var(--muted);font-weight:400;font-size:13px;}
+  .record-card-badges{display:flex;flex-wrap:wrap;gap:4px;flex:1;justify-content:flex-end;}
+  .record-card-chevron{color:var(--muted);flex-shrink:0;transition:transform 0.15s;}
+  .record-card.expanded .record-card-chevron{transform:rotate(180deg);}
+  .record-card-detail{display:none;padding:0 12px 12px;border-top:1px solid var(--border);}
+  .record-card.expanded .record-card-detail{display:block;padding-top:10px;}
+  .record-card-detail-table th{width:64px;text-align:left;color:var(--muted);font-weight:600;font-size:12px;padding:4px 6px 4px 0;vertical-align:top;}
+  .record-card-detail-table td{padding:4px 0;font-size:13px;}
+
+  /* ヘッダーの各ボタンは、デスクトップは通常表示・モバイルはアイコンだけの省スペース表示にする */
+  .btn-label-compact{display:none;}
+
+  @media (max-width: 640px){
+    .records-table-view{display:none;}
+    .records-card-view{display:block;}
+    .btn-label-full{display:none;}
+    .btn-label-compact{display:inline;}
+  }
+
   @media print{
     body *{visibility:hidden;}
     #printArea, #printArea *{visibility:visible;}
@@ -176,9 +202,9 @@
     <div id="userBar" class="muted" style="font-size:12px;"></div>
     <div class="pet-switch">
       <select id="petSelect" onchange="App.selectPet(this.value)"></select>
-      <button class="secondary" onclick="App.openPetModal()">+ ペット追加</button>
-      <button class="ghost" onclick="App.openFamilyModal()">👪 家族共有</button>
-      <button class="ghost" onclick="App.openUpgradeModal()">⭐ アップグレード</button>
+      <button class="secondary" onclick="App.openPetModal()"><span class="btn-label-full">+ ペット追加</span><span class="btn-label-compact">+🐶🐱</span></button>
+      <button class="ghost" onclick="App.openFamilyModal()"><span class="btn-label-full">👪 家族共有</span><span class="btn-label-compact">👪</span></button>
+      <button class="ghost" onclick="App.openUpgradeModal()"><span class="btn-label-full">⭐ アップグレード</span><span class="btn-label-compact">⭐</span></button>
     </div>
   </header>
   <div id="householdBanner" class="hidden"></div>
@@ -1660,6 +1686,54 @@ const App = {
     if(state.activeTab === 'export') return this.renderExportTab();
   },
 
+  // モバイル向けの折りたたみ記録カード。ホーム(概要のみ)と記録一覧(全項目)の
+  // どちらからも使う。opts.full=trueで飲水・便・尿・CIBDAI・メモも詳細に含める。
+  // 写真はタップするまで読み込み表示せず、一覧のスクロールを軽くする。
+  recordCardHtml(r, opts){
+    const symptoms = r.symptoms || [];
+    const medTags = medsGivenTags(r.medsGiven);
+    const medIncomplete = medTags.some(t => !t.complete);
+    const photos = r.photos || [];
+    return `
+      <div class="record-card">
+        <div class="record-card-header" onclick="this.closest('.record-card').classList.toggle('expanded')">
+          <div class="record-card-main">
+            <span>${fmtDate(r.date)}</span>
+            <span class="record-card-weight">${r.weight ? r.weight+'kg' : ''}</span>
+          </div>
+          <div class="record-card-badges">
+            ${symptoms.length > 0 ? `<span class="tag">症状あり</span>` : ''}
+            ${medTags.length > 0 ? `<span class="tag ${medIncomplete ? 'tag-warn' : ''}">💊 ${medIncomplete ? '未完了' : '完了'}</span>` : ''}
+            ${photos.length > 0 ? `<span class="tag">📷 ${photos.length}</span>` : ''}
+          </div>
+          <span class="record-card-chevron">▾</span>
+        </div>
+        <div class="record-card-detail">
+          <table class="record-card-detail-table">
+            <tr><th>食欲</th><td>${r.appetite}</td></tr>
+            ${opts.full ? `
+              <tr><th>飲水</th><td>${r.water}</td></tr>
+              <tr><th>便(スコア)</th><td>${stoolLabel(r.stool)}</td></tr>
+              <tr><th>尿</th><td>${r.urine}</td></tr>
+              ${opts.showCibdai ? `<tr><th>CIBDAI</th><td>${r.cibdai ? cibdaiTotal(r.cibdai)+'点('+cibdaiSeverity(cibdaiTotal(r.cibdai))+')' : '-'}</td></tr>` : ''}
+            ` : ''}
+            <tr><th>症状</th><td>${symptoms.map(s=>`<span class="tag">${s}</span>`).join('') || '-'}</td></tr>
+            <tr><th>投薬</th><td>${medTags.map(t => `<span class="tag ${t.complete?'':'tag-warn'}">💊 ${t.label}(${t.given}/${t.total})</span>`).join('') || '-'}</td></tr>
+            ${opts.full ? `<tr><th>メモ</th><td>${r.memo || '-'}</td></tr>` : ''}
+          </table>
+          ${photos.length > 0 ? `
+            <button type="button" class="secondary" style="margin-top:8px;" onclick="this.nextElementSibling.classList.toggle('hidden')">📷 写真を表示(${photos.length})</button>
+            <div class="record-photos hidden">${photos.map(src => `<img src="${src}" onclick="window.open(this.src)">`).join('')}</div>
+          ` : ''}
+          <div class="row" style="margin-top:10px;justify-content:flex-end;">
+            <button class="secondary" onclick="App.openRecordModal('${r.id}')">編集</button>
+            ${opts.showDelete ? `<button class="danger" onclick="App.deleteRecord('${r.id}')">削除</button>` : ''}
+          </div>
+        </div>
+      </div>
+    `;
+  },
+
   renderHome(){
     const pet = currentPet();
     const records = petRecords();
@@ -1735,6 +1809,7 @@ const App = {
       <div class="card">
         <h3>最近の記録</h3>
         ${records.length === 0 ? '<div class="empty">まだ記録がありません</div>' : `
+        <div class="records-table-view">
         <table>
           <tr><th>日付</th><th>体重</th><th>食欲</th><th>症状</th><th>投薬</th><th>写真</th><th></th></tr>
           ${records.slice(0,5).map(r => `
@@ -1748,7 +1823,12 @@ const App = {
               <td class="actions-cell"><button class="secondary" onclick="App.openRecordModal('${r.id}')">編集</button></td>
             </tr>
           `).join('')}
-        </table>`}
+        </table>
+        </div>
+        <div class="records-card-view">
+          ${records.slice(0,5).map(r => this.recordCardHtml(r, { full: false, showDelete: false })).join('')}
+        </div>
+        `}
       </div>
     `;
   },
@@ -1765,6 +1845,7 @@ const App = {
           <button onclick="App.openRecordModal()">+ 記録を追加</button>
         </div>
         ${records.length === 0 ? '<div class="empty">まだ記録がありません</div>' : `
+        <div class="records-table-view">
         <table>
           <tr><th>日付</th><th>体重</th><th>食欲</th><th>飲水</th><th>便(スコア)</th><th>尿</th><th>症状</th>${showCibdai ? '<th>CIBDAI</th>' : ''}<th>投薬</th><th>メモ</th><th>写真</th><th></th></tr>
           ${records.map(r => `
@@ -1786,7 +1867,12 @@ const App = {
               </td>
             </tr>
           `).join('')}
-        </table>`}
+        </table>
+        </div>
+        <div class="records-card-view">
+          ${records.map(r => this.recordCardHtml(r, { full: true, showCibdai, showDelete: true })).join('')}
+        </div>
+        `}
       </div>
     `;
   },
