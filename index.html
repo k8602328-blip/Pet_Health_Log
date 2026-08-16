@@ -1971,7 +1971,13 @@ const App = {
     const earliest = records.length ? records[records.length-1].date : null;
     const defaultFrom = earliest && earliest > monthAgo ? earliest : monthAgo;
     const ent = state.entitlements || {};
-    const freeRemaining = Math.max(0, 1 - (ent.reportCreditsUsedThisMonth || 0));
+    // reportCreditsUsedThisMonthはconsumeReportCredit実行時にしかリセットされない
+    // (遅延評価)ため、今月まだ出力を試みていない場合はここでも同じ判定をしないと
+    // 表示上「残り0回」のまま復活が反映されない。
+    const resetAtMs = ent.reportCreditsResetAt ? ent.reportCreditsResetAt.toMillis() : 0;
+    const isNewMonth = !resetAtMs || resetAtMs <= Date.now();
+    const usedThisMonth = isNewMonth ? 0 : (ent.reportCreditsUsedThisMonth || 0);
+    const freeRemaining = Math.max(0, 1 - usedThisMonth);
     const purchasedRemaining = ent.reportCreditsPurchased || 0;
     const main = document.getElementById('mainContent');
     main.innerHTML = `
@@ -1986,7 +1992,7 @@ const App = {
         </div>
         <p class="muted">「印刷 / PDF保存」を押すと印刷ダイアログが開きます。送信先を「PDFに保存」にすればそのままPDFファイルとして書き出せます。</p>
         <p class="muted">1回の出力範囲は最大31日間までです。それ以前の記録が必要な場合は、期間を分けて複数回出力してください。</p>
-        <p class="muted">今月の無料出力: 残り${freeRemaining}回(目安) / 購入した追加パック: 残り${purchasedRemaining}回</p>
+        <p class="muted">今月の無料出力: 残り${freeRemaining}回 / 購入した追加パック: 残り${purchasedRemaining}回</p>
       </div>
     `;
   },
