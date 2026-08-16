@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>iPhoneでの通知設定ガイド - どうぶつ健康手帳</title>
+<title>iPhoneでホーム画面に追加する方法 - どうぶつ健康手帳</title>
 <style>
   :root{
     --bg:#FFF8F0;
@@ -32,18 +32,27 @@
   .step img{display:block;width:100%;border-radius:8px;border:1px solid var(--border);}
   .note{background:#FFF3E0;border:1px solid #FDE0B8;border-radius:10px;padding:12px 14px;font-size:13px;line-height:1.7;margin-bottom:20px;}
   .muted{color:var(--muted);font-size:12px;}
+  .copy-row{display:flex;gap:8px;margin-top:12px;}
+  .copy-row input{flex:1;min-width:0;font-size:13px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);}
+  .copy-row button{white-space:nowrap;font-family:inherit;font-size:13px;padding:8px 14px;border:1px solid var(--primary);border-radius:8px;background:var(--primary);color:#fff;cursor:pointer;}
+  .copy-msg{min-height:16px;font-size:12px;color:var(--primary-dark);margin:6px 0 0;}
 </style>
 </head>
 <body>
 <div class="wrap">
   <a class="back" href="./">← どうぶつ健康手帳に戻る</a>
-  <h1>📱 iPhoneでお薬の通知を受け取る設定</h1>
+  <h1>📱 iPhoneでホーム画面に追加する方法</h1>
   <p class="lead">
-    iPhoneのSafariでは、通常のブラウザのタブのままだと通知の許可自体が求められません。
-    以下の手順で「ホーム画面に追加」してからアプリのアイコンで開き直すことで、
-    アプリを閉じていても投薬リマインダー通知が届くようになります。
+    ホーム画面に追加すると、アイコンをタップするだけでアプリのようにすぐ開けるようになります。
+    無料でどなたでも設定でき、以下の手順は数分で完了します。
   </p>
   <div class="note">
+    🔔 投薬リマインダーの<strong>プッシュ通知</strong>は「治療サポートプラン」にご加入の方のみの機能です。
+    ホーム画面への追加はどなたでも無料でできますが、これだけでは通知は届きません。
+    通知を使いたい方は、この手順の後に「お薬」タブから「投薬リマインダー通知を有効にする」を押してください
+    (iPhoneでは、通知を使う場合もこのホーム画面への追加とアイコンからの再ログインが必須です)。
+  </div>
+  <div class="note" style="background:#FDECEA;border-color:#F5C6C0;">
     ⚠️ ホーム画面に追加したアイコンは、通常のSafariとは別のログイン状態として扱われるため、
     アイコンから開いた直後にもう一度Googleアカウントでのログインが必要です(手順⑧)。
   </div>
@@ -51,6 +60,12 @@
   <div class="step">
     <div class="step-title"><span class="step-num">1</span>Safariでどうぶつ健康手帳を開く</div>
     <img src="guide-images/step1.jpg" alt="Safariアプリを開く">
+    <p class="muted" style="margin:10px 0 0;">URLをコピーしてSafariのアドレス欄に貼り付けても開けます。</p>
+    <div class="copy-row">
+      <input type="text" id="appUrl" value="https://k8602328-blip.github.io/Pet_Health_Log/" readonly>
+      <button type="button" onclick="copyAppUrl()">コピー</button>
+    </div>
+    <p class="copy-msg" id="copyMsg"></p>
   </div>
 
   <div class="step">
@@ -91,5 +106,21 @@
     </p>
   </div>
 </div>
+<script>
+function copyAppUrl(){
+  const input = document.getElementById('appUrl');
+  const msg = document.getElementById('copyMsg');
+  input.select();
+  const done = () => { msg.textContent = 'コピーしました。'; };
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(input.value).then(done).catch(() => {
+      msg.textContent = 'コピーできませんでした。手動で選択してコピーしてください。';
+    });
+  } else {
+    document.execCommand('copy');
+    done();
+  }
+}
+</script>
 </body>
 </html>

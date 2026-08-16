@@ -129,6 +129,9 @@
   .tag-warn{background:#FCE8D8;color:#B5540A;}
   #householdBanner{background:var(--accent);color:#fff;padding:8px 24px;font-size:13px;display:flex;justify-content:space-between;align-items:center;gap:12px;}
   #householdBanner button{background:transparent;color:#fff;border:1px solid rgba(255,255,255,0.6);padding:4px 10px;}
+  #homeScreenBanner{background:#FFF3E0;border-bottom:1px solid #FDE0B8;color:var(--text);padding:8px 24px;font-size:13px;display:flex;justify-content:space-between;align-items:center;gap:12px;}
+  #homeScreenBanner a{color:var(--primary-dark);font-weight:600;}
+  #homeScreenBanner button{background:transparent;color:var(--muted);border:none;font-size:16px;padding:0 4px;cursor:pointer;}
   .pet-toggle{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);margin-top:10px;}
   #printArea{display:none;}
   @media print{
@@ -179,6 +182,7 @@
     </div>
   </header>
   <div id="householdBanner" class="hidden"></div>
+  <div id="homeScreenBanner" class="hidden"></div>
 
   <nav class="tabs" id="tabsNav">
     <button class="tab-btn" data-tab="home" onclick="App.switchTab('home')">ホーム</button>
@@ -1601,8 +1605,27 @@ const App = {
     }
   },
 
+  // 通知機能(課金)の有無に関わらず、iPhoneでホーム画面から開けるように早めに
+  // 誘導する。閉じたらlocalStorageに記録して、二度と出さない(しつこくしない)。
+  renderHomeScreenBanner(){
+    const banner = document.getElementById('homeScreenBanner');
+    const dismissed = localStorage.getItem('homeScreenBannerDismissed') === '1';
+    if(!dismissed && needsIosHomeScreenForPush()){
+      banner.classList.remove('hidden');
+      banner.innerHTML = `<span>🏠 ホーム画面に追加すると、次回からアプリのように素早く開けます。<a href="guide.html" target="_blank">追加方法を見る →</a></span><button onclick="App.dismissHomeScreenBanner()">✕</button>`;
+    } else {
+      banner.classList.add('hidden');
+      banner.innerHTML = '';
+    }
+  },
+  dismissHomeScreenBanner(){
+    localStorage.setItem('homeScreenBannerDismissed', '1');
+    this.renderHomeScreenBanner();
+  },
+
   render(){
     this.renderHouseholdBanner();
+    this.renderHomeScreenBanner();
     this.renderPetSelect();
     const main = document.getElementById('mainContent');
     if(state.pets.length === 0){
