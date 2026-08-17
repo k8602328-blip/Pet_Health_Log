@@ -591,6 +591,12 @@ let state = {
 
 function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
 
+// モバイルではwindow.print()を呼んだ瞬間にJSへ制御が戻ってしまい、実際の印刷画面が
+// 表示されるまでの数十秒はJS側から検知できない。ボタンの無効化だけでは連打を防ぎきれない
+// ため、直近に出力成功した直後の連打はクレジット消費自体をスキップして実害(無駄な消費)を防ぐ。
+let lastReportPrintAt = 0;
+const REPORT_PRINT_GRACE_MS = 60 * 1000;
+
 let messagingScriptPromise = null;
 // 投薬リマインダー通知を実際に使う人だけがfirebase-messaging-compat.jsを読み込む。
 function loadMessagingScript(){
@@ -2189,9 +2195,11 @@ const App = {
     // 連打されると、その都度クレジットだけ消費されてしまう不具合があった。
     const printBtn = document.querySelector('#mainContent button[onclick="App.printReport()"]');
     const printBtnLabel = printBtn ? printBtn.textContent : '';
-    if(printBtn){ printBtn.disabled = true; printBtn.textContent = '出力準備中...'; }
+    if(printBtn){ printBtn.disabled = true; printBtn.textContent = '出力準備中...(画面表示まで数十秒かかる場合があります)'; }
     try{
-      const ok = await this.consumeReportCreditOrPrompt();
+      // 直近1分以内に一度出力に成功していれば、連打とみなしてクレジットを再消費しない。
+      const withinGrace = Date.now() - lastReportPrintAt < REPORT_PRINT_GRACE_MS;
+      const ok = withinGrace || await this.consumeReportCreditOrPrompt();
       if(!ok) return;
 
       const pet = currentPet();
@@ -2300,6 +2308,11 @@ const App = {
       </table>
     `;
       window.print();
+      lastReportPrintAt = Date.now();
+      // window.print()はモバイルでは呼んだ直後にJSへ戻ってしまい、実際の印刷画面が
+      // 出るまでにはまだ間がある。ボタンをもう少しだけ無効化したままにして、
+      // 「押しても反応しない」と誤解されて連打されるのを減らす(実害の防止は上のgrace期間側)。
+      await new Promise(resolve => setTimeout(resolve, 3000));
     } finally {
       if(printBtn){ printBtn.disabled = false; printBtn.textContent = printBtnLabel; }
     }
