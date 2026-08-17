@@ -2179,16 +2179,21 @@ const App = {
       return;
     }
 
+    // クレジット消費の確認からwindow.print()までボタンを無効化したままにする。
+    // 以前は消費確認が終わった時点で早々にボタンを再度押せるようにしていたため、
+    // 出力準備(チャート描画・印刷用HTML組み立て)がまだ終わっていない数秒〜数十秒の間に
+    // 連打されると、その都度クレジットだけ消費されてしまう不具合があった。
     const printBtn = document.querySelector('#mainContent button[onclick="App.printReport()"]');
-    if(printBtn){ printBtn.disabled = true; }
-    const ok = await this.consumeReportCreditOrPrompt();
-    if(printBtn){ printBtn.disabled = false; }
-    if(!ok) return;
+    const printBtnLabel = printBtn ? printBtn.textContent : '';
+    if(printBtn){ printBtn.disabled = true; printBtn.textContent = '出力準備中...'; }
+    try{
+      const ok = await this.consumeReportCreditOrPrompt();
+      if(!ok) return;
 
-    const pet = currentPet();
-    if(records.length === 0){ alert('選択した期間に記録がありません'); return; }
+      const pet = currentPet();
+      if(records.length === 0){ alert('選択した期間に記録がありません'); return; }
 
-    const tmpCanvas = document.createElement('canvas');
+      const tmpCanvas = document.createElement('canvas');
     tmpCanvas.width = 700; tmpCanvas.height = 260;
     document.body.appendChild(tmpCanvas);
     const weightData = records.filter(r => r.weight != null);
@@ -2284,7 +2289,10 @@ const App = {
         ${rowsHtml}
       </table>
     `;
-    window.print();
+      window.print();
+    } finally {
+      if(printBtn){ printBtn.disabled = false; printBtn.textContent = printBtnLabel; }
+    }
   }
 };
 
