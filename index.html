@@ -94,6 +94,7 @@
   .muted{color:var(--muted);font-size:12px;}
   .chart-wrap{position:relative;height:280px;margin-bottom:10px;}
   .hint{background:#FFF3CD;color:#8a6d1f;border:1px solid #F5E1A4;border-radius:8px;padding:8px 12px;font-size:12px;margin-bottom:12px;line-height:1.5;}
+  .option-hint{font-size:11px;color:var(--muted);margin:3px 0 0;min-height:14px;}
   .med-card{border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px;}
   .med-card .med-title{font-weight:700;font-size:15px;}
   .med-card img{max-width:140px;border-radius:8px;margin-top:8px;display:block;}
@@ -270,13 +271,14 @@
           <select id="rAppetite"><option value="良好">良好</option><option value="普通">普通</option><option value="不良">不良</option><option value="絶食">絶食</option></select>
         </div>
         <div class="field"><label>飲水量</label>
-          <select id="rWater">
+          <select id="rWater" onchange="App.updateOptionHint('rWater', WATER_OPTIONS)">
             <option value="いつも通り">いつも通り</option>
-            <option value="心なしか多い気がする">心なしか多い気がする</option>
-            <option value="明らかに多い(お皿がすぐ空になる/何度も飲みに行く)">明らかに多い(お皿がすぐ空になる/何度も飲みに行く)</option>
-            <option value="あまり飲んでいない">あまり飲んでいない</option>
-            <option value="わからない">わからない</option>
+            <option value="やや多い">やや多い</option>
+            <option value="かなり多い">かなり多い</option>
+            <option value="少ない">少ない</option>
+            <option value="不明">不明</option>
           </select>
+          <p class="option-hint" id="rWaterHint"></p>
         </div>
       </div>
       <div class="row">
@@ -285,13 +287,14 @@
           <select id="rStool"></select>
         </div>
         <div class="field"><label>尿</label>
-          <select id="rUrine">
+          <select id="rUrine" onchange="App.updateOptionHint('rUrine', URINE_OPTIONS)">
             <option value="いつも通り">いつも通り</option>
-            <option value="心なしか回数・量が増えた気がする">心なしか回数・量が増えた気がする</option>
-            <option value="明らかに多い(トイレシートがすぐ濡れる/回数が多い)">明らかに多い(トイレシートがすぐ濡れる/回数が多い)</option>
-            <option value="出る量・回数が少ない">出る量・回数が少ない</option>
-            <option value="わからない">わからない</option>
+            <option value="やや多い">やや多い</option>
+            <option value="かなり多い">かなり多い</option>
+            <option value="少ない">少ない</option>
+            <option value="不明">不明</option>
           </select>
+          <p class="option-hint" id="rUrineHint"></p>
         </div>
       </div>
       <div class="field">
@@ -537,15 +540,50 @@ const PREV_CATEGORIES = ['ワクチン','狂犬病','フィラリア予防','ノ
 // 狂犬病予防法により毎年の接種・届出が義務付けられているのは犬のみ。
 const PREV_CATEGORIES_DOG_ONLY = ['狂犬病'];
 
+// titleはプルダウン表示・記録一覧・PDF全てで共通のラベルとして使うため短く保つ。
+// 詳しい見た目の説明はdescに寄せ、「見本を見る」ガイドモーダル(buildFecalGuide)にだけ出す。
 const FECAL_SCALE = [
-  { v:1, title:'1: コロコロ(非常に硬い)', desc:'小さく硬い塊。踏ん張っても少量しか出ず、拾っても何も残らない。' },
+  { v:1, title:'1: 非常に硬い', desc:'コロコロした小さく硬い塊。踏ん張っても少量しか出ず、拾っても何も残らない。' },
   { v:2, title:'2: 硬め', desc:'形はしっかりしているが乾燥気味。表面にひび割れが見えることも。' },
   { v:3, title:'3: 理想的', desc:'適度な硬さで形が保たれていて、拾うと地面にわずかに跡が残る程度。' },
-  { v:4, title:'4: やや軟らかい', desc:'形はあるが湿っていて、拾うとつぶれやすい。' },
-  { v:5, title:'5: 軟らかい(形が崩れやすい)', desc:'山盛りになるが形をほぼ保てない。拾うと地面に多く残る。' },
+  { v:4, title:'4: やや軟便', desc:'形はあるが湿っていて、拾うとつぶれやすい。' },
+  { v:5, title:'5: 軟便', desc:'形はあるが崩れやすい。山盛りになるが形をほぼ保てない。拾うと地面に多く残る。' },
   { v:6, title:'6: 泥状', desc:'形がなく、まとまりのない泥のような状態。' },
-  { v:7, title:'7: 水様(下痢)', desc:'水たまりのような液状で、まったく形がない。' }
+  { v:7, title:'7: 水様便', desc:'ほぼ液体状の下痢。水たまりのような液状で、まったく形がない。' }
 ];
+
+// 飲水量・尿は元々「値=そのまま表示する説明文」だったため、記録一覧やPDFでも
+// 長文がそのまま出て圧迫していた。短いラベルを正として保存し、既存記録に残る
+// 長文の値は*_LEGACY_MAPで表示時にラベルへ変換する(データの移行は行わない)。
+const WATER_OPTIONS = [
+  { v:'いつも通り', desc:'' },
+  { v:'やや多い', desc:'いつもより少し多い気がする' },
+  { v:'かなり多い', desc:'お皿がすぐ空になる・何度も飲みに行く' },
+  { v:'少ない', desc:'いつもより飲む量が少ない' },
+  { v:'不明', desc:'' }
+];
+const WATER_LEGACY_MAP = {
+  '心なしか多い気がする': 'やや多い',
+  '明らかに多い(お皿がすぐ空になる/何度も飲みに行く)': 'かなり多い',
+  'あまり飲んでいない': '少ない',
+  'わからない': '不明'
+};
+function waterLabel(v){ return WATER_LEGACY_MAP[v] || v; }
+
+const URINE_OPTIONS = [
+  { v:'いつも通り', desc:'' },
+  { v:'やや多い', desc:'回数や量が少し増えた気がする' },
+  { v:'かなり多い', desc:'トイレシートがすぐ濡れる・回数が多い' },
+  { v:'少ない', desc:'尿量や回数がいつもより少ない' },
+  { v:'不明', desc:'' }
+];
+const URINE_LEGACY_MAP = {
+  '心なしか回数・量が増えた気がする': 'やや多い',
+  '明らかに多い(トイレシートがすぐ濡れる/回数が多い)': 'かなり多い',
+  '出る量・回数が少ない': '少ない',
+  'わからない': '不明'
+};
+function urineLabel(v){ return URINE_LEGACY_MAP[v] || v; }
 
 const CIBDAI_ITEMS = [
   { key:'attitude', label:'元気・活動性', options:['正常','軽度の低下','中等度の低下(活動量が目に見えて減る)','著しい低下(ぐったりしている)'] },
@@ -1304,6 +1342,16 @@ const App = {
     this.render();
   },
 
+  // 飲水量・尿のプルダウンは短いラベルだけを表示し、その下に今選んでいる項目の
+  // 補足説明だけを出す(選択肢自体に長文を詰め込むと記録一覧やPDFも圧迫するため)。
+  updateOptionHint(selectId, options){
+    const select = document.getElementById(selectId);
+    const hint = document.getElementById(selectId + 'Hint');
+    if(!select || !hint) return;
+    const opt = options.find(o => o.v === select.value);
+    hint.textContent = opt ? opt.desc : '';
+  },
+
   openRecordModal(recordId){
     state.editingRecordId = recordId || null;
     const title = document.getElementById('recordModalTitle');
@@ -1323,9 +1371,11 @@ const App = {
       document.getElementById('rDate').value = r.date;
       document.getElementById('rWeight').value = r.weight ?? '';
       document.getElementById('rAppetite').value = r.appetite;
-      document.getElementById('rWater').value = r.water;
+      // 過去の記録は飲水・尿が長文の値のまま保存されていることがあるため、
+      // 選択肢にある短いラベルへ変換してから選択する(データ自体は書き換えない)。
+      document.getElementById('rWater').value = waterLabel(r.water);
       document.getElementById('rStool').value = r.stool;
-      document.getElementById('rUrine').value = r.urine;
+      document.getElementById('rUrine').value = urineLabel(r.urine);
       document.getElementById('rMemo').value = r.memo || '';
       document.querySelectorAll('#rSymptoms input').forEach(cb => {
         cb.checked = (r.symptoms || []).includes(cb.value);
@@ -1341,6 +1391,8 @@ const App = {
       this.buildMedChecks({});
       this.buildCibdaiSection(null);
     }
+    this.updateOptionHint('rWater', WATER_OPTIONS);
+    this.updateOptionHint('rUrine', URINE_OPTIONS);
     this.renderRecordPhotoGrid();
     document.getElementById('recordModalBackdrop').classList.remove('hidden');
   },
@@ -1737,9 +1789,9 @@ const App = {
           <table class="record-card-detail-table">
             <tr><th>食欲</th><td>${r.appetite}</td></tr>
             ${opts.full ? `
-              <tr><th>飲水</th><td>${r.water}</td></tr>
+              <tr><th>飲水</th><td>${waterLabel(r.water)}</td></tr>
               <tr><th>便(スコア)</th><td>${stoolLabel(r.stool)}</td></tr>
-              <tr><th>尿</th><td>${r.urine}</td></tr>
+              <tr><th>尿</th><td>${urineLabel(r.urine)}</td></tr>
               ${opts.showCibdai ? `<tr><th>CIBDAI</th><td>${r.cibdai ? cibdaiTotal(r.cibdai)+'点('+cibdaiSeverity(cibdaiTotal(r.cibdai))+')' : '-'}</td></tr>` : ''}
             ` : ''}
             <tr><th>症状</th><td>${symptoms.map(s=>`<span class="tag">${s}</span>`).join('') || '-'}</td></tr>
@@ -1888,9 +1940,9 @@ const App = {
               <td>${fmtDate(r.date)}</td>
               <td>${r.weight ? r.weight+'kg' : '-'}</td>
               <td>${r.appetite}</td>
-              <td>${r.water}</td>
+              <td>${waterLabel(r.water)}</td>
               <td>${stoolLabel(r.stool)}</td>
-              <td>${r.urine}</td>
+              <td>${urineLabel(r.urine)}</td>
               <td>${(r.symptoms||[]).map(s=>`<span class="tag">${s}</span>`).join('') || '-'}</td>
               ${showCibdai ? `<td>${r.cibdai ? cibdaiTotal(r.cibdai) + '点(' + cibdaiSeverity(cibdaiTotal(r.cibdai)) + ')' : '-'}</td>` : ''}
               <td>${medsGivenTags(r.medsGiven).map(t => `<span class="tag ${t.complete ? '' : 'tag-warn'}">💊 ${t.label}(${t.given}/${t.total})</span>`).join('') || '-'}</td>
@@ -2220,8 +2272,11 @@ const App = {
         });
         // animation:falseでもChart.jsの実際の描画は次の描画フレームにずれ込むことがあり、
         // 稀にtoBase64Image()が「まだ何も描かれていないキャンバス」を読んでしまい、
-        // グラフだけ抜け落ちて見えることがあった。2回分の描画フレームを待ってから読む。
-        await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+        // グラフだけ抜け落ちて見えることがあった。ここは当初requestAnimationFrameで
+        // 待っていたが、rAFはタブがバックグラウンドに回ると発火が止まってしまい、
+        // 印刷中にアプリを切り替えられただけで処理が固まる方が実害が大きいと判明したため、
+        // バックグラウンドでも動くsetTimeoutに変更している。
+        await new Promise(resolve => setTimeout(resolve, 50));
         chartImg = tmpChart.toBase64Image();
         tmpChart.destroy();
       } catch(err){
@@ -2241,9 +2296,9 @@ const App = {
           <td>${fmtDate(r.date)}</td>
           <td>${r.weight ? r.weight+'kg' : '-'}</td>
           <td>${r.appetite}</td>
-          <td>${r.water}</td>
+          <td>${waterLabel(r.water)}</td>
           <td>${stoolLabel(r.stool)}</td>
-          <td>${r.urine}</td>
+          <td>${urineLabel(r.urine)}</td>
           <td>${(r.symptoms||[]).join('、') || '-'}</td>
           ${showCibdai ? `<td>${r.cibdai ? cibdaiTotal(r.cibdai) + '点(' + cibdaiSeverity(cibdaiTotal(r.cibdai)) + ')' : '-'}</td>` : ''}
           <td>${medsGivenTags(r.medsGiven).map(t => `${t.label}(${t.given}/${t.total})`).join('、') || '-'}</td>
