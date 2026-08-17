@@ -278,28 +278,25 @@
           <p class="option-hint" id="rAppetiteHint"></p>
         </div>
         <div class="field"><label>飲水量</label>
-          <select id="rWater" onchange="App.updateOptionHint('rWater', WATER_OPTIONS)">
+          <select id="rWater">
             <option value="いつも通り">いつも通り</option>
             <option value="少ない">少ない</option>
             <option value="多い">多い</option>
           </select>
-          <p class="option-hint" id="rWaterHint"></p>
         </div>
       </div>
       <div class="row">
         <div class="field" style="flex:1;">
           <label>便(糞便スコア) <button type="button" class="ghost" style="padding:2px 8px;font-size:11px;" onclick="App.openFecalGuide()">見本を見る</button></label>
-          <select id="rStool"></select>
+          <select id="rStool" onchange="App.updateStoolHint()"></select>
+          <p class="option-hint" id="rStoolHint"></p>
         </div>
         <div class="field"><label>尿</label>
-          <select id="rUrine" onchange="App.updateOptionHint('rUrine', URINE_OPTIONS)">
+          <select id="rUrine">
             <option value="いつも通り">いつも通り</option>
-            <option value="やや多い">やや多い</option>
-            <option value="かなり多い">かなり多い</option>
             <option value="少ない">少ない</option>
-            <option value="不明">不明</option>
+            <option value="多い">多い</option>
           </select>
-          <p class="option-hint" id="rUrineHint"></p>
         </div>
       </div>
       <div class="field">
@@ -540,7 +537,7 @@ function ownUserDocRef(){ return db.collection('users').doc(currentUser.uid); }
 function userDocRef(){ return db.collection('users').doc(dataUid()); }
 function colRef(name){ return userDocRef().collection(name); }
 
-const SYMPTOM_OPTIONS = ['嘔吐','下痢','元気消失','咳','くしゃみ','痒み','震え','呼吸が荒い','食欲不振','その他'];
+const SYMPTOM_OPTIONS = ['嘔吐','下痢','元気消失','咳','くしゃみ','痒み','震え','呼吸が荒い','食欲不振','頻繁に排泄姿勢をする','その他'];
 const PREV_CATEGORIES = ['ワクチン','狂犬病','フィラリア予防','ノミダニ予防','その他'];
 // 狂犬病予防法により毎年の接種・届出が義務付けられているのは犬のみ。
 const PREV_CATEGORIES_DOG_ONLY = ['狂犬病'];
@@ -557,16 +554,24 @@ const FECAL_SCALE = [
   { v:7, title:'7: 水様便', desc:'ほぼ液体状の下痢。水たまりのような液状で、まったく形がない。' }
 ];
 
-// 飲水量・尿は元々「値=そのまま表示する説明文」だったため、記録一覧やPDFでも
-// 長文がそのまま出て圧迫していた。短いラベルを正として保存し、既存記録に残る
-// 長文の値は*_LEGACY_MAPで表示時にラベルへ変換する(データの移行は行わない)。
-const WATER_OPTIONS = [
-  { v:'いつも通り', desc:'' },
-  { v:'少ない', desc:'' },
-  { v:'多い', desc:'' }
-];
-// 5択(やや多い/かなり多いの2段階)だった時期を経て、最終的に3択に統一した。
-// 過去の長文値・その5択時代の短いラベルの両方をここでまとめて3択へ変換する。
+// 「見本を見る」モーダル(FECAL_SCALE.desc、詳しめの説明)を開かなくても選択の目安が
+// わかるよう、プルダウンの下に出す一言だけの短いヒント。キーはselect.valueと
+// 型を合わせるため文字列にしている。
+const FECAL_SHORT_HINT = {
+  '1': '小さくコロコロした便',
+  '2': '正常な形だが乾燥している',
+  '3': '適度な硬さで形が保たれている',
+  '4': '形はあるが水分が多く地面に残る',
+  '5': '形はあるが崩れてしまう',
+  '6': '形がなく泥のような状態',
+  '7': 'ほぼ液体で全く形がない'
+};
+
+// 飲水量は元々「値=そのまま表示する説明文」だったため、記録一覧やPDFでも
+// 長文がそのまま出て圧迫していた。5択の短いラベル案を経て、最終的に
+// いつも通り/少ない/多いの3択に統一(自明な選択肢なので説明ヒントは持たない)。
+// 過去の長文値・5択時代の短いラベルは、いずれもここで3択へ変換する
+// (データの移行は行わず、表示時にだけ変換する)。
 const WATER_LEGACY_MAP = {
   '心なしか多い気がする': '多い',
   '明らかに多い(お皿がすぐ空になる/何度も飲みに行く)': '多い',
@@ -578,18 +583,16 @@ const WATER_LEGACY_MAP = {
 };
 function waterLabel(v){ return WATER_LEGACY_MAP[v] || v; }
 
-const URINE_OPTIONS = [
-  { v:'いつも通り', desc:'' },
-  { v:'やや多い', desc:'回数や量が少し増えた気がする' },
-  { v:'かなり多い', desc:'トイレシートがすぐ濡れる・回数が多い' },
-  { v:'少ない', desc:'尿量や回数がいつもより少ない' },
-  { v:'不明', desc:'' }
-];
+// 飲水量と同じく、最終的には3択(いつも通り/少ない/多い)に統一した。
+// 過去の長文値・5択時代の短いラベルの両方をここでまとめて3択へ変換する。
 const URINE_LEGACY_MAP = {
-  '心なしか回数・量が増えた気がする': 'やや多い',
-  '明らかに多い(トイレシートがすぐ濡れる/回数が多い)': 'かなり多い',
+  '心なしか回数・量が増えた気がする': '多い',
+  '明らかに多い(トイレシートがすぐ濡れる/回数が多い)': '多い',
+  'やや多い': '多い',
+  'かなり多い': '多い',
   '出る量・回数が少ない': '少ない',
-  'わからない': '不明'
+  'わからない': 'いつも通り',
+  '不明': 'いつも通り'
 };
 function urineLabel(v){ return URINE_LEGACY_MAP[v] || v; }
 
@@ -1398,6 +1401,11 @@ const App = {
     const opt = options.find(o => o.v === select.value);
     hint.textContent = opt ? opt.desc : '';
   },
+  updateStoolHint(){
+    const hint = document.getElementById('rStoolHint');
+    if(!hint) return;
+    hint.textContent = FECAL_SHORT_HINT[document.getElementById('rStool').value] || '';
+  },
 
   openRecordModal(recordId){
     state.editingRecordId = recordId || null;
@@ -1439,8 +1447,7 @@ const App = {
       this.buildCibdaiSection(null);
     }
     this.updateOptionHint('rAppetite', APPETITE_OPTIONS);
-    this.updateOptionHint('rWater', WATER_OPTIONS);
-    this.updateOptionHint('rUrine', URINE_OPTIONS);
+    this.updateStoolHint();
     this.renderRecordPhotoGrid();
     document.getElementById('recordModalBackdrop').classList.remove('hidden');
   },
