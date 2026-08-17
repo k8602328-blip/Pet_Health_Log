@@ -268,7 +268,14 @@
       </div>
       <div class="row">
         <div class="field"><label>食欲</label>
-          <select id="rAppetite"><option value="良好">良好</option><option value="普通">普通</option><option value="不良">不良</option><option value="絶食">絶食</option></select>
+          <select id="rAppetite" onchange="App.updateOptionHint('rAppetite', APPETITE_OPTIONS)">
+            <option value="100">100%</option>
+            <option value="75">75%</option>
+            <option value="50">50%</option>
+            <option value="25">25%</option>
+            <option value="0">0%</option>
+          </select>
+          <p class="option-hint" id="rAppetiteHint"></p>
         </div>
         <div class="field"><label>飲水量</label>
           <select id="rWater" onchange="App.updateOptionHint('rWater', WATER_OPTIONS)">
@@ -584,6 +591,26 @@ const URINE_LEGACY_MAP = {
   'わからない': '不明'
 };
 function urineLabel(v){ return URINE_LEGACY_MAP[v] || v; }
+
+// 食欲は「良好/普通/不良/絶食」という主観的な質のラベルから、「普段(100%)に対して
+// 今どれくらい食べているか」という割合ベースの選択肢に変更した。数値なので体重と
+// 同じように将来グラフ化もできる。既存記録の質的ラベルは順序を保ったまま
+// 目安の割合に変換して表示する(絶対的に正しい対応があるわけではない近似)。
+const APPETITE_OPTIONS = [
+  { v:'100', desc:'いつも通り' },
+  { v:'75', desc:'やや少ない' },
+  { v:'50', desc:'半分程度' },
+  { v:'25', desc:'ほとんど食べない' },
+  { v:'0', desc:'食べていない' }
+];
+const APPETITE_LEGACY_MAP = {
+  '良好': '100',
+  '普通': '75',
+  '不良': '25',
+  '絶食': '0'
+};
+function appetiteValue(v){ return APPETITE_LEGACY_MAP[v] || v; }
+function appetiteLabel(v){ return appetiteValue(v) + '%'; }
 
 const CIBDAI_ITEMS = [
   { key:'attitude', label:'元気・活動性', options:['正常','軽度の低下','中等度の低下(活動量が目に見えて減る)','著しい低下(ぐったりしている)'] },
@@ -1389,9 +1416,9 @@ const App = {
       document.getElementById('recordId').value = r.id;
       document.getElementById('rDate').value = r.date;
       document.getElementById('rWeight').value = r.weight ?? '';
-      document.getElementById('rAppetite').value = r.appetite;
-      // 過去の記録は飲水・尿が長文の値のまま保存されていることがあるため、
-      // 選択肢にある短いラベルへ変換してから選択する(データ自体は書き換えない)。
+      // 過去の記録は食欲が「良好」等の質的ラベル、飲水・尿が長文のまま保存されている
+      // ことがあるため、選択肢にある値へ変換してから選択する(データ自体は書き換えない)。
+      document.getElementById('rAppetite').value = appetiteValue(r.appetite);
       document.getElementById('rWater').value = waterLabel(r.water);
       document.getElementById('rStool').value = r.stool;
       document.getElementById('rUrine').value = urineLabel(r.urine);
@@ -1410,6 +1437,7 @@ const App = {
       this.buildMedChecks({});
       this.buildCibdaiSection(null);
     }
+    this.updateOptionHint('rAppetite', APPETITE_OPTIONS);
     this.updateOptionHint('rWater', WATER_OPTIONS);
     this.updateOptionHint('rUrine', URINE_OPTIONS);
     this.renderRecordPhotoGrid();
@@ -1806,7 +1834,7 @@ const App = {
         </div>
         <div class="record-card-detail">
           <table class="record-card-detail-table">
-            <tr><th>食欲</th><td>${r.appetite}</td></tr>
+            <tr><th>食欲</th><td>${appetiteLabel(r.appetite)}</td></tr>
             ${opts.full ? `
               <tr><th>飲水</th><td>${waterLabel(r.water)}</td></tr>
               <tr><th>便(スコア)</th><td>${stoolLabel(r.stool)}</td></tr>
@@ -1922,7 +1950,7 @@ const App = {
             <tr>
               <td>${fmtDate(r.date)}</td>
               <td>${r.weight ? r.weight+'kg' : '-'}</td>
-              <td>${r.appetite}</td>
+              <td>${appetiteLabel(r.appetite)}</td>
               <td>${(r.symptoms||[]).map(s=>`<span class="tag">${s}</span>`).join('') || '-'}</td>
               <td>${medsGivenTags(r.medsGiven).map(t => `<span class="tag ${t.complete ? '' : 'tag-warn'}">💊 ${t.label}(${t.given}/${t.total})</span>`).join('') || '-'}</td>
               <td>${(r.photos||[]).length > 0 ? `📷 ${r.photos.length}` : '-'}</td>
@@ -1958,7 +1986,7 @@ const App = {
             <tr>
               <td>${fmtDate(r.date)}</td>
               <td>${r.weight ? r.weight+'kg' : '-'}</td>
-              <td>${r.appetite}</td>
+              <td>${appetiteLabel(r.appetite)}</td>
               <td>${waterLabel(r.water)}</td>
               <td>${stoolLabel(r.stool)}</td>
               <td>${urineLabel(r.urine)}</td>
@@ -2308,7 +2336,7 @@ const App = {
         <tr>
           <td>${fmtDate(r.date)}</td>
           <td>${r.weight ? r.weight+'kg' : '-'}</td>
-          <td>${r.appetite}</td>
+          <td>${appetiteLabel(r.appetite)}</td>
           <td>${waterLabel(r.water)}</td>
           <td>${stoolLabel(r.stool)}</td>
           <td>${urineLabel(r.urine)}</td>
