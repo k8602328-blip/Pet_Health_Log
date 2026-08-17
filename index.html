@@ -93,6 +93,11 @@
   .actions-cell button{padding:4px 8px;font-size:12px;margin-right:4px;}
   .muted{color:var(--muted);font-size:12px;}
   .chart-wrap{position:relative;height:280px;margin-bottom:10px;}
+  .symptom-timeline-scroll{overflow-x:auto;}
+  .symptom-timeline-table{border-collapse:collapse;font-size:11px;}
+  .symptom-timeline-table th,.symptom-timeline-table td{padding:5px 7px;text-align:center;border-bottom:1px solid var(--border);white-space:nowrap;}
+  .symptom-timeline-table th.symptom-row-label,.symptom-timeline-table td.symptom-row-label{text-align:left;font-weight:600;color:var(--text);padding-right:12px;position:sticky;left:0;background:var(--card);}
+  .symptom-dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--danger);}
   .hint{background:#FFF3CD;color:#8a6d1f;border:1px solid #F5E1A4;border-radius:8px;padding:8px 12px;font-size:12px;margin-bottom:12px;line-height:1.5;}
   .option-hint{font-size:11px;color:var(--muted);margin:3px 0 0;min-height:14px;}
   .med-card{border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px;}
@@ -2166,6 +2171,10 @@ const App = {
         <div class="chart-wrap"><canvas id="appetiteChartCanvas"></canvas></div>
       </div>
       <div class="card">
+        <h3>症状タイムライン</h3>
+        <div id="symptomTimelineWrap"></div>
+      </div>
+      <div class="card">
         <h3>症状の出現回数</h3>
         <div class="chart-wrap"><canvas id="symptomChartCanvas"></canvas></div>
       </div>
@@ -2234,6 +2243,8 @@ const App = {
       }
     });
 
+    this.renderSymptomTimeline(records);
+
     const symptomCounts = {};
     records.forEach(r => (r.symptoms||[]).forEach(s => symptomCounts[s] = (symptomCounts[s]||0) + 1));
     const labels = Object.keys(symptomCounts);
@@ -2251,6 +2262,26 @@ const App = {
       },
       options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true, ticks:{stepSize:1}}} }
     });
+  },
+
+  // 「症状3回」という集計だけでは分からない、いつ集中して起きたかを見せるための表。
+  // Chart.jsではなくCSS Gridベースの表で作る(症状の出現有無という離散データに
+  // 折れ線・棒グラフは不向きで、ヒートマップ系のプラグインも追加したくないため)。
+  // 記録のある症状だけを行として表示する(症状が多いペットで縦に埋もれないように)。
+  renderSymptomTimeline(records){
+    const wrap = document.getElementById('symptomTimelineWrap');
+    if(!wrap) return;
+    const symptoms = [...new Set(records.flatMap(r => r.symptoms || []))];
+    if(symptoms.length === 0){
+      wrap.innerHTML = '<div class="empty">この期間に記録された症状はありません</div>';
+      return;
+    }
+    const header = `<tr><th class="symptom-row-label"></th>${records.map(r => `<th>${fmtDate(r.date).slice(5)}</th>`).join('')}</tr>`;
+    const rows = symptoms.map(s => {
+      const cells = records.map(r => `<td>${(r.symptoms||[]).includes(s) ? '<span class="symptom-dot"></span>' : ''}</td>`).join('');
+      return `<tr><td class="symptom-row-label">${s}</td>${cells}</tr>`;
+    }).join('');
+    wrap.innerHTML = `<div class="symptom-timeline-scroll"><table class="symptom-timeline-table">${header}${rows}</table></div>`;
   },
 
   renderExportTab(){
