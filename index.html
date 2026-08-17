@@ -2212,13 +2212,21 @@ const App = {
     const weightData = records.filter(r => r.weight != null);
     let chartImg = '';
     if(weightData.length > 0){
-      const tmpChart = new Chart(tmpCanvas, {
-        type:'line',
-        data:{ labels: weightData.map(r=>fmtDate(r.date)), datasets:[{label:'体重(kg)', data: weightData.map(r=>r.weight), borderColor:'#FB923C', backgroundColor:'rgba(251,146,60,0.15)', fill:true, tension:0.25}] },
-        options:{ responsive:false, animation:false, plugins:{legend:{display:true}} }
-      });
-      chartImg = tmpChart.toBase64Image();
-      tmpChart.destroy();
+      try{
+        const tmpChart = new Chart(tmpCanvas, {
+          type:'line',
+          data:{ labels: weightData.map(r=>fmtDate(r.date)), datasets:[{label:'体重(kg)', data: weightData.map(r=>r.weight), borderColor:'#FB923C', backgroundColor:'rgba(251,146,60,0.15)', fill:true, tension:0.25}] },
+          options:{ responsive:false, animation:false, plugins:{legend:{display:true}} }
+        });
+        // animation:falseでもChart.jsの実際の描画は次の描画フレームにずれ込むことがあり、
+        // 稀にtoBase64Image()が「まだ何も描かれていないキャンバス」を読んでしまい、
+        // グラフだけ抜け落ちて見えることがあった。2回分の描画フレームを待ってから読む。
+        await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+        chartImg = tmpChart.toBase64Image();
+        tmpChart.destroy();
+      } catch(err){
+        console.error('chart generation for report failed', err);
+      }
     }
     document.body.removeChild(tmpCanvas);
 
