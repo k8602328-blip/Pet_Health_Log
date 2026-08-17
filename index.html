@@ -280,10 +280,8 @@
         <div class="field"><label>飲水量</label>
           <select id="rWater" onchange="App.updateOptionHint('rWater', WATER_OPTIONS)">
             <option value="いつも通り">いつも通り</option>
-            <option value="やや多い">やや多い</option>
-            <option value="かなり多い">かなり多い</option>
             <option value="少ない">少ない</option>
-            <option value="不明">不明</option>
+            <option value="多い">多い</option>
           </select>
           <p class="option-hint" id="rWaterHint"></p>
         </div>
@@ -564,16 +562,19 @@ const FECAL_SCALE = [
 // 長文の値は*_LEGACY_MAPで表示時にラベルへ変換する(データの移行は行わない)。
 const WATER_OPTIONS = [
   { v:'いつも通り', desc:'' },
-  { v:'やや多い', desc:'いつもより少し多い気がする' },
-  { v:'かなり多い', desc:'お皿がすぐ空になる・何度も飲みに行く' },
-  { v:'少ない', desc:'いつもより飲む量が少ない' },
-  { v:'不明', desc:'' }
+  { v:'少ない', desc:'' },
+  { v:'多い', desc:'' }
 ];
+// 5択(やや多い/かなり多いの2段階)だった時期を経て、最終的に3択に統一した。
+// 過去の長文値・その5択時代の短いラベルの両方をここでまとめて3択へ変換する。
 const WATER_LEGACY_MAP = {
-  '心なしか多い気がする': 'やや多い',
-  '明らかに多い(お皿がすぐ空になる/何度も飲みに行く)': 'かなり多い',
+  '心なしか多い気がする': '多い',
+  '明らかに多い(お皿がすぐ空になる/何度も飲みに行く)': '多い',
+  'やや多い': '多い',
+  'かなり多い': '多い',
   'あまり飲んでいない': '少ない',
-  'わからない': '不明'
+  'わからない': 'いつも通り',
+  '不明': 'いつも通り'
 };
 function waterLabel(v){ return WATER_LEGACY_MAP[v] || v; }
 
