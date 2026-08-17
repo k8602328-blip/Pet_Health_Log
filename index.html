@@ -102,6 +102,10 @@
   .status-timeline-table th,.status-timeline-table td{padding:5px 7px;text-align:center;border-bottom:1px solid var(--border);white-space:nowrap;}
   .status-timeline-table th.symptom-row-label,.status-timeline-table td.symptom-row-label{text-align:left;font-weight:600;color:var(--text);padding-right:12px;position:sticky;left:0;background:var(--card);}
   .status-dot{display:inline-block;width:14px;height:14px;border-radius:4px;}
+  .stool-legend{margin-top:10px;max-width:320px;}
+  .stool-legend-row{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;}
+  .stool-legend-swatch{height:18px;border-radius:4px;}
+  .stool-legend-labels{margin-top:4px;font-size:10px;color:var(--muted);text-align:center;}
   .hint{background:#FFF3CD;color:#8a6d1f;border:1px solid #F5E1A4;border-radius:8px;padding:8px 12px;font-size:12px;margin-bottom:12px;line-height:1.5;}
   .option-hint{font-size:11px;color:var(--muted);margin:3px 0 0;min-height:14px;}
   .med-card{border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px;}
@@ -605,13 +609,19 @@ const URINE_LEGACY_MAP = {
 };
 function urineLabel(v){ return URINE_LEGACY_MAP[v] || v; }
 
-// 日々の状態タイムライン用の色分け。飲水・尿は「いつも通りが基準、外れるほど別の色」、
-// 便は「3が理想でそこから硬め側・軟らかい側のどちらに離れているか」で色相自体を変える
-// (1〜7を単純な緑→赤のグラデーションにすると『数字が大きい=悪い』という誤解を招くため)。
-function waterUrineDotColor(label){
-  if(label === '多い') return '#F0A868';
-  if(label === '少ない') return '#7FB3D5';
-  return '#8FBF8F'; // いつも通り
+// 日々の状態タイムライン用の色分け。便は「3が理想でそこから硬め側・軟らかい側の
+// どちらに離れているか」で色相自体を変える(1〜7を単純な緑→赤のグラデーションに
+// すると『数字が大きい=悪い』という誤解を招くため)。飲水・尿は項目ごとに直感的な
+// 色(飲水=水色系、尿=黄色系)の濃淡で「いつも通り/少ない/多い」を表す。
+function waterDotColor(label){
+  if(label === '多い') return '#2E6DA4';
+  if(label === '少ない') return '#C9E8F5';
+  return '#7EC8E3'; // いつも通り
+}
+function urineDotColor(label){
+  if(label === '多い') return '#B8930C';
+  if(label === '少ない') return '#F2E4A0';
+  return '#E0C34A'; // いつも通り
 }
 const STOOL_DOT_COLORS = { 1:'#B08D57', 2:'#D8B978', 3:'#8FBF8F', 4:'#F5C99B', 5:'#F0A868', 6:'#E4834B', 7:'#E4634F' };
 function stoolDotColor(v){ return STOOL_DOT_COLORS[Number(v)] || 'transparent'; }
@@ -2188,9 +2198,14 @@ const App = {
       <div class="card">
         <h3>日々の状態(飲水・便・尿)</h3>
         <div id="dailyStatusTimelineWrap"></div>
-        <p class="muted" style="font-size:11px;margin-top:8px;">
-          便は緑=理想(3)、茶系=硬め(1〜2)、オレンジ〜赤系=軟らかい(4〜7、色が濃いほど水様に近い)。数字が大きい=悪い、という単純な尺度ではありません。
-        </p>
+        <div class="stool-legend">
+          <div class="stool-legend-row">
+            ${[1,2,3,4,5,6,7].map(n => `<div class="stool-legend-swatch" style="background:${stoolDotColor(n)}"></div>`).join('')}
+          </div>
+          <div class="stool-legend-row stool-legend-labels">
+            ${[1,2,3,4,5,6,7].map(n => `<span>${{1:'1:硬い',3:'3:正常',5:'5:軟便',7:'7:水様'}[n] || ''}</span>`).join('')}
+          </div>
+        </div>
       </div>
       <div class="card">
         <h3>症状タイムライン</h3>
@@ -2299,9 +2314,9 @@ const App = {
     }
     const header = `<tr><th class="symptom-row-label"></th>${records.map(r => `<th>${fmtDate(r.date).slice(5)}</th>`).join('')}</tr>`;
     const rowsHtml = [
-      { label:'飲水', cell:r => waterUrineDotColor(waterLabel(r.water)) },
+      { label:'飲水', cell:r => waterDotColor(waterLabel(r.water)) },
       { label:'便', cell:r => r.stool != null && r.stool !== '' ? stoolDotColor(r.stool) : null },
-      { label:'尿', cell:r => waterUrineDotColor(urineLabel(r.urine)) }
+      { label:'尿', cell:r => urineDotColor(urineLabel(r.urine)) }
     ].map(row => {
       const cells = records.map(r => {
         const color = row.cell(r);
