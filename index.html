@@ -635,6 +635,25 @@ function uid(){ return Date.now().toString(36) + Math.random().toString(36).slic
 let lastReportPrintAt = 0;
 const REPORT_PRINT_GRACE_MS = 60 * 1000;
 
+// Chart.jsのanimation:falseは即座に描画されることが多いが、そのセッションで
+// 最初にグラフを作る時だけ(ライブラリ内部の初期化コストのためか)描画が遅れ、
+// 固定の短い待ち時間では間に合わずグラフだけ空欄になることがあった。
+// 決め打ちの時間で待つのではなく、実際にキャンバスへ何か描かれるまで
+// (最大maxWaitMsまで)ポーリングして確認する。
+async function waitForCanvasPaint(canvas, maxWaitMs = 1000){
+  const ctx = canvas.getContext('2d');
+  const start = Date.now();
+  let delay = 30;
+  while(Date.now() - start < maxWaitMs){
+    await new Promise(resolve => setTimeout(resolve, delay));
+    const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+    for(let i = 3; i < data.length; i += 4 * 37){
+      if(data[i] !== 0) return; // アルファ値が0でないピクセルが見つかった = 何か描かれている
+    }
+    delay = Math.min(delay * 2, 200);
+  }
+}
+
 let messagingScriptPromise = null;
 // 投薬リマインダー通知を実際に使う人だけがfirebase-messaging-compat.jsを読み込む。
 function loadMessagingScript(){
@@ -2270,13 +2289,7 @@ const App = {
           data:{ labels: weightData.map(r=>fmtDate(r.date)), datasets:[{label:'体重(kg)', data: weightData.map(r=>r.weight), borderColor:'#FB923C', backgroundColor:'rgba(251,146,60,0.15)', fill:true, tension:0.25}] },
           options:{ responsive:false, animation:false, plugins:{legend:{display:true}} }
         });
-        // animation:falseでもChart.jsの実際の描画は次の描画フレームにずれ込むことがあり、
-        // 稀にtoBase64Image()が「まだ何も描かれていないキャンバス」を読んでしまい、
-        // グラフだけ抜け落ちて見えることがあった。ここは当初requestAnimationFrameで
-        // 待っていたが、rAFはタブがバックグラウンドに回ると発火が止まってしまい、
-        // 印刷中にアプリを切り替えられただけで処理が固まる方が実害が大きいと判明したため、
-        // バックグラウンドでも動くsetTimeoutに変更している。
-        await new Promise(resolve => setTimeout(resolve, 50));
+        await waitForCanvasPaint(tmpCanvas);
         chartImg = tmpChart.toBase64Image();
         tmpChart.destroy();
       } catch(err){
