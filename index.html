@@ -170,12 +170,16 @@
   }
 
   @media print{
+    /* Chromeは既定で背景色・背景画像を印刷しない(印刷ダイアログの「背景のグラフィック」
+       設定に依存する)。Safariとの見た目の差が出ないよう、常に出力させる。 */
+    *{-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;}
     body *{visibility:hidden;}
     #printArea, #printArea *{visibility:visible;}
     #printArea{display:block;position:absolute;top:0;left:0;width:100%;padding:20px;}
     #printArea h1{font-size:20px;}
     #printArea table{width:100%;border-collapse:collapse;font-size:12px;}
     #printArea th,#printArea td{border:1px solid #ccc;padding:5px;}
+    #printArea .memo-row td{background:#FAF6EF;font-style:italic;color:#5c5148;}
   }
 </style>
 </head>
@@ -2210,19 +2214,25 @@ const App = {
     document.body.removeChild(tmpCanvas);
 
     const showCibdai = pet.trackCibdai;
+    // メモは同じ行の1列に詰めると長文で列が崩れるため、書かれている日だけ2段目に
+    // 全幅で表示する(仕様はユーザー提供のレイアウト案に準拠)。tbodyで1レコード分を
+    // まとめてbreak-inside:avoidを付け、ページまたぎで記録が分断されるのをできるだけ防ぐ。
+    const colCount = showCibdai ? 9 : 8;
     const rowsHtml = records.map(r => `
-      <tr>
-        <td>${fmtDate(r.date)}</td>
-        <td>${r.weight ? r.weight+'kg' : '-'}</td>
-        <td>${r.appetite}</td>
-        <td>${r.water}</td>
-        <td>${stoolLabel(r.stool)}</td>
-        <td>${r.urine}</td>
-        <td>${(r.symptoms||[]).join('、') || '-'}</td>
-        ${showCibdai ? `<td>${r.cibdai ? cibdaiTotal(r.cibdai) + '点(' + cibdaiSeverity(cibdaiTotal(r.cibdai)) + ')' : '-'}</td>` : ''}
-        <td>${medsGivenTags(r.medsGiven).map(t => `${t.label}(${t.given}/${t.total})`).join('、') || '-'}</td>
-        <td>${r.memo || ''}</td>
-      </tr>
+      <tbody style="break-inside:avoid;page-break-inside:avoid;">
+        <tr>
+          <td>${fmtDate(r.date)}</td>
+          <td>${r.weight ? r.weight+'kg' : '-'}</td>
+          <td>${r.appetite}</td>
+          <td>${r.water}</td>
+          <td>${stoolLabel(r.stool)}</td>
+          <td>${r.urine}</td>
+          <td>${(r.symptoms||[]).join('、') || '-'}</td>
+          ${showCibdai ? `<td>${r.cibdai ? cibdaiTotal(r.cibdai) + '点(' + cibdaiSeverity(cibdaiTotal(r.cibdai)) + ')' : '-'}</td>` : ''}
+          <td>${medsGivenTags(r.medsGiven).map(t => `${t.label}(${t.given}/${t.total})`).join('、') || '-'}</td>
+        </tr>
+        ${r.memo ? `<tr class="memo-row"><td colspan="${colCount}">📝 ${r.memo}</td></tr>` : ''}
+      </tbody>
     `).join('');
 
     const meds = petMedications();
@@ -2285,7 +2295,7 @@ const App = {
       ${prevsHtml}
       <h2 style="font-size:15px;margin-top:18px;">日々の記録</h2>
       <table>
-        <tr><th>日付</th><th>体重</th><th>食欲</th><th>飲水</th><th>便(スコア)</th><th>尿</th><th>症状</th>${showCibdai ? '<th>CIBDAI</th>' : ''}<th>投薬</th><th>メモ</th></tr>
+        <tr><th>日付</th><th>体重</th><th>食欲</th><th>飲水</th><th>便(スコア)</th><th>尿</th><th>症状</th>${showCibdai ? '<th>CIBDAI</th>' : ''}<th>投薬</th></tr>
         ${rowsHtml}
       </table>
     `;
