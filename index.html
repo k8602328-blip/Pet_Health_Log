@@ -651,6 +651,7 @@ let state = {
   reminderTimesDraft: [],
   chartRange: 30,
   weightChart: null,
+  appetiteChart: null,
   symptomChart: null,
   entitlements: null,
   linkedOwnerUid: null,
@@ -2161,6 +2162,10 @@ const App = {
         <div class="chart-wrap"><canvas id="weightChartCanvas"></canvas></div>
       </div>
       <div class="card">
+        <h3>食欲の推移</h3>
+        <div class="chart-wrap"><canvas id="appetiteChartCanvas"></canvas></div>
+      </div>
+      <div class="card">
         <h3>症状の出現回数</h3>
         <div class="chart-wrap"><canvas id="symptomChartCanvas"></canvas></div>
       </div>
@@ -2202,6 +2207,31 @@ const App = {
         }]
       },
       options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}} }
+    });
+
+    // 食欲は過去の質的ラベル(良好/普通/不良/絶食)のままの記録もあるため、
+    // 表示と同じくappetiteValue()で数値ラベルへ変換してからグラフ化する。
+    const appetiteData = records.filter(r => r.appetite != null && r.appetite !== '');
+    const aCtx = document.getElementById('appetiteChartCanvas');
+    if(state.appetiteChart) state.appetiteChart.destroy();
+    state.appetiteChart = new Chart(aCtx, {
+      type: 'line',
+      data: {
+        labels: appetiteData.map(r => fmtDate(r.date)),
+        datasets: [{
+          label: '食欲',
+          data: appetiteData.map(r => Number(appetiteValue(r.appetite))),
+          borderColor: '#D4A03C',
+          backgroundColor: 'rgba(212,160,60,0.15)',
+          tension: 0.25,
+          fill: true,
+          pointRadius: 3
+        }]
+      },
+      options: {
+        responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}},
+        scales:{ y:{ min:0, max:100, ticks:{ stepSize:25, callback:v => v+'%' } } }
+      }
     });
 
     const symptomCounts = {};
