@@ -93,6 +93,8 @@
   .actions-cell button{padding:4px 8px;font-size:12px;margin-right:4px;}
   .muted{color:var(--muted);font-size:12px;}
   .chart-wrap{position:relative;height:280px;margin-bottom:10px;}
+  .med-chart-wrap{position:relative;height:36px;margin:-6px 0 10px;}
+  .med-chart-label{font-size:11px;color:var(--muted);margin:0 0 2px;}
   .hint{background:#FFF3CD;color:#8a6d1f;border:1px solid #F5E1A4;border-radius:8px;padding:8px 12px;font-size:12px;margin-bottom:12px;line-height:1.5;}
   .option-hint{font-size:11px;color:var(--muted);margin:3px 0 0;min-height:14px;}
   .med-card{border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px;}
@@ -652,6 +654,8 @@ let state = {
   chartRange: 30,
   weightChart: null,
   appetiteChart: null,
+  weightMedChart: null,
+  appetiteMedChart: null,
   symptomChart: null,
   entitlements: null,
   linkedOwnerUid: null,
@@ -916,6 +920,11 @@ function medsGivenTags(medsGiven){
     const given = doses.filter(Boolean).length;
     return { label: medLabel(m), given, total, complete: total > 0 && given >= total };
   }).filter(Boolean);
+}
+// グラフの投薬イベント表示用。その日にどれか1回でも服用チェックが入っていればtrue。
+function recordHasMedGiven(r){
+  const mg = r.medsGiven || {};
+  return Object.values(mg).some(doses => Array.isArray(doses) && doses.some(Boolean));
 }
 function fmtDate(d){
   const dt = new Date(d + 'T00:00:00');
@@ -2160,10 +2169,14 @@ const App = {
           </select>
         </div>
         <div class="chart-wrap"><canvas id="weightChartCanvas"></canvas></div>
+        <p class="med-chart-label">💊 投薬記録</p>
+        <div class="med-chart-wrap"><canvas id="weightMedChartCanvas"></canvas></div>
       </div>
       <div class="card">
         <h3>食欲の推移</h3>
         <div class="chart-wrap"><canvas id="appetiteChartCanvas"></canvas></div>
+        <p class="med-chart-label">💊 投薬記録</p>
+        <div class="med-chart-wrap"><canvas id="appetiteMedChartCanvas"></canvas></div>
       </div>
       <div class="card">
         <h3>症状の出現回数</h3>
@@ -2189,16 +2202,21 @@ const App = {
   drawCharts(){
     const records = this.filterByRange(petRecords(), state.chartRange).slice().sort((a,b)=> a.date < b.date ? -1 : 1);
 
-    const weightData = records.filter(r => r.weight != null);
+    // 体重・食欲・投薬マーカーの3つのグラフで日付の並びを揃えるため、
+    // 「体重がある日だけ」のような絞り込みはせず、範囲内の全記録の日付を
+    // 共通のラベルとして使う(値が無い日はnullにして、線をそこで途切れさせる)。
+    const rangeLabels = records.map(r => fmtDate(r.date));
+    const medDays = records.map(r => recordHasMedGiven(r) ? 1 : null);
+
     const wCtx = document.getElementById('weightChartCanvas');
     if(state.weightChart) state.weightChart.destroy();
     state.weightChart = new Chart(wCtx, {
       type: 'line',
       data: {
-        labels: weightData.map(r => fmtDate(r.date)),
+        labels: rangeLabels,
         datasets: [{
           label: '体重 (kg)',
-          data: weightData.map(r => r.weight),
+          data: records.map(r => r.weight ?? null),
           borderColor: '#FB923C',
           backgroundColor: 'rgba(251,146,60,0.15)',
           tension: 0.25,
@@ -2208,19 +2226,19 @@ const App = {
       },
       options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}} }
     });
+    this.drawMedMarkerChart('weightMedChartCanvas', 'weightMedChart', rangeLabels, medDays, records);
 
     // 食欲は過去の質的ラベル(良好/普通/不良/絶食)のままの記録もあるため、
     // 表示と同じくappetiteValue()で数値ラベルへ変換してからグラフ化する。
-    const appetiteData = records.filter(r => r.appetite != null && r.appetite !== '');
     const aCtx = document.getElementById('appetiteChartCanvas');
     if(state.appetiteChart) state.appetiteChart.destroy();
     state.appetiteChart = new Chart(aCtx, {
       type: 'line',
       data: {
-        labels: appetiteData.map(r => fmtDate(r.date)),
+        labels: rangeLabels,
         datasets: [{
           label: '食欲',
-          data: appetiteData.map(r => Number(appetiteValue(r.appetite))),
+          data: records.map(r => (r.appetite != null && r.appetite !== '') ? Number(appetiteValue(r.appetite)) : null),
           borderColor: '#D4A03C',
           backgroundColor: 'rgba(212,160,60,0.15)',
           tension: 0.25,
@@ -2233,6 +2251,7 @@ const App = {
         scales:{ y:{ min:0, max:100, ticks:{ stepSize:25, callback:v => v+'%' } } }
       }
     });
+    this.drawMedMarkerChart('appetiteMedChartCanvas', 'appetiteMedChart', rangeLabels, medDays, records);
 
     const symptomCounts = {};
     records.forEach(r => (r.symptoms||[]).forEach(s => symptomCounts[s] = (symptomCounts[s]||0) + 1));
@@ -2250,6 +2269,48 @@ const App = {
         }]
       },
       options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true, ticks:{stepSize:1}}} }
+    });
+  },
+
+  // 体重・食欲などの推移グラフの直下に、投薬した日を小さなマーカーの行として重ねる。
+  // 「投薬回数のグラフ」ではなく、あくまで治療のタイミングを時系列で参照するための表示。
+  drawMedMarkerChart(canvasId, stateKey, labels, medDays, records){
+    const ctx = document.getElementById(canvasId);
+    if(state[stateKey]) state[stateKey].destroy();
+    state[stateKey] = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          data: medDays,
+          showLine: false,
+          pointStyle: 'rectRounded',
+          pointRadius: 6,
+          pointHoverRadius: 7,
+          backgroundColor: '#5FA8A0',
+          borderColor: '#5FA8A0'
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              title: items => items.length ? labels[items[0].dataIndex] : '',
+              label: item => {
+                const r = records[item.dataIndex];
+                const tags = medsGivenTags(r.medsGiven).filter(t => t.given > 0);
+                return tags.length ? `💊 ${tags.map(t => t.label).join('、')}` : '💊 服用あり';
+              }
+            }
+          }
+        },
+        scales: {
+          x: { display: false },
+          y: { display: false, min: 0, max: 1 }
+        }
+      }
     });
   },
 
