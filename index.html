@@ -2891,6 +2891,22 @@ const App = {
         ${rowsHtml}
       </table>
     `;
+      // base64画像自体はすでに出来上がっていても、<img>要素がその中身を実際に
+      // デコードし終える前にwindow.print()を呼ぶと、セッションで最初の印刷時だけ
+      // グラフの画像欄が空白のまま出力されることがあった(コンソールにエラーは出ない、
+      // 単に印刷のスナップショットが画像デコード完了に間に合っていないだけのため)。
+      // img.decode()で「描画してよい状態になった」ことを明示的に待ってから印刷する。
+      // ただしdecode()自体がブラウザ環境によっては解決しないまま止まることがあるため、
+      // 1枚あたり最大1.5秒でタイムアウトさせ、印刷そのものが止まってしまわないようにする。
+      await Promise.all(
+        [...document.querySelectorAll('#printArea img')].map(img => {
+          if(!img.decode) return Promise.resolve();
+          return Promise.race([
+            img.decode().catch(() => {}),
+            new Promise(resolve => setTimeout(resolve, 1500))
+          ]);
+        })
+      );
       window.print();
       lastReportPrintAt = Date.now();
       // window.print()はモバイルでは呼んだ直後にJSへ戻ってしまい、実際の印刷画面が
