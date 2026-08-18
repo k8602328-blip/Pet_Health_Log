@@ -195,6 +195,15 @@
     #printArea table{width:100%;border-collapse:collapse;font-size:12px;}
     #printArea th,#printArea td{border:1px solid #ccc;padding:5px;}
     #printArea .memo-row td{background:#FAF6EF;font-style:italic;color:#5c5148;}
+    /* 日々の状態・症状タイムラインは日付ぶん横に長い表になりやすい(最大31列)。
+       印刷では横スクロールが効かないため、ここだけ文字と余白を詰めて
+       できるだけ1ページの横幅に収まるようにする。それでも収まらない場合は
+       印刷ダイアログで「横向き」を選ぶよう出力画面の案内文で伝えている。 */
+    #printArea .symptom-timeline-scroll{overflow:visible;}
+    #printArea .status-timeline-table,#printArea .symptom-timeline-table{font-size:8px;width:auto;}
+    #printArea .status-timeline-table th,#printArea .status-timeline-table td,
+    #printArea .symptom-timeline-table th,#printArea .symptom-timeline-table td{padding:2px 3px;border:1px solid #ddd;}
+    #printArea .status-legend{max-width:100%;}
   }
 </style>
 </head>
@@ -647,6 +656,75 @@ function urineDotColor(label){
 const STOOL_DOT_COLORS = { 1:'#000000', 2:'#462D16', 3:'#8B5A2B', 4:'#A67E56', 5:'#C0A282', 6:'#DBC5AD', 7:'#F5E9D8' };
 function stoolDotColor(v){ return STOOL_DOT_COLORS[Number(v)] || 'transparent'; }
 
+// グラフタブとPDFレポートの両方で使う「日々の状態(飲水・便・尿)」表のHTML。
+function buildDailyStatusTimelineHtml(records){
+  if(records.length === 0){
+    return '<div class="empty">この期間の記録がありません</div>';
+  }
+  const header = `<tr><th class="symptom-row-label"></th>${records.map(r => `<th>${fmtDate(r.date).slice(5)}</th>`).join('')}</tr>`;
+  const rowsHtml = [
+    { label:'飲水', cell:r => waterDotColor(waterLabel(r.water)) },
+    { label:'便', cell:r => r.stool != null && r.stool !== '' ? stoolDotColor(r.stool) : null },
+    { label:'尿', cell:r => urineDotColor(urineLabel(r.urine)) }
+  ].map(row => {
+    const cells = records.map(r => {
+      const color = row.cell(r);
+      return `<td>${color ? `<span class="status-dot" style="background:${color};"></span>` : ''}</td>`;
+    }).join('');
+    return `<tr><td class="symptom-row-label">${row.label}</td>${cells}</tr>`;
+  }).join('');
+  return `<div class="symptom-timeline-scroll"><table class="status-timeline-table">${header}${rowsHtml}</table></div>`;
+}
+
+// 日々の状態タイムラインの下に添える便・飲水量・尿量の色見本。グラフタブとPDFで共通。
+function buildStatusLegendHtml(){
+  return `
+    <div class="status-legend">
+      <div>
+        <div class="status-legend-title">便</div>
+        <div class="status-legend-row" style="grid-template-columns:repeat(7,1fr);">
+          ${[1,2,3,4,5,6,7].map(n => `<div class="status-legend-swatch" style="background:${stoolDotColor(n)}"></div>`).join('')}
+        </div>
+        <div class="status-legend-row status-legend-labels" style="grid-template-columns:repeat(7,1fr);">
+          ${[1,2,3,4,5,6,7].map(n => `<span>${{1:'1:硬い',3:'3:正常',5:'5:軟便',7:'7:水様'}[n] || ''}</span>`).join('')}
+        </div>
+      </div>
+      <div>
+        <div class="status-legend-title">飲水量</div>
+        <div class="status-legend-row" style="grid-template-columns:repeat(3,1fr);">
+          ${['少ない','いつも通り','多い'].map(l => `<div class="status-legend-swatch" style="background:${waterDotColor(l)}"></div>`).join('')}
+        </div>
+        <div class="status-legend-row status-legend-labels" style="grid-template-columns:repeat(3,1fr);">
+          ${['少ない','いつも通り','多い'].map(l => `<span>${l}</span>`).join('')}
+        </div>
+      </div>
+      <div>
+        <div class="status-legend-title">尿量</div>
+        <div class="status-legend-row" style="grid-template-columns:repeat(3,1fr);">
+          ${['少ない','いつも通り','多い'].map(l => `<div class="status-legend-swatch" style="background:${urineDotColor(l)}"></div>`).join('')}
+        </div>
+        <div class="status-legend-row status-legend-labels" style="grid-template-columns:repeat(3,1fr);">
+          ${['少ない','いつも通り','多い'].map(l => `<span>${l}</span>`).join('')}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// グラフタブとPDFレポートの両方で使う「症状タイムライン」表のHTML。
+function buildSymptomTimelineHtml(records){
+  const symptoms = [...new Set(records.flatMap(r => r.symptoms || []))];
+  if(symptoms.length === 0){
+    return '<div class="empty">この期間に記録された症状はありません</div>';
+  }
+  const header = `<tr><th class="symptom-row-label"></th>${records.map(r => `<th>${fmtDate(r.date).slice(5)}</th>`).join('')}</tr>`;
+  const rows = symptoms.map(s => {
+    const cells = records.map(r => `<td>${(r.symptoms||[]).includes(s) ? '<span class="symptom-dot"></span>' : ''}</td>`).join('');
+    return `<tr><td class="symptom-row-label">${s}</td>${cells}</tr>`;
+  }).join('');
+  return `<div class="symptom-timeline-scroll"><table class="symptom-timeline-table">${header}${rows}</table></div>`;
+}
+
 // 食欲は「良好/普通/不良/絶食」という主観的な質のラベルから、「普段(100%)に対して
 // 今どれくらい食べているか」という割合ベースの選択肢に変更した。数値なので体重と
 // 同じように将来グラフ化もできる。既存記録の質的ラベルは順序を保ったまま
@@ -727,7 +805,10 @@ const REPORT_PRINT_GRACE_MS = 60 * 1000;
 // 固定の短い待ち時間では間に合わずグラフだけ空欄になることがあった。
 // 決め打ちの時間で待つのではなく、実際にキャンバスへ何か描かれるまで
 // (最大maxWaitMsまで)ポーリングして確認する。
-async function waitForCanvasPaint(canvas, maxWaitMs = 1000){
+// PDFレポートは1回の出力で最大3枚(体重・食欲・お散歩)を続けて生成するため、
+// 特に1枚目でこの遅延が起きやすい。出力ボタン側で「数十秒かかる場合がある」と
+// 案内済みなので、ここは短く諦めず長めに待つ(既定1000msでは不十分だった実績あり)。
+async function waitForCanvasPaint(canvas, maxWaitMs = 4000){
   const ctx = canvas.getContext('2d');
   const start = Date.now();
   let delay = 30;
@@ -735,10 +816,12 @@ async function waitForCanvasPaint(canvas, maxWaitMs = 1000){
     await new Promise(resolve => setTimeout(resolve, delay));
     const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
     for(let i = 3; i < data.length; i += 4 * 37){
-      if(data[i] !== 0) return; // アルファ値が0でないピクセルが見つかった = 何か描かれている
+      if(data[i] !== 0) return true; // アルファ値が0でないピクセルが見つかった = 何か描かれている
     }
     delay = Math.min(delay * 2, 200);
   }
+  console.warn('waitForCanvasPaint: timed out without detecting a painted pixel', { maxWaitMs, width: canvas.width, height: canvas.height });
+  return false;
 }
 
 let messagingScriptPromise = null;
@@ -2026,13 +2109,15 @@ const App = {
 
     const subscribed = !!(state.entitlements && state.entitlements.subscriptionActive);
     const weeklySummary = subscribed ? analyzeWeeklySummary(records) : null;
-    const trendCardHtml = !weeklySummary ? '' : `
+    const trendCardHtml = weeklySummary ? `
       <div class="card" style="border:1px solid ${weeklySummary.level === 'concern' ? 'var(--danger)' : 'var(--border)'};">
         <h3 style="margin:0 0 8px;">${weeklySummary.level === 'concern' ? '⚠️ ' : ''}今週のようす</h3>
         <p style="margin:0;">${weeklySummary.text}</p>
         <p class="hint" style="margin-top:8px;">※診断ではなく、記録の変化をお知らせする目安です。気になる場合は獣医師にご相談ください。</p>
       </div>
-    `;
+    ` : (subscribed ? '' : `
+      <p class="muted" style="font-size:12px;margin:0 0 12px;">週次の体調傾向分析(今週のようす)は治療サポートプランで利用できます。 <button type="button" class="ghost" style="padding:1px 6px;font-size:11px;" onclick="App.openUpgradeModal();">アップグレードを見る</button></p>
+    `);
 
     main.innerHTML = `
       ${trendCardHtml}
@@ -2327,35 +2412,7 @@ const App = {
       <div class="card">
         <h3>日々の状態(飲水・便・尿)</h3>
         <div id="dailyStatusTimelineWrap"></div>
-        <div class="status-legend">
-          <div>
-            <div class="status-legend-title">便</div>
-            <div class="status-legend-row" style="grid-template-columns:repeat(7,1fr);">
-              ${[1,2,3,4,5,6,7].map(n => `<div class="status-legend-swatch" style="background:${stoolDotColor(n)}"></div>`).join('')}
-            </div>
-            <div class="status-legend-row status-legend-labels" style="grid-template-columns:repeat(7,1fr);">
-              ${[1,2,3,4,5,6,7].map(n => `<span>${{1:'1:硬い',3:'3:正常',5:'5:軟便',7:'7:水様'}[n] || ''}</span>`).join('')}
-            </div>
-          </div>
-          <div>
-            <div class="status-legend-title">飲水量</div>
-            <div class="status-legend-row" style="grid-template-columns:repeat(3,1fr);">
-              ${['少ない','いつも通り','多い'].map(l => `<div class="status-legend-swatch" style="background:${waterDotColor(l)}"></div>`).join('')}
-            </div>
-            <div class="status-legend-row status-legend-labels" style="grid-template-columns:repeat(3,1fr);">
-              ${['少ない','いつも通り','多い'].map(l => `<span>${l}</span>`).join('')}
-            </div>
-          </div>
-          <div>
-            <div class="status-legend-title">尿量</div>
-            <div class="status-legend-row" style="grid-template-columns:repeat(3,1fr);">
-              ${['少ない','いつも通り','多い'].map(l => `<div class="status-legend-swatch" style="background:${urineDotColor(l)}"></div>`).join('')}
-            </div>
-            <div class="status-legend-row status-legend-labels" style="grid-template-columns:repeat(3,1fr);">
-              ${['少ない','いつも通り','多い'].map(l => `<span>${l}</span>`).join('')}
-            </div>
-          </div>
-        </div>
+        ${buildStatusLegendHtml()}
       </div>
       <div class="card">
         <h3>症状タイムライン</h3>
@@ -2527,46 +2584,24 @@ const App = {
   // 飲水・便・尿を同じ日付軸の3行で並べ、「いつ・どの項目に変化が出たか」を
   // 色の並びで一目にできるようにする表。記録一覧のような数値/生データの表ではなく、
   // あくまで変化のタイミングを掴むためのもの(正確な値は記録一覧・カードで確認する想定)。
+  // HTML生成そのものはbuildDailyStatusTimelineHtml()に切り出してあり、グラフタブと
+  // PDFレポートの両方から同じ関数を呼んで同じ見た目を再利用する。
   renderDailyStatusTimeline(records){
     const wrap = document.getElementById('dailyStatusTimelineWrap');
     if(!wrap) return;
-    if(records.length === 0){
-      wrap.innerHTML = '<div class="empty">この期間の記録がありません</div>';
-      return;
-    }
-    const header = `<tr><th class="symptom-row-label"></th>${records.map(r => `<th>${fmtDate(r.date).slice(5)}</th>`).join('')}</tr>`;
-    const rowsHtml = [
-      { label:'飲水', cell:r => waterDotColor(waterLabel(r.water)) },
-      { label:'便', cell:r => r.stool != null && r.stool !== '' ? stoolDotColor(r.stool) : null },
-      { label:'尿', cell:r => urineDotColor(urineLabel(r.urine)) }
-    ].map(row => {
-      const cells = records.map(r => {
-        const color = row.cell(r);
-        return `<td>${color ? `<span class="status-dot" style="background:${color};"></span>` : ''}</td>`;
-      }).join('');
-      return `<tr><td class="symptom-row-label">${row.label}</td>${cells}</tr>`;
-    }).join('');
-    wrap.innerHTML = `<div class="symptom-timeline-scroll"><table class="status-timeline-table">${header}${rowsHtml}</table></div>`;
+    wrap.innerHTML = buildDailyStatusTimelineHtml(records);
   },
 
   // 「症状3回」という集計だけでは分からない、いつ集中して起きたかを見せるための表。
   // Chart.jsではなくCSS Gridベースの表で作る(症状の出現有無という離散データに
   // 折れ線・棒グラフは不向きで、ヒートマップ系のプラグインも追加したくないため)。
   // 記録のある症状だけを行として表示する(症状が多いペットで縦に埋もれないように)。
+  // HTML生成そのものはbuildSymptomTimelineHtml()に切り出してあり、グラフタブと
+  // PDFレポートの両方から同じ関数を呼んで同じ見た目を再利用する。
   renderSymptomTimeline(records){
     const wrap = document.getElementById('symptomTimelineWrap');
     if(!wrap) return;
-    const symptoms = [...new Set(records.flatMap(r => r.symptoms || []))];
-    if(symptoms.length === 0){
-      wrap.innerHTML = '<div class="empty">この期間に記録された症状はありません</div>';
-      return;
-    }
-    const header = `<tr><th class="symptom-row-label"></th>${records.map(r => `<th>${fmtDate(r.date).slice(5)}</th>`).join('')}</tr>`;
-    const rows = symptoms.map(s => {
-      const cells = records.map(r => `<td>${(r.symptoms||[]).includes(s) ? '<span class="symptom-dot"></span>' : ''}</td>`).join('');
-      return `<tr><td class="symptom-row-label">${s}</td>${cells}</tr>`;
-    }).join('');
-    wrap.innerHTML = `<div class="symptom-timeline-scroll"><table class="symptom-timeline-table">${header}${rows}</table></div>`;
+    wrap.innerHTML = buildSymptomTimelineHtml(records);
   },
 
   renderExportTab(){
@@ -2600,6 +2635,7 @@ const App = {
         <p class="hint">⏳ 出力ボタンを押してから画面が切り替わるまで、数十秒かかることがあります。押した後はそのままこの画面でお待ちください(連打しても大丈夫です)。</p>
         <p class="muted">「印刷 / PDF保存」を押すと印刷ダイアログが開きます。送信先を「PDFに保存」にすればそのままPDFファイルとして書き出せます。</p>
         <p class="muted">1回の出力範囲は最大31日間までです。それ以前の記録が必要な場合は、期間を分けて複数回出力してください。</p>
+        <p class="muted">治療サポートプランをご利用の場合、日々の状態・症状タイムラインの表は日数が多いと横に長くなります。印刷ダイアログで「横向き」を選ぶと収まりやすくなります。</p>
         <p class="muted">今月の無料出力: 残り${freeRemaining}回 / 購入した追加パック: 残り${purchasedRemaining}回</p>
       </div>
     `;
@@ -2724,6 +2760,19 @@ const App = {
         `}
       `;
 
+      // 日々の状態タイムライン・症状タイムラインもサポートプラン限定。
+      // 表はグラフタブと全く同じbuildDailyStatusTimelineHtml()/buildSymptomTimelineHtml()を
+      // 使い回すため、見た目(色分け・凡例)は画面と統一される。
+      const dailyStatusHtml = !subscribed ? '' : `
+        <h2 style="font-size:15px;margin-top:18px;">日々の状態(飲水・便・尿)</h2>
+        ${buildDailyStatusTimelineHtml(records)}
+        ${buildStatusLegendHtml()}
+      `;
+      const symptomTimelineHtml = !subscribed ? '' : `
+        <h2 style="font-size:15px;margin-top:18px;">症状タイムライン</h2>
+        ${buildSymptomTimelineHtml(records)}
+      `;
+
       const showCibdai = pet.trackCibdai;
     // メモは同じ行の1列に詰めると長文で列が崩れるため、書かれている日だけ2段目に
     // 全幅で表示する(仕様はユーザー提供のレイアウト案に準拠)。tbodyで1レコード分を
@@ -2807,6 +2856,8 @@ const App = {
         ${walkImg ? `<img src="${walkImg}" style="width:100%;max-width:600px;margin-top:10px;">` : ''}
       ` : ''}
       ${symptomCountHtml}
+      ${dailyStatusHtml}
+      ${symptomTimelineHtml}
       ${visitsHtml}
       ${medsHtml}
       ${prevsHtml}
