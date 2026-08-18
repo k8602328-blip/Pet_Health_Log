@@ -313,6 +313,11 @@
           </select>
         </div>
       </div>
+      <div class="row">
+        <div class="field" style="flex:1;"><label>お散歩の時間</label>
+          <select id="rWalk"></select>
+        </div>
+      </div>
       <div class="field">
         <label>気になる症状(複数選択可)</label>
         <div class="checks" id="rSymptoms"></div>
@@ -646,6 +651,7 @@ const APPETITE_LEGACY_MAP = {
 };
 function appetiteValue(v){ return APPETITE_LEGACY_MAP[v] || v; }
 function appetiteLabel(v){ return appetiteValue(v) + '%'; }
+function walkLabel(m){ return (m != null && m !== '') ? m + '分' : '記録なし'; }
 
 const CIBDAI_ITEMS = [
   { key:'attitude', label:'元気・活動性', options:['正常','軽度の低下','中等度の低下(活動量が目に見えて減る)','著しい低下(ぐったりしている)'] },
@@ -683,6 +689,7 @@ let state = {
   chartRange: 30,
   weightChart: null,
   appetiteChart: null,
+  walkChart: null,
   symptomChart: null,
   entitlements: null,
   linkedOwnerUid: null,
@@ -976,6 +983,7 @@ const App = {
     document.getElementById('rPhotoInput').addEventListener('change', e => this.handleRecordPhotos(e));
     this.buildSymptomChecks();
     this.buildStoolSelect();
+    this.buildWalkSelect();
     this.buildFecalGuide();
   },
 
@@ -1179,6 +1187,18 @@ const App = {
     const sel = document.getElementById('rStool');
     sel.innerHTML = FECAL_SCALE.map(f => `<option value="${f.v}">${f.title}</option>`).join('');
     sel.value = '3';
+  },
+
+  // 10分刻みで選択させる(自由入力だと「約20分」のような曖昧な値がばらつき、
+  // グラフの推移として比較しづらくなるため)。上限180分は複数回の散歩を合算しても
+  // 収まるよう余裕を持たせた目安で、厳密な上限ではない。
+  buildWalkSelect(){
+    const sel = document.getElementById('rWalk');
+    const options = ['<option value="">(未記録)</option>'];
+    for(let m = 0; m <= 180; m += 10){
+      options.push(`<option value="${m}">${m}分</option>`);
+    }
+    sel.innerHTML = options.join('');
   },
 
   buildFecalGuide(){
@@ -1463,6 +1483,7 @@ const App = {
       document.getElementById('rWater').value = waterLabel(r.water);
       document.getElementById('rStool').value = r.stool;
       document.getElementById('rUrine').value = urineLabel(r.urine);
+      document.getElementById('rWalk').value = r.walkMinutes != null ? r.walkMinutes : '';
       document.getElementById('rMemo').value = r.memo || '';
       document.querySelectorAll('#rSymptoms input').forEach(cb => {
         cb.checked = (r.symptoms || []).includes(cb.value);
@@ -1511,6 +1532,7 @@ const App = {
       water: document.getElementById('rWater').value,
       stool: document.getElementById('rStool').value,
       urine: document.getElementById('rUrine').value,
+      walkMinutes: document.getElementById('rWalk').value ? parseInt(document.getElementById('rWalk').value, 10) : null,
       symptoms,
       medsGiven,
       cibdai,
@@ -1879,6 +1901,7 @@ const App = {
               <tr><th>飲水</th><td>${waterLabel(r.water)}</td></tr>
               <tr><th>便(スコア)</th><td>${stoolLabel(r.stool)}</td></tr>
               <tr><th>尿</th><td>${urineLabel(r.urine)}</td></tr>
+              <tr><th>お散歩</th><td>${walkLabel(r.walkMinutes)}</td></tr>
               ${opts.showCibdai ? `<tr><th>CIBDAI</th><td>${r.cibdai ? cibdaiTotal(r.cibdai)+'点('+cibdaiSeverity(cibdaiTotal(r.cibdai))+')' : '-'}</td></tr>` : ''}
             ` : ''}
             <tr><th>症状</th><td>${symptoms.map(s=>`<span class="tag">${s}</span>`).join('') || '-'}</td></tr>
@@ -2021,7 +2044,7 @@ const App = {
         ${records.length === 0 ? '<div class="empty">まだ記録がありません</div>' : `
         <div class="records-table-view">
         <table>
-          <tr><th>日付</th><th>体重</th><th>食欲</th><th>飲水</th><th>便(スコア)</th><th>尿</th><th>症状</th>${showCibdai ? '<th>CIBDAI</th>' : ''}<th>投薬</th><th>メモ</th><th>写真</th><th></th></tr>
+          <tr><th>日付</th><th>体重</th><th>食欲</th><th>飲水</th><th>便(スコア)</th><th>尿</th><th>お散歩</th><th>症状</th>${showCibdai ? '<th>CIBDAI</th>' : ''}<th>投薬</th><th>メモ</th><th>写真</th><th></th></tr>
           ${records.map(r => `
             <tr>
               <td>${fmtDate(r.date)}</td>
@@ -2030,6 +2053,7 @@ const App = {
               <td>${waterLabel(r.water)}</td>
               <td>${stoolLabel(r.stool)}</td>
               <td>${urineLabel(r.urine)}</td>
+              <td>${walkLabel(r.walkMinutes)}</td>
               <td>${(r.symptoms||[]).map(s=>`<span class="tag">${s}</span>`).join('') || '-'}</td>
               ${showCibdai ? `<td>${r.cibdai ? cibdaiTotal(r.cibdai) + '点(' + cibdaiSeverity(cibdaiTotal(r.cibdai)) + ')' : '-'}</td>` : ''}
               <td>${medsGivenTags(r.medsGiven).map(t => `<span class="tag ${t.complete ? '' : 'tag-warn'}">💊 ${t.label}(${t.given}/${t.total})</span>`).join('') || '-'}</td>
@@ -2197,6 +2221,10 @@ const App = {
         <div class="chart-wrap"><canvas id="appetiteChartCanvas"></canvas></div>
       </div>
       <div class="card">
+        <h3>お散歩時間の推移</h3>
+        <div class="chart-wrap"><canvas id="walkChartCanvas"></canvas></div>
+      </div>
+      <div class="card">
         <h3>日々の状態(飲水・便・尿)</h3>
         <div id="dailyStatusTimelineWrap"></div>
         <div class="status-legend">
@@ -2299,6 +2327,29 @@ const App = {
       options: {
         responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}},
         scales:{ y:{ min:0, max:100, ticks:{ stepSize:25, callback:v => v+'%' } } }
+      }
+    });
+
+    const walkData = records.filter(r => r.walkMinutes != null);
+    const wkCtx = document.getElementById('walkChartCanvas');
+    if(state.walkChart) state.walkChart.destroy();
+    state.walkChart = new Chart(wkCtx, {
+      type: 'line',
+      data: {
+        labels: walkData.map(r => fmtDate(r.date)),
+        datasets: [{
+          label: 'お散歩(分)',
+          data: walkData.map(r => r.walkMinutes),
+          borderColor: '#5FA87A',
+          backgroundColor: 'rgba(95,168,122,0.15)',
+          tension: 0.25,
+          fill: true,
+          pointRadius: 3
+        }]
+      },
+      options: {
+        responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}},
+        scales:{ y:{ beginAtZero:true, ticks:{ callback:v => v+'分' } } }
       }
     });
 
