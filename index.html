@@ -925,13 +925,16 @@ function detectInAppBrowser(){
   return match ? match.name : null;
 }
 
+function isIosDevice(){
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+}
+
 // iPhoneのSafariはホーム画面に追加してPWAとして開かないとWeb Pushが一切機能しない
 // (通知の許可ダイアログ自体が出ない)ため、投薬リマインダー通知の案内を出し分けるのに使う。
 function needsIosHomeScreenForPush(){
-  const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
   const isStandalone = window.navigator.standalone === true
     || window.matchMedia('(display-mode: standalone)').matches;
-  return isIos && !isStandalone;
+  return isIosDevice() && !isStandalone;
 }
 
 function attachFirestoreListeners(){
@@ -2668,9 +2671,12 @@ const App = {
           <button onclick="App.printReport()">🖨 レポートを印刷 / PDF保存</button>
         </div>
         <p class="hint">⏳ 出力ボタンを押してから画面が切り替わるまで、数十秒かかることがあります。押した後はそのままこの画面でお待ちください(連打しても大丈夫です)。</p>
-        <p class="muted">「印刷 / PDF保存」を押すと印刷ダイアログが開きます。送信先を「PDFに保存」にすればそのままPDFファイルとして書き出せます。</p>
+        ${isIosDevice() ? `
+          <p class="muted">iPhoneでは印刷画面の送信先に「PDFに保存」は出てきません。 <a href="pdf-guide.html" target="_blank">iPhoneでの出力手順はこちらを参考にしてください →</a></p>
+        ` : `
+          <p class="muted">「印刷 / PDF保存」を押すと印刷ダイアログが開きます。送信先を「PDFに保存」にすればそのままPDFファイルとして書き出せます。</p>
+        `}
         <p class="muted">1回の出力範囲は最大31日間までです。それ以前の記録が必要な場合は、期間を分けて複数回出力してください。</p>
-        <p class="muted">治療サポートプランをご利用の場合、日々の状態・症状タイムラインの表は2週間ごとに区切って出力されるので、期間が長くても表が紙幅からはみ出ません。</p>
         <p class="muted">今月の無料出力: 残り${freeRemaining}回 / 購入した追加パック: 残り${purchasedRemaining}回</p>
       </div>
     `;
@@ -2933,9 +2939,22 @@ const App = {
       window.print();
       lastReportPrintAt = Date.now();
       // window.print()はモバイルでは呼んだ直後にJSへ戻ってしまい、実際の印刷画面が
-      // 出るまでにはまだ間がある。ボタンをもう少しだけ無効化したままにして、
-      // 「押しても反応しない」と誤解されて連打されるのを減らす(実害の防止は上のgrace期間側)。
-      await new Promise(resolve => setTimeout(resolve, 3000));
+      // 出るまでにはまだ間がある(数秒〜数十秒とばらつきが大きい)。固定の待ち時間だと
+      // ローディング表示が印刷画面より先に消えて「一瞬固まって元に戻った」ように見えて
+      // しまうため、印刷画面が実際に表示される直前に発火するbeforeprintイベントを
+      // 待ってから消す。beforeprintが発火しない環境向けに、念のため長めの
+      // フォールバック時間(30秒)も用意しておく。
+      await new Promise(resolve => {
+        let done = false;
+        const finish = () => {
+          if(done) return;
+          done = true;
+          window.removeEventListener('beforeprint', finish);
+          resolve();
+        };
+        window.addEventListener('beforeprint', finish, { once: true });
+        setTimeout(finish, 30000);
+      });
     } finally {
       if(printBtn){ printBtn.disabled = false; printBtn.textContent = printBtnLabel; }
       loadingOverlay.classList.add('hidden');
