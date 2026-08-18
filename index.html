@@ -102,6 +102,8 @@
   .status-timeline-table th,.status-timeline-table td{padding:5px 7px;text-align:center;border-bottom:1px solid var(--border);white-space:nowrap;}
   .status-timeline-table th.symptom-row-label,.status-timeline-table td.symptom-row-label{text-align:left;font-weight:600;color:var(--text);padding-right:12px;position:sticky;left:0;background:var(--card);}
   .status-dot{display:inline-block;width:14px;height:14px;border-radius:4px;}
+  .diet-field-label{font-size:12px;color:var(--muted);margin-bottom:2px;}
+  .diet-field-value{white-space:pre-wrap;margin-bottom:10px;}
   .status-legend{margin-top:10px;max-width:320px;display:flex;flex-direction:column;gap:12px;}
   .status-legend-title{font-size:12px;font-weight:600;color:var(--text);margin-bottom:4px;}
   .status-legend-row{display:grid;gap:4px;}
@@ -266,6 +268,21 @@
       <div class="row" style="justify-content:flex-end;margin-top:8px;">
         <button type="button" class="ghost" onclick="App.closePetModal()">キャンセル</button>
         <button type="submit">登録する</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div id="dietModalBackdrop" class="modal-backdrop hidden">
+  <div class="modal">
+    <h3>現在の食事を編集</h3>
+    <form id="dietForm">
+      <div class="field"><label>メインの食事</label><textarea id="dietMain" rows="2" placeholder="例: ○○ドライフード 1日80g"></textarea></div>
+      <div class="field"><label>トッピング</label><textarea id="dietTopping" rows="2" placeholder="例: ゆでささみ、かぼちゃ"></textarea></div>
+      <div class="field"><label>おやつ</label><textarea id="dietTreats" rows="2" placeholder="例: 市販のジャーキー 少量"></textarea></div>
+      <div class="row" style="justify-content:flex-end;margin-top:8px;">
+        <button type="button" class="ghost" onclick="App.closeDietModal()">キャンセル</button>
+        <button type="submit">保存する</button>
       </div>
     </form>
   </div>
@@ -974,6 +991,7 @@ function ageString(birthday){
 const App = {
   wireEvents(){
     document.getElementById('petForm').addEventListener('submit', e => this.submitPet(e));
+    document.getElementById('dietForm').addEventListener('submit', e => this.submitDiet(e));
     document.getElementById('recordForm').addEventListener('submit', e => this.submitRecord(e));
     document.getElementById('medForm').addEventListener('submit', e => this.submitMed(e));
     document.getElementById('prevForm').addEventListener('submit', e => this.submitPrev(e));
@@ -1328,6 +1346,29 @@ const App = {
   closePetModal(){
     document.getElementById('petModalBackdrop').classList.add('hidden');
     document.getElementById('petForm').reset();
+  },
+
+  openDietModal(){
+    const pet = currentPet();
+    if(!pet) return;
+    document.getElementById('dietMain').value = pet.dietMain || '';
+    document.getElementById('dietTopping').value = pet.dietTopping || '';
+    document.getElementById('dietTreats').value = pet.dietTreats || '';
+    document.getElementById('dietModalBackdrop').classList.remove('hidden');
+  },
+  closeDietModal(){
+    document.getElementById('dietModalBackdrop').classList.add('hidden');
+  },
+  submitDiet(e){
+    e.preventDefault();
+    const pet = currentPet();
+    if(!pet) return;
+    colRef('pets').doc(pet.id).update({
+      dietMain: document.getElementById('dietMain').value.trim(),
+      dietTopping: document.getElementById('dietTopping').value.trim(),
+      dietTreats: document.getElementById('dietTreats').value.trim()
+    });
+    this.closeDietModal();
   },
 
   openUpgradeModal(message){
@@ -1991,6 +2032,20 @@ const App = {
           <button class="secondary" onclick="App.switchTab('prev')">管理する</button>
         </div>
         <div class="stat-row" style="margin-top:10px;">${prevBoxHtml}</div>
+      </div>
+      <div class="card">
+        <div class="row" style="justify-content:space-between;align-items:center;">
+          <h3 style="margin:0;">現在の食事</h3>
+          <button class="secondary" onclick="App.openDietModal()">編集</button>
+        </div>
+        <div style="margin-top:10px;">
+          <div class="diet-field-label">メインの食事</div>
+          <div class="diet-field-value">${pet.dietMain || '未記入'}</div>
+          <div class="diet-field-label">トッピング</div>
+          <div class="diet-field-value">${pet.dietTopping || '未記入'}</div>
+          <div class="diet-field-label">おやつ</div>
+          <div class="diet-field-value" style="margin-bottom:0;">${pet.dietTreats || '未記入'}</div>
+        </div>
       </div>
       <div class="card">
         <div class="row" style="justify-content:space-between;align-items:center;">
