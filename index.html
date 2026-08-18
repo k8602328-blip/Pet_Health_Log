@@ -195,12 +195,11 @@
     #printArea table{width:100%;border-collapse:collapse;font-size:12px;}
     #printArea th,#printArea td{border:1px solid #ccc;padding:5px;}
     #printArea .memo-row td{background:#FAF6EF;font-style:italic;color:#5c5148;}
-    /* 日々の状態・症状タイムラインは日付ぶん横に長い表になりやすい(最大31列)。
-       印刷では横スクロールが効かないため、ここだけ文字と余白を詰めて
-       できるだけ1ページの横幅に収まるようにする。それでも収まらない場合は
-       印刷ダイアログで「横向き」を選ぶよう出力画面の案内文で伝えている。 */
+    /* 日々の状態・症状タイムラインは横スクロールが印刷では効かないため、
+       JS側(printReport)で14日ごとに表そのものを分割して渡している。
+       ここでは分割後の1本あたりの表を紙幅に収めるため、文字と余白を少し詰める。 */
     #printArea .symptom-timeline-scroll{overflow:visible;}
-    #printArea .status-timeline-table,#printArea .symptom-timeline-table{font-size:8px;width:auto;}
+    #printArea .status-timeline-table,#printArea .symptom-timeline-table{font-size:10px;width:auto;}
     #printArea .status-timeline-table th,#printArea .status-timeline-table td,
     #printArea .symptom-timeline-table th,#printArea .symptom-timeline-table td{padding:2px 3px;border:1px solid #ddd;}
     #printArea .status-legend{max-width:100%;}
@@ -656,24 +655,37 @@ function urineDotColor(label){
 const STOOL_DOT_COLORS = { 1:'#000000', 2:'#462D16', 3:'#8B5A2B', 4:'#A67E56', 5:'#C0A282', 6:'#DBC5AD', 7:'#F5E9D8' };
 function stoolDotColor(v){ return STOOL_DOT_COLORS[Number(v)] || 'transparent'; }
 
+function chunkRecords(records, chunkSize){
+  if(!chunkSize || records.length <= chunkSize) return [records];
+  const chunks = [];
+  for(let i = 0; i < records.length; i += chunkSize) chunks.push(records.slice(i, i + chunkSize));
+  return chunks;
+}
+
 // グラフタブとPDFレポートの両方で使う「日々の状態(飲水・便・尿)」表のHTML。
-function buildDailyStatusTimelineHtml(records){
+// 画面(グラフタブ)は横スクロールできるので1本の表のままでよいが、PDFは横スクロールが
+// 効かず、日数が多いと紙幅からはみ出て右側が切れてしまう。opts.chunkSizeを渡すと
+// その日数ごとに表を縦に分割して並べ、どんな期間でも紙面に収まるようにする。
+function buildDailyStatusTimelineHtml(records, opts = {}){
   if(records.length === 0){
     return '<div class="empty">この期間の記録がありません</div>';
   }
-  const header = `<tr><th class="symptom-row-label"></th>${records.map(r => `<th>${fmtDate(r.date).slice(5)}</th>`).join('')}</tr>`;
-  const rowsHtml = [
-    { label:'飲水', cell:r => waterDotColor(waterLabel(r.water)) },
-    { label:'便', cell:r => r.stool != null && r.stool !== '' ? stoolDotColor(r.stool) : null },
-    { label:'尿', cell:r => urineDotColor(urineLabel(r.urine)) }
-  ].map(row => {
-    const cells = records.map(r => {
-      const color = row.cell(r);
-      return `<td>${color ? `<span class="status-dot" style="background:${color};"></span>` : ''}</td>`;
+  const chunks = chunkRecords(records, opts.chunkSize);
+  return chunks.map(chunk => {
+    const header = `<tr><th class="symptom-row-label"></th>${chunk.map(r => `<th>${fmtDate(r.date).slice(5)}</th>`).join('')}</tr>`;
+    const rowsHtml = [
+      { label:'飲水', cell:r => waterDotColor(waterLabel(r.water)) },
+      { label:'便', cell:r => r.stool != null && r.stool !== '' ? stoolDotColor(r.stool) : null },
+      { label:'尿', cell:r => urineDotColor(urineLabel(r.urine)) }
+    ].map(row => {
+      const cells = chunk.map(r => {
+        const color = row.cell(r);
+        return `<td>${color ? `<span class="status-dot" style="background:${color};"></span>` : ''}</td>`;
+      }).join('');
+      return `<tr><td class="symptom-row-label">${row.label}</td>${cells}</tr>`;
     }).join('');
-    return `<tr><td class="symptom-row-label">${row.label}</td>${cells}</tr>`;
-  }).join('');
-  return `<div class="symptom-timeline-scroll"><table class="status-timeline-table">${header}${rowsHtml}</table></div>`;
+    return `<div class="symptom-timeline-scroll"><table class="status-timeline-table">${header}${rowsHtml}</table></div>`;
+  }).join('<div style="height:8px;"></div>');
 }
 
 // 日々の状態タイムラインの下に添える便・飲水量・尿量の色見本。グラフタブとPDFで共通。
@@ -712,17 +724,21 @@ function buildStatusLegendHtml(){
 }
 
 // グラフタブとPDFレポートの両方で使う「症状タイムライン」表のHTML。
-function buildSymptomTimelineHtml(records){
+// opts.chunkSizeの意味はbuildDailyStatusTimelineHtml()と同じ(PDFでの紙幅対策)。
+function buildSymptomTimelineHtml(records, opts = {}){
   const symptoms = [...new Set(records.flatMap(r => r.symptoms || []))];
   if(symptoms.length === 0){
     return '<div class="empty">この期間に記録された症状はありません</div>';
   }
-  const header = `<tr><th class="symptom-row-label"></th>${records.map(r => `<th>${fmtDate(r.date).slice(5)}</th>`).join('')}</tr>`;
-  const rows = symptoms.map(s => {
-    const cells = records.map(r => `<td>${(r.symptoms||[]).includes(s) ? '<span class="symptom-dot"></span>' : ''}</td>`).join('');
-    return `<tr><td class="symptom-row-label">${s}</td>${cells}</tr>`;
-  }).join('');
-  return `<div class="symptom-timeline-scroll"><table class="symptom-timeline-table">${header}${rows}</table></div>`;
+  const chunks = chunkRecords(records, opts.chunkSize);
+  return chunks.map(chunk => {
+    const header = `<tr><th class="symptom-row-label"></th>${chunk.map(r => `<th>${fmtDate(r.date).slice(5)}</th>`).join('')}</tr>`;
+    const rows = symptoms.map(s => {
+      const cells = chunk.map(r => `<td>${(r.symptoms||[]).includes(s) ? '<span class="symptom-dot"></span>' : ''}</td>`).join('');
+      return `<tr><td class="symptom-row-label">${s}</td>${cells}</tr>`;
+    }).join('');
+    return `<div class="symptom-timeline-scroll"><table class="symptom-timeline-table">${header}${rows}</table></div>`;
+  }).join('<div style="height:8px;"></div>');
 }
 
 // 食欲は「良好/普通/不良/絶食」という主観的な質のラベルから、「普段(100%)に対して
@@ -2635,7 +2651,7 @@ const App = {
         <p class="hint">⏳ 出力ボタンを押してから画面が切り替わるまで、数十秒かかることがあります。押した後はそのままこの画面でお待ちください(連打しても大丈夫です)。</p>
         <p class="muted">「印刷 / PDF保存」を押すと印刷ダイアログが開きます。送信先を「PDFに保存」にすればそのままPDFファイルとして書き出せます。</p>
         <p class="muted">1回の出力範囲は最大31日間までです。それ以前の記録が必要な場合は、期間を分けて複数回出力してください。</p>
-        <p class="muted">治療サポートプランをご利用の場合、日々の状態・症状タイムラインの表は日数が多いと横に長くなります。印刷ダイアログで「横向き」を選ぶと収まりやすくなります。</p>
+        <p class="muted">治療サポートプランをご利用の場合、日々の状態・症状タイムラインの表は2週間ごとに区切って出力されるので、期間が長くても表が紙幅からはみ出ません。</p>
         <p class="muted">今月の無料出力: 残り${freeRemaining}回 / 購入した追加パック: 残り${purchasedRemaining}回</p>
       </div>
     `;
@@ -2671,20 +2687,27 @@ const App = {
 
   // PDFレポート用にグラフを一時canvasへ描画し、base64画像として取り出す共通処理。
   // 体重・食欲・お散歩の3種類のグラフで同じ手順を使い回す。
-  async renderChartImageForReport(chartConfig){
+  // セッションで最初に作るグラフだけ描画が間に合わないことがあり(waitForCanvasPaint参照)、
+  // それでも稀に間に合わないケースの保険として、未描画/例外時は最大2回まで作り直す。
+  async renderChartImageForReport(chartConfig, attempt = 1){
     const canvas = document.createElement('canvas');
     canvas.width = 700; canvas.height = 260;
     document.body.appendChild(canvas);
     let img = '';
+    let painted = false;
     try{
       const chart = new Chart(canvas, chartConfig);
-      await waitForCanvasPaint(canvas);
+      painted = await waitForCanvasPaint(canvas);
       img = chart.toBase64Image();
       chart.destroy();
     } catch(err){
-      console.error('chart generation for report failed', err);
+      console.error('chart generation for report failed', err, { attempt });
     }
     document.body.removeChild(canvas);
+    if((!painted || !img) && attempt < 3){
+      console.warn(`renderChartImageForReport: not painted in time, retrying (attempt ${attempt + 1})`);
+      return this.renderChartImageForReport(chartConfig, attempt + 1);
+    }
     return img;
   },
 
@@ -2762,15 +2785,18 @@ const App = {
 
       // 日々の状態タイムライン・症状タイムラインもサポートプラン限定。
       // 表はグラフタブと全く同じbuildDailyStatusTimelineHtml()/buildSymptomTimelineHtml()を
-      // 使い回すため、見た目(色分け・凡例)は画面と統一される。
+      // 使い回すため、見た目(色分け・凡例)は画面と統一される。画面は横スクロールで
+      // 対応できるが印刷はできないため、PDFでは2週間(14日)ごとに表を縦に分割し、
+      // 出力期間の長さ(最大31日)に関わらず紙幅で切れないようにする。
+      const PRINT_TIMELINE_CHUNK_DAYS = 14;
       const dailyStatusHtml = !subscribed ? '' : `
         <h2 style="font-size:15px;margin-top:18px;">日々の状態(飲水・便・尿)</h2>
-        ${buildDailyStatusTimelineHtml(records)}
+        ${buildDailyStatusTimelineHtml(records, { chunkSize: PRINT_TIMELINE_CHUNK_DAYS })}
         ${buildStatusLegendHtml()}
       `;
       const symptomTimelineHtml = !subscribed ? '' : `
         <h2 style="font-size:15px;margin-top:18px;">症状タイムライン</h2>
-        ${buildSymptomTimelineHtml(records)}
+        ${buildSymptomTimelineHtml(records, { chunkSize: PRINT_TIMELINE_CHUNK_DAYS })}
       `;
 
       const showCibdai = pet.trackCibdai;
@@ -2849,12 +2875,10 @@ const App = {
       <h1>体調記録レポート</h1>
       <p>${pet.name}(${pet.species}${pet.breed ? '・'+pet.breed : ''}) ${pet.birthday ? '/ ' + ageString(pet.birthday) : ''}</p>
       <p>期間: ${from ? fmtDate(from) : '-'} 〜 ${to ? fmtDate(to) : '-'} (作成日: ${fmtDate(new Date().toISOString().slice(0,10))})</p>
-      ${chartImg ? `
-        <h2 style="font-size:15px;margin-top:18px;">グラフ</h2>
-        <img src="${chartImg}" style="width:100%;max-width:600px;">
-        ${appetiteImg ? `<img src="${appetiteImg}" style="width:100%;max-width:600px;margin-top:10px;">` : ''}
-        ${walkImg ? `<img src="${walkImg}" style="width:100%;max-width:600px;margin-top:10px;">` : ''}
-      ` : ''}
+      ${(chartImg || appetiteImg || walkImg) ? '<h2 style="font-size:15px;margin-top:18px;">グラフ</h2>' : ''}
+      ${chartImg ? `<img src="${chartImg}" style="width:100%;max-width:600px;">` : ''}
+      ${appetiteImg ? `<img src="${appetiteImg}" style="width:100%;max-width:600px;margin-top:10px;">` : ''}
+      ${walkImg ? `<img src="${walkImg}" style="width:100%;max-width:600px;margin-top:10px;">` : ''}
       ${symptomCountHtml}
       ${dailyStatusHtml}
       ${symptomTimelineHtml}
