@@ -89,6 +89,19 @@
   }
   .modal{background:#fff;border-radius:16px;padding:22px;max-width:520px;width:100%;max-height:88vh;overflow-y:auto;}
   .hidden{display:none !important;}
+  #reportLoadingOverlay{
+    position:fixed;inset:0;background:rgba(255,248,240,0.97);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:18px;text-align:center;padding:24px;z-index:200;
+  }
+  .report-loading-spinner{
+    width:64px;height:64px;border-radius:50%;
+    border:7px solid #F0DCC5;border-top-color:var(--primary);
+    animation:report-spin 0.9s linear infinite;
+  }
+  @keyframes report-spin{ to { transform:rotate(360deg); } }
+  .report-loading-text{font-size:19px;font-weight:700;color:var(--text);}
+  .report-loading-subtext{font-size:14px;color:var(--muted);line-height:1.6;}
   .actions-cell{white-space:nowrap;}
   .actions-cell button{padding:4px 8px;font-size:12px;margin-right:4px;}
   .muted{color:var(--muted);font-size:12px;}
@@ -535,6 +548,12 @@
 </div>
 
 <div id="printArea"></div>
+
+<div id="reportLoadingOverlay" class="hidden">
+  <div class="report-loading-spinner"></div>
+  <div class="report-loading-text">レポートを作成しています…</div>
+  <div class="report-loading-subtext">画面が切り替わるまで、そのままお待ちください<br>(数十秒かかることがあります)</div>
+</div>
 
 <script>
 // ▼▼▼ 自分のFirebaseプロジェクトの設定に置き換えてください(Firebaseコンソール > プロジェクトの設定 > マイアプリ) ▼▼▼
@@ -2727,7 +2746,11 @@ const App = {
     // 連打されると、その都度クレジットだけ消費されてしまう不具合があった。
     const printBtn = document.querySelector('#mainContent button[onclick="App.printReport()"]');
     const printBtnLabel = printBtn ? printBtn.textContent : '';
-    if(printBtn){ printBtn.disabled = true; printBtn.textContent = '出力準備中...(画面表示まで数十秒かかる場合があります)'; }
+    if(printBtn){ printBtn.disabled = true; printBtn.textContent = '出力準備中...'; }
+    // ボタンの文字だけだと、特にモバイルでは「反応していない=不具合」と誤解されやすいため、
+    // 画面全体を覆う大きなローディング表示も合わせて出す。
+    const loadingOverlay = document.getElementById('reportLoadingOverlay');
+    loadingOverlay.classList.remove('hidden');
     try{
       // 直近1分以内に一度出力に成功していれば、連打とみなしてクレジットを再消費しない。
       const withinGrace = Date.now() - lastReportPrintAt < REPORT_PRINT_GRACE_MS;
@@ -2915,6 +2938,7 @@ const App = {
       await new Promise(resolve => setTimeout(resolve, 3000));
     } finally {
       if(printBtn){ printBtn.disabled = false; printBtn.textContent = printBtnLabel; }
+      loadingOverlay.classList.add('hidden');
     }
   }
 };
