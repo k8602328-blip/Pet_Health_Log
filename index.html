@@ -102,10 +102,11 @@
   .status-timeline-table th,.status-timeline-table td{padding:5px 7px;text-align:center;border-bottom:1px solid var(--border);white-space:nowrap;}
   .status-timeline-table th.symptom-row-label,.status-timeline-table td.symptom-row-label{text-align:left;font-weight:600;color:var(--text);padding-right:12px;position:sticky;left:0;background:var(--card);}
   .status-dot{display:inline-block;width:14px;height:14px;border-radius:4px;}
-  .stool-legend{margin-top:10px;max-width:320px;}
-  .stool-legend-row{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;}
-  .stool-legend-swatch{height:18px;border-radius:4px;}
-  .stool-legend-labels{margin-top:4px;font-size:10px;color:var(--muted);text-align:center;}
+  .status-legend{margin-top:10px;max-width:320px;display:flex;flex-direction:column;gap:12px;}
+  .status-legend-title{font-size:12px;font-weight:600;color:var(--text);margin-bottom:4px;}
+  .status-legend-row{display:grid;gap:4px;}
+  .status-legend-swatch{height:18px;border-radius:4px;border:1px solid var(--border);}
+  .status-legend-labels{margin-top:4px;font-size:10px;color:var(--muted);text-align:center;}
   .hint{background:#FFF3CD;color:#8a6d1f;border:1px solid #F5E1A4;border-radius:8px;padding:8px 12px;font-size:12px;margin-bottom:12px;line-height:1.5;}
   .option-hint{font-size:11px;color:var(--muted);margin:3px 0 0;min-height:14px;}
   .med-card{border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px;}
@@ -623,7 +624,7 @@ function urineDotColor(label){
   if(label === '少ない') return '#F2E4A0';
   return '#E0C34A'; // いつも通り
 }
-const STOOL_DOT_COLORS = { 1:'#B08D57', 2:'#D8B978', 3:'#8FBF8F', 4:'#F5C99B', 5:'#F0A868', 6:'#E4834B', 7:'#E4634F' };
+const STOOL_DOT_COLORS = { 1:'#000000', 2:'#462D16', 3:'#8B5A2B', 4:'#A67E56', 5:'#C0A282', 6:'#DBC5AD', 7:'#F5E9D8' };
 function stoolDotColor(v){ return STOOL_DOT_COLORS[Number(v)] || 'transparent'; }
 
 // 食欲は「良好/普通/不良/絶食」という主観的な質のラベルから、「普段(100%)に対して
@@ -2198,12 +2199,33 @@ const App = {
       <div class="card">
         <h3>日々の状態(飲水・便・尿)</h3>
         <div id="dailyStatusTimelineWrap"></div>
-        <div class="stool-legend">
-          <div class="stool-legend-row">
-            ${[1,2,3,4,5,6,7].map(n => `<div class="stool-legend-swatch" style="background:${stoolDotColor(n)}"></div>`).join('')}
+        <div class="status-legend">
+          <div>
+            <div class="status-legend-title">便</div>
+            <div class="status-legend-row" style="grid-template-columns:repeat(7,1fr);">
+              ${[1,2,3,4,5,6,7].map(n => `<div class="status-legend-swatch" style="background:${stoolDotColor(n)}"></div>`).join('')}
+            </div>
+            <div class="status-legend-row status-legend-labels" style="grid-template-columns:repeat(7,1fr);">
+              ${[1,2,3,4,5,6,7].map(n => `<span>${{1:'1:硬い',3:'3:正常',5:'5:軟便',7:'7:水様'}[n] || ''}</span>`).join('')}
+            </div>
           </div>
-          <div class="stool-legend-row stool-legend-labels">
-            ${[1,2,3,4,5,6,7].map(n => `<span>${{1:'1:硬い',3:'3:正常',5:'5:軟便',7:'7:水様'}[n] || ''}</span>`).join('')}
+          <div>
+            <div class="status-legend-title">飲水量</div>
+            <div class="status-legend-row" style="grid-template-columns:repeat(3,1fr);">
+              ${['少ない','いつも通り','多い'].map(l => `<div class="status-legend-swatch" style="background:${waterDotColor(l)}"></div>`).join('')}
+            </div>
+            <div class="status-legend-row status-legend-labels" style="grid-template-columns:repeat(3,1fr);">
+              ${['少ない','いつも通り','多い'].map(l => `<span>${l}</span>`).join('')}
+            </div>
+          </div>
+          <div>
+            <div class="status-legend-title">尿量</div>
+            <div class="status-legend-row" style="grid-template-columns:repeat(3,1fr);">
+              ${['少ない','いつも通り','多い'].map(l => `<div class="status-legend-swatch" style="background:${urineDotColor(l)}"></div>`).join('')}
+            </div>
+            <div class="status-legend-row status-legend-labels" style="grid-template-columns:repeat(3,1fr);">
+              ${['少ない','いつも通り','多い'].map(l => `<span>${l}</span>`).join('')}
+            </div>
           </div>
         </div>
       </div>
