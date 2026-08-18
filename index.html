@@ -2948,7 +2948,7 @@ const App = {
       // ローディング表示が先に消えてしまうことを実機で確認したため採用しなかった。
       // 代わりに「セッション最初の出力だけ特に時間がかかり、2回目以降は数秒で終わる」
       // という実測の傾向に合わせて、固定の待ち時間を初回だけ長くする。
-      await new Promise(resolve => setTimeout(resolve, reportPrintWarmedUp ? 3000 : 20000));
+      await new Promise(resolve => setTimeout(resolve, reportPrintWarmedUp ? 3000 : 45000));
       reportPrintWarmedUp = true;
     } finally {
       if(printBtn){ printBtn.disabled = false; printBtn.textContent = printBtnLabel; }
