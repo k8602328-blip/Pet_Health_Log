@@ -102,8 +102,6 @@
   .status-timeline-table th,.status-timeline-table td{padding:5px 7px;text-align:center;border-bottom:1px solid var(--border);white-space:nowrap;}
   .status-timeline-table th.symptom-row-label,.status-timeline-table td.symptom-row-label{text-align:left;font-weight:600;color:var(--text);padding-right:12px;position:sticky;left:0;background:var(--card);}
   .status-dot{display:inline-block;width:14px;height:14px;border-radius:4px;}
-  .diet-field-label{font-size:12px;color:var(--muted);margin-bottom:2px;}
-  .diet-field-value{white-space:pre-wrap;margin-bottom:10px;}
   .status-legend{margin-top:10px;max-width:320px;display:flex;flex-direction:column;gap:12px;}
   .status-legend-title{font-size:12px;font-weight:600;color:var(--text);margin-bottom:4px;}
   .status-legend-row{display:grid;gap:4px;}
@@ -2038,13 +2036,19 @@ const App = {
           <h3 style="margin:0;">現在の食事</h3>
           <button class="secondary" onclick="App.openDietModal()">編集</button>
         </div>
-        <div style="margin-top:10px;">
-          <div class="diet-field-label">メインの食事</div>
-          <div class="diet-field-value">${pet.dietMain || '未記入'}</div>
-          <div class="diet-field-label">トッピング</div>
-          <div class="diet-field-value">${pet.dietTopping || '未記入'}</div>
-          <div class="diet-field-label">おやつ</div>
-          <div class="diet-field-value" style="margin-bottom:0;">${pet.dietTreats || '未記入'}</div>
+        <div class="stat-row" style="margin-top:10px;">
+          <div class="prev-box stat">
+            <div class="label">メインの食事</div>
+            <div class="value" style="white-space:pre-wrap;">${pet.dietMain || '未記入'}</div>
+          </div>
+          <div class="prev-box stat">
+            <div class="label">トッピング</div>
+            <div class="value" style="white-space:pre-wrap;">${pet.dietTopping || '未記入'}</div>
+          </div>
+          <div class="prev-box stat">
+            <div class="label">おやつ</div>
+            <div class="value" style="white-space:pre-wrap;">${pet.dietTreats || '未記入'}</div>
+          </div>
         </div>
       </div>
       <div class="card">
