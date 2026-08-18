@@ -834,6 +834,10 @@ function uid(){ return Date.now().toString(36) + Math.random().toString(36).slic
 // ため、直近に出力成功した直後の連打はクレジット消費自体をスキップして実害(無駄な消費)を防ぐ。
 let lastReportPrintAt = 0;
 const REPORT_PRINT_GRACE_MS = 60 * 1000;
+// セッションで最初の出力だけ、印刷画面が実際に表示されるまで特に時間がかかる
+// (Chart.js初期化・画像デコードなどの初回コストが重なるため)。2回目以降は
+// 数秒で表示されることを確認済みなので、初回だけ長めに待つ。
+let reportPrintWarmedUp = false;
 
 // Chart.jsのanimation:falseは即座に描画されることが多いが、そのセッションで
 // 最初にグラフを作る時だけ(ライブラリ内部の初期化コストのためか)描画が遅れ、
@@ -2939,22 +2943,13 @@ const App = {
       window.print();
       lastReportPrintAt = Date.now();
       // window.print()はモバイルでは呼んだ直後にJSへ戻ってしまい、実際の印刷画面が
-      // 出るまでにはまだ間がある(数秒〜数十秒とばらつきが大きい)。固定の待ち時間だと
-      // ローディング表示が印刷画面より先に消えて「一瞬固まって元に戻った」ように見えて
-      // しまうため、印刷画面が実際に表示される直前に発火するbeforeprintイベントを
-      // 待ってから消す。beforeprintが発火しない環境向けに、念のため長めの
-      // フォールバック時間(30秒)も用意しておく。
-      await new Promise(resolve => {
-        let done = false;
-        const finish = () => {
-          if(done) return;
-          done = true;
-          window.removeEventListener('beforeprint', finish);
-          resolve();
-        };
-        window.addEventListener('beforeprint', finish, { once: true });
-        setTimeout(finish, 30000);
-      });
+      // 出るまでにはまだ間がある。beforeprintイベントで正確なタイミングを取ろうとしたが、
+      // iPhoneでは実際に印刷画面が表示されるより10〜15秒ほど早く発火してしまい、
+      // ローディング表示が先に消えてしまうことを実機で確認したため採用しなかった。
+      // 代わりに「セッション最初の出力だけ特に時間がかかり、2回目以降は数秒で終わる」
+      // という実測の傾向に合わせて、固定の待ち時間を初回だけ長くする。
+      await new Promise(resolve => setTimeout(resolve, reportPrintWarmedUp ? 3000 : 20000));
+      reportPrintWarmedUp = true;
     } finally {
       if(printBtn){ printBtn.disabled = false; printBtn.textContent = printBtnLabel; }
       loadingOverlay.classList.add('hidden');
