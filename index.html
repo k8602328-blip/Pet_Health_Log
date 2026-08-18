@@ -1392,6 +1392,45 @@ const App = {
     colRef('pets').doc(petId).update({ trackCibdai: !pet.trackCibdai });
   },
 
+  // 記録・投薬・予防・受診歴はpetsのサブコレクションではなく、petIdを持つ
+  // トップレベルコレクションとして保存されている(colRef参照)ため、ペット削除時は
+  // それぞれをwhere('petId','==',petId)で検索してから個別に削除する必要がある。
+  // 写真はFirebase Storageではなく圧縮したdata URLとしてFirestore文書に直接
+  // 埋め込まれているため、これらの文書を消せば写真データも一緒に消える。
+  async deletePet(petId){
+    const pet = state.pets.find(p => p.id === petId);
+    if(!pet) return;
+    if(!confirm(`「${pet.name}」を削除しますか?\n体重・症状などの記録、投薬、予防接種、受診歴もすべて削除され、元に戻せません。`)) return;
+    const typed = prompt(`本当に削除する場合は、確認のためペットの名前「${pet.name}」を入力してください。`);
+    if(typed === null) return;
+    if(typed !== pet.name){ alert('入力がペットの名前と一致しなかったため、削除を中止しました。'); return; }
+
+    try{
+      const collections = ['records', 'medications', 'preventions', 'visits'];
+      for(const name of collections){
+        const snap = await colRef(name).where('petId', '==', petId).get();
+        const docs = snap.docs;
+        for(let i = 0; i < docs.length; i += 400){
+          const batch = db.batch();
+          docs.slice(i, i + 400).forEach(d => batch.delete(d.ref));
+          await batch.commit();
+        }
+      }
+      await colRef('pets').doc(petId).delete();
+
+      if(state.currentPetId === petId){
+        const remaining = state.pets.filter(p => p.id !== petId);
+        const nextId = remaining.length ? remaining[0].id : null;
+        state.currentPetId = nextId;
+        await userDocRef().set({ currentPetId: nextId }, { merge: true });
+      }
+      alert(`「${pet.name}」を削除しました。`);
+    } catch(err){
+      console.error('deletePet failed', err);
+      alert('削除に失敗しました。時間をおいて再度お試しください。');
+    }
+  },
+
   buildCibdaiSection(existingScores){
     const section = document.getElementById('rCibdaiSection');
     const pet = currentPet();
@@ -2180,6 +2219,9 @@ const App = {
           <input type="checkbox" ${pet.trackCibdai ? 'checked' : ''} onchange="App.toggleCibdai('${pet.id}')">
           CIBDAIスコアも記録する(慢性腸疾患・IBDのモニタリング向け)
         </label>
+        <div style="margin-top:12px;">
+          <button type="button" class="ghost" style="padding:3px 9px;font-size:11px;color:var(--danger);border-color:var(--danger);" onclick="App.deletePet('${pet.id}')">🗑 このペットを削除</button>
+        </div>
       </div>
       <div class="card">
         <div class="row" style="justify-content:space-between;align-items:center;">
