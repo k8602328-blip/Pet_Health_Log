@@ -701,7 +701,9 @@ let state = {
   medPhotoData: null,
   recordPhotos: [],
   reminderTimesDraft: [],
-  chartRange: 30,
+  chartRange: '30',
+  chartCustomFrom: null,
+  chartCustomTo: null,
   weightChart: null,
   appetiteChart: null,
   walkChart: null,
@@ -911,44 +913,74 @@ function daysAgoStr(days){
 }
 
 /**
- * ⑥傾向分析。AI診断ではなく、あくまでルールベースの閾値検知に留める
- * (体重の30日変化率、便スコアの直近7日間の悪化傾向)。
- * 診断ではなく目安である旨は呼び出し側(UI)で必ず併記する。
+ * ⑥傾向分析。AI診断ではなく、あくまでルールベースの閾値検知に留める。
+ * 直近7日間の記録から、症状・体重(直近7日 vs その前7日)・食欲・便・飲水/尿の
+ * それぞれを機械的にチェックし、該当した項目を優先度順に並べて1文にまとめる。
+ * 何も引っかからなければ「安定しています」という一言を返す(黙って何も出さない、
+ * ということはしない)。診断ではなく目安である旨は呼び出し側(UI)で必ず併記する。
  */
-function analyzeTrends(records){
-  const alerts = [];
+function analyzeWeeklySummary(records){
+  const today = new Date().toISOString().slice(0,10);
+  const windowStart = daysAgoStr(6);
+  const prevStart = daysAgoStr(13);
+  const prevEnd = daysAgoStr(7);
+  const windowRecords = records.filter(r => r.date >= windowStart && r.date <= today);
 
-  const weightRecords = records.filter(r => r.weight != null).slice().sort((a,b) => a.date < b.date ? -1 : 1);
-  if(weightRecords.length >= 2){
-    const latest = weightRecords[weightRecords.length - 1];
-    const cutoff = daysAgoStr(30);
-    let baseline = null;
-    for(const r of weightRecords){
-      if(r.date <= cutoff) baseline = r; // 30日以上前の記録の中で一番新しいものを基準にする
-    }
-    if(baseline && baseline.id !== latest.id && baseline.weight > 0){
-      const changePct = ((latest.weight - baseline.weight) / baseline.weight) * 100;
-      if(changePct <= -5){
-        alerts.push(`体重が${fmtDate(baseline.date)}から${Math.abs(changePct).toFixed(1)}%減少しています(${baseline.weight}kg → ${latest.weight}kg)`);
-      } else if(changePct >= 10){
-        alerts.push(`体重が${fmtDate(baseline.date)}から${changePct.toFixed(1)}%増加しています(${baseline.weight}kg → ${latest.weight}kg)`);
-      }
-    }
+  if(windowRecords.length < 3){
+    return { level:'insufficient', text:'直近1週間の記録がまだ少なく、傾向を判定できません。記録を続けると傾向がわかりやすくなります。' };
   }
 
-  const stoolRecords = records.filter(r => r.stool !== null && r.stool !== undefined && r.stool !== '');
-  const avgDeviation = list => list.length === 0 ? null : list.reduce((s, r) => s + Math.abs(Number(r.stool) - 3), 0) / list.length;
-  const recentWindow = stoolRecords.filter(r => r.date >= daysAgoStr(7));
-  const priorWindow = stoolRecords.filter(r => r.date >= daysAgoStr(14) && r.date < daysAgoStr(7));
-  if(recentWindow.length >= 2 && priorWindow.length >= 2){
-    const recentAvg = avgDeviation(recentWindow);
-    const priorAvg = avgDeviation(priorWindow);
-    if(recentAvg - priorAvg >= 1){
-      alerts.push('直近7日間の便の状態が、その前の7日間と比べて理想(3)から離れる傾向にあります');
-    }
+  const avg = list => list.reduce((a,b) => a+b, 0) / list.length;
+
+  const symptomDays = windowRecords.filter(r => (r.symptoms||[]).length > 0);
+  const distinctSymptoms = [...new Set(symptomDays.flatMap(r => r.symptoms))];
+  const hasSymptoms = distinctSymptoms.length > 0;
+
+  // 体重は直近7日の平均とその前7日の平均を比較する(単純な最新値同士の比較だと
+  // 1日分のブレに引っ張られやすいため)。
+  const thisWeekWeights = windowRecords.filter(r => r.weight != null).map(r => r.weight);
+  const prevWeekWeights = records.filter(r => r.date >= prevStart && r.date < prevEnd && r.weight != null).map(r => r.weight);
+  let weightDown = false;
+  if(thisWeekWeights.length > 0 && prevWeekWeights.length > 0){
+    const pctChange = ((avg(thisWeekWeights) - avg(prevWeekWeights)) / avg(prevWeekWeights)) * 100;
+    weightDown = pctChange <= -3;
   }
 
-  return alerts;
+  const appetiteVals = windowRecords.filter(r => r.appetite != null && r.appetite !== '').map(r => Number(appetiteValue(r.appetite)));
+  const appetiteLow = appetiteVals.length > 0 && avg(appetiteVals) <= 50;
+
+  const stoolVals = windowRecords.filter(r => r.stool != null && r.stool !== '').map(r => Number(r.stool));
+  let stoolFlag = null;
+  if(stoolVals.length > 0 && avg(stoolVals.map(v => Math.abs(v - 3))) >= 1.5){
+    stoolFlag = avg(stoolVals) < 3 ? 'hard' : 'soft';
+  }
+
+  const waterLabels = windowRecords.map(r => waterLabel(r.water)).filter(Boolean);
+  const urineLabels = windowRecords.map(r => urineLabel(r.urine)).filter(Boolean);
+  const isMajority = (labels, target) => labels.length > 0 && labels.filter(l => l === target).length >= Math.ceil(labels.length / 2);
+  const waterFlag = isMajority(waterLabels, '多い') ? 'up' : (isMajority(waterLabels, '少ない') ? 'down' : null);
+  const urineFlag = isMajority(urineLabels, '多い') ? 'up' : (isMajority(urineLabels, '少ない') ? 'down' : null);
+
+  const hasConcern = hasSymptoms || weightDown || appetiteLow || stoolFlag || waterFlag || urineFlag;
+  if(!hasConcern){
+    return { level:'stable', text:'直近1週間は症状の記録がなく、体調は安定しているようですね。この調子で記録を続けましょう。' };
+  }
+
+  const parts = [];
+  if(hasSymptoms) parts.push(`${distinctSymptoms.slice(0,3).join('・')}の症状`);
+  if(weightDown) parts.push('体重の減少傾向');
+  if(appetiteLow) parts.push('食欲の低下');
+  if(stoolFlag === 'hard') parts.push('便が硬めの日');
+  if(stoolFlag === 'soft') parts.push('便が軟らかめ・水様の日');
+  if(waterFlag) parts.push(`飲水量が${waterFlag === 'up' ? '多い' : '少ない'}日`);
+  if(urineFlag) parts.push(`尿量が${urineFlag === 'up' ? '多い' : '少ない'}日`);
+
+  // 文が長くなりすぎないよう、該当項目は最大3つまでに絞って1文にする。
+  const sentence = `直近1週間、${parts.slice(0,3).join('・')}が見られます。`;
+  // 症状+体重減少、症状+食欲低下、体重減少+食欲低下の組み合わせは特に注意が必要なため、
+  // 「様子を見る」ではなく受診相談を促すトーンにする。
+  const severe = (hasSymptoms && weightDown) || (hasSymptoms && appetiteLow) || (weightDown && appetiteLow);
+  return { level:'concern', text: severe ? sentence + '担当医に相談してみませんか?' : sentence + 'ご様子を見てあげてください。' };
 }
 function medLabel(m){
   if(m.name) return m.name;
@@ -1993,13 +2025,11 @@ const App = {
     const lastWithCibdai = records.find(r => r.cibdai);
 
     const subscribed = !!(state.entitlements && state.entitlements.subscriptionActive);
-    const trendAlerts = subscribed ? analyzeTrends(records) : [];
-    const trendCardHtml = trendAlerts.length === 0 ? '' : `
-      <div class="card" style="border:1px solid var(--danger);">
-        <h3 style="margin:0 0 8px;">⚠️ 傾向のお知らせ</h3>
-        <ul style="margin:0;padding-left:18px;">
-          ${trendAlerts.map(a => `<li>${a}</li>`).join('')}
-        </ul>
+    const weeklySummary = subscribed ? analyzeWeeklySummary(records) : null;
+    const trendCardHtml = !weeklySummary ? '' : `
+      <div class="card" style="border:1px solid ${weeklySummary.level === 'concern' ? 'var(--danger)' : 'var(--border)'};">
+        <h3 style="margin:0 0 8px;">${weeklySummary.level === 'concern' ? '⚠️ ' : ''}今週のようす</h3>
+        <p style="margin:0;">${weeklySummary.text}</p>
         <p class="hint" style="margin-top:8px;">※診断ではなく、記録の変化をお知らせする目安です。気になる場合は獣医師にご相談ください。</p>
       </div>
     `;
@@ -2260,21 +2290,32 @@ const App = {
     `;
   },
 
+  // グラフは体重推移・症状の出現回数のみ無料。範囲選択も無料は7/30日までとし、
+  // 有料(治療サポートプラン)は60/90日に加え指定期間(最大3ヶ月)を選べる。
+  // 「全期間」は指定期間に置き換える形で廃止した(モバイルでx軸が崩れるため)。
   renderChartTab(){
+    const subscribed = !!(state.entitlements && state.entitlements.subscriptionActive);
+    if(!subscribed && state.chartRange !== '7' && state.chartRange !== '30'){
+      state.chartRange = '30';
+    }
     const main = document.getElementById('mainContent');
-    main.innerHTML = `
+    const rangeOptionsHtml = subscribed ? `
+        <option value="7">直近7日</option>
+        <option value="30">直近30日</option>
+        <option value="60">直近60日</option>
+        <option value="90">直近90日</option>
+        <option value="custom">指定期間</option>
+      ` : `
+        <option value="7">直近7日</option>
+        <option value="30">直近30日</option>
+      `;
+    const upsellHtml = `
       <div class="card">
-        <div class="row" style="justify-content:space-between;align-items:center;">
-          <h3 style="margin:0;">体重の推移</h3>
-          <select id="rangeSelect" onchange="App.setChartRange(this.value)">
-            <option value="7">直近7日</option>
-            <option value="30" selected>直近30日</option>
-            <option value="90">直近90日</option>
-            <option value="0">全期間</option>
-          </select>
-        </div>
-        <div class="chart-wrap"><canvas id="weightChartCanvas"></canvas></div>
+        <h3>食欲の推移・お散歩時間の推移・日々の状態・症状タイムライン</h3>
+        <p class="hint">これらのグラフは治療サポートプランで利用できます。 <button type="button" class="ghost" style="padding:2px 8px;font-size:11px;" onclick="App.openUpgradeModal();">アップグレードを見る</button></p>
       </div>
+    `;
+    const fullChartsHtml = `
       <div class="card">
         <h3>食欲の推移</h3>
         <div class="chart-wrap"><canvas id="appetiteChartCanvas"></canvas></div>
@@ -2320,29 +2361,76 @@ const App = {
         <h3>症状タイムライン</h3>
         <div id="symptomTimelineWrap"></div>
       </div>
+    `;
+    main.innerHTML = `
+      <div class="card">
+        <div class="row" style="justify-content:space-between;align-items:center;">
+          <h3 style="margin:0;">体重の推移</h3>
+          <select id="rangeSelect" onchange="App.setChartRange(this.value)">${rangeOptionsHtml}</select>
+        </div>
+        <div class="row hidden" id="customRangeFields" style="margin-top:8px;">
+          <div class="field"><label>開始日</label><input type="date" id="chartFrom" onchange="App.setCustomChartRange()"></div>
+          <div class="field"><label>終了日</label><input type="date" id="chartTo" onchange="App.setCustomChartRange()"></div>
+        </div>
+        <div class="chart-wrap"><canvas id="weightChartCanvas"></canvas></div>
+      </div>
+      ${subscribed ? fullChartsHtml : upsellHtml}
       <div class="card">
         <h3>症状の出現回数</h3>
         <div class="chart-wrap"><canvas id="symptomChartCanvas"></canvas></div>
       </div>
     `;
     document.getElementById('rangeSelect').value = state.chartRange;
+    document.getElementById('customRangeFields').classList.toggle('hidden', state.chartRange !== 'custom');
+    if(state.chartRange === 'custom'){
+      document.getElementById('chartFrom').value = state.chartCustomFrom || '';
+      document.getElementById('chartTo').value = state.chartCustomTo || '';
+    }
     this.drawCharts();
   },
 
-  filterByRange(records, days){
-    if(!days || days === '0' || days === 0) return records;
+  filterByRange(records){
+    if(state.chartRange === 'custom'){
+      if(!state.chartCustomFrom || !state.chartCustomTo) return [];
+      return records.filter(r => r.date >= state.chartCustomFrom && r.date <= state.chartCustomTo);
+    }
     const cutoff = new Date();
-    cutoff.setDate(cutoff.getDate() - Number(days));
+    cutoff.setDate(cutoff.getDate() - Number(state.chartRange));
     return records.filter(r => new Date(r.date + 'T00:00:00') >= cutoff);
   },
 
   setChartRange(v){
     state.chartRange = v;
+    document.getElementById('customRangeFields').classList.toggle('hidden', v !== 'custom');
+    if(v === 'custom' && (!state.chartCustomFrom || !state.chartCustomTo)){
+      const to = new Date();
+      const from = new Date();
+      from.setDate(from.getDate() - 29);
+      state.chartCustomTo = to.toISOString().slice(0,10);
+      state.chartCustomFrom = from.toISOString().slice(0,10);
+      document.getElementById('chartFrom').value = state.chartCustomFrom;
+      document.getElementById('chartTo').value = state.chartCustomTo;
+    }
+    this.drawCharts();
+  },
+
+  // 指定期間は3ヶ月(92日)まで。それより長いとモバイルでx軸のラベルが
+  // 詰まりすぎて読めなくなるため、グラフの見やすさを優先して上限を設けている。
+  setCustomChartRange(){
+    const from = document.getElementById('chartFrom').value;
+    const to = document.getElementById('chartTo').value;
+    if(!from || !to) return;
+    const days = Math.round((new Date(to) - new Date(from)) / 86400000) + 1;
+    if(days < 1){ alert('終了日は開始日以降の日付にしてください。'); return; }
+    if(days > 92){ alert('指定期間は3ヶ月(92日)以内にしてください。'); return; }
+    state.chartCustomFrom = from;
+    state.chartCustomTo = to;
     this.drawCharts();
   },
 
   drawCharts(){
-    const records = this.filterByRange(petRecords(), state.chartRange).slice().sort((a,b)=> a.date < b.date ? -1 : 1);
+    const subscribed = !!(state.entitlements && state.entitlements.subscriptionActive);
+    const records = this.filterByRange(petRecords()).slice().sort((a,b)=> a.date < b.date ? -1 : 1);
 
     const weightData = records.filter(r => r.weight != null);
     const wCtx = document.getElementById('weightChartCanvas');
@@ -2364,56 +2452,58 @@ const App = {
       options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}} }
     });
 
-    // 食欲は過去の質的ラベル(良好/普通/不良/絶食)のままの記録もあるため、
-    // 表示と同じくappetiteValue()で数値ラベルへ変換してからグラフ化する。
-    const appetiteData = records.filter(r => r.appetite != null && r.appetite !== '');
-    const aCtx = document.getElementById('appetiteChartCanvas');
-    if(state.appetiteChart) state.appetiteChart.destroy();
-    state.appetiteChart = new Chart(aCtx, {
-      type: 'line',
-      data: {
-        labels: appetiteData.map(r => fmtDate(r.date)),
-        datasets: [{
-          label: '食欲',
-          data: appetiteData.map(r => Number(appetiteValue(r.appetite))),
-          borderColor: '#D4A03C',
-          backgroundColor: 'rgba(212,160,60,0.15)',
-          tension: 0.25,
-          fill: true,
-          pointRadius: 3
-        }]
-      },
-      options: {
-        responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}},
-        scales:{ y:{ min:0, max:100, ticks:{ stepSize:25, callback:v => v+'%' } } }
-      }
-    });
+    if(subscribed){
+      // 食欲は過去の質的ラベル(良好/普通/不良/絶食)のままの記録もあるため、
+      // 表示と同じくappetiteValue()で数値ラベルへ変換してからグラフ化する。
+      const appetiteData = records.filter(r => r.appetite != null && r.appetite !== '');
+      const aCtx = document.getElementById('appetiteChartCanvas');
+      if(state.appetiteChart) state.appetiteChart.destroy();
+      state.appetiteChart = new Chart(aCtx, {
+        type: 'line',
+        data: {
+          labels: appetiteData.map(r => fmtDate(r.date)),
+          datasets: [{
+            label: '食欲',
+            data: appetiteData.map(r => Number(appetiteValue(r.appetite))),
+            borderColor: '#D4A03C',
+            backgroundColor: 'rgba(212,160,60,0.15)',
+            tension: 0.25,
+            fill: true,
+            pointRadius: 3
+          }]
+        },
+        options: {
+          responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}},
+          scales:{ y:{ min:0, max:100, ticks:{ stepSize:25, callback:v => v+'%' } } }
+        }
+      });
 
-    const walkData = records.filter(r => r.walkMinutes != null);
-    const wkCtx = document.getElementById('walkChartCanvas');
-    if(state.walkChart) state.walkChart.destroy();
-    state.walkChart = new Chart(wkCtx, {
-      type: 'line',
-      data: {
-        labels: walkData.map(r => fmtDate(r.date)),
-        datasets: [{
-          label: 'お散歩(分)',
-          data: walkData.map(r => r.walkMinutes),
-          borderColor: '#5FA87A',
-          backgroundColor: 'rgba(95,168,122,0.15)',
-          tension: 0.25,
-          fill: true,
-          pointRadius: 3
-        }]
-      },
-      options: {
-        responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}},
-        scales:{ y:{ beginAtZero:true, ticks:{ callback:v => v+'分' } } }
-      }
-    });
+      const walkData = records.filter(r => r.walkMinutes != null);
+      const wkCtx = document.getElementById('walkChartCanvas');
+      if(state.walkChart) state.walkChart.destroy();
+      state.walkChart = new Chart(wkCtx, {
+        type: 'line',
+        data: {
+          labels: walkData.map(r => fmtDate(r.date)),
+          datasets: [{
+            label: 'お散歩(分)',
+            data: walkData.map(r => r.walkMinutes),
+            borderColor: '#5FA87A',
+            backgroundColor: 'rgba(95,168,122,0.15)',
+            tension: 0.25,
+            fill: true,
+            pointRadius: 3
+          }]
+        },
+        options: {
+          responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}},
+          scales:{ y:{ beginAtZero:true, ticks:{ callback:v => v+'分' } } }
+        }
+      });
 
-    this.renderDailyStatusTimeline(records);
-    this.renderSymptomTimeline(records);
+      this.renderDailyStatusTimeline(records);
+      this.renderSymptomTimeline(records);
+    }
 
     const symptomCounts = {};
     records.forEach(r => (r.symptoms||[]).forEach(s => symptomCounts[s] = (symptomCounts[s]||0) + 1));
@@ -2543,6 +2633,25 @@ const App = {
     }
   },
 
+  // PDFレポート用にグラフを一時canvasへ描画し、base64画像として取り出す共通処理。
+  // 体重・食欲・お散歩の3種類のグラフで同じ手順を使い回す。
+  async renderChartImageForReport(chartConfig){
+    const canvas = document.createElement('canvas');
+    canvas.width = 700; canvas.height = 260;
+    document.body.appendChild(canvas);
+    let img = '';
+    try{
+      const chart = new Chart(canvas, chartConfig);
+      await waitForCanvasPaint(canvas);
+      img = chart.toBase64Image();
+      chart.destroy();
+    } catch(err){
+      console.error('chart generation for report failed', err);
+    }
+    document.body.removeChild(canvas);
+    return img;
+  },
+
   async printReport(){
     // 出力範囲は最大31日間まで。無料枠1回で全期間を出力できてしまうと
     // 課金インセンティブが効かなくなるため、ここでクレジット消費前に弾く。
@@ -2569,28 +2678,53 @@ const App = {
       const pet = currentPet();
       if(records.length === 0){ alert('選択した期間に記録がありません'); return; }
 
-      const tmpCanvas = document.createElement('canvas');
-    tmpCanvas.width = 700; tmpCanvas.height = 260;
-    document.body.appendChild(tmpCanvas);
-    const weightData = records.filter(r => r.weight != null);
-    let chartImg = '';
-    if(weightData.length > 0){
-      try{
-        const tmpChart = new Chart(tmpCanvas, {
+      const subscribed = !!(state.entitlements && state.entitlements.subscriptionActive);
+
+      const weightData = records.filter(r => r.weight != null);
+      let chartImg = '';
+      if(weightData.length > 0){
+        chartImg = await this.renderChartImageForReport({
           type:'line',
           data:{ labels: weightData.map(r=>fmtDate(r.date)), datasets:[{label:'体重(kg)', data: weightData.map(r=>r.weight), borderColor:'#FB923C', backgroundColor:'rgba(251,146,60,0.15)', fill:true, tension:0.25}] },
           options:{ responsive:false, animation:false, plugins:{legend:{display:true}} }
         });
-        await waitForCanvasPaint(tmpCanvas);
-        chartImg = tmpChart.toBase64Image();
-        tmpChart.destroy();
-      } catch(err){
-        console.error('chart generation for report failed', err);
       }
-    }
-    document.body.removeChild(tmpCanvas);
 
-    const showCibdai = pet.trackCibdai;
+      // 食欲・お散歩のグラフはサポートプラン限定。未加入の場合はグラフ自体を作らない。
+      let appetiteImg = '', walkImg = '';
+      if(subscribed){
+        const appetiteData = records.filter(r => r.appetite != null && r.appetite !== '');
+        if(appetiteData.length > 0){
+          appetiteImg = await this.renderChartImageForReport({
+            type:'line',
+            data:{ labels: appetiteData.map(r=>fmtDate(r.date)), datasets:[{label:'食欲(%)', data: appetiteData.map(r=>Number(appetiteValue(r.appetite))), borderColor:'#D4A03C', backgroundColor:'rgba(212,160,60,0.15)', fill:true, tension:0.25}] },
+            options:{ responsive:false, animation:false, plugins:{legend:{display:true}}, scales:{y:{min:0,max:100}} }
+          });
+        }
+        const walkData = records.filter(r => r.walkMinutes != null);
+        if(walkData.length > 0){
+          walkImg = await this.renderChartImageForReport({
+            type:'line',
+            data:{ labels: walkData.map(r=>fmtDate(r.date)), datasets:[{label:'お散歩(分)', data: walkData.map(r=>r.walkMinutes), borderColor:'#5FA87A', backgroundColor:'rgba(95,168,122,0.15)', fill:true, tension:0.25}] },
+            options:{ responsive:false, animation:false, plugins:{legend:{display:true}}, scales:{y:{beginAtZero:true}} }
+          });
+        }
+      }
+
+      // 症状の出現回数は棒グラフの画像ではなく、レポートでは読みやすい数字の一覧にする。
+      const symptomCounts = {};
+      records.forEach(r => (r.symptoms||[]).forEach(s => symptomCounts[s] = (symptomCounts[s]||0) + 1));
+      const symptomEntries = Object.entries(symptomCounts);
+      const symptomCountHtml = `
+        <h2 style="font-size:15px;margin-top:18px;">症状の出現回数</h2>
+        ${symptomEntries.length === 0 ? '<p>この期間に記録された症状はありません。</p>' : `
+          <ul style="margin:6px 0 0;padding-left:18px;">
+            ${symptomEntries.map(([s,c]) => `<li>${s}: ${c}回</li>`).join('')}
+          </ul>
+        `}
+      `;
+
+      const showCibdai = pet.trackCibdai;
     // メモは同じ行の1列に詰めると長文で列が崩れるため、書かれている日だけ2段目に
     // 全幅で表示する(仕様はユーザー提供のレイアウト案に準拠)。tbodyで1レコード分を
     // まとめてbreak-inside:avoidを付け、ページまたぎで記録が分断されるのをできるだけ防ぐ。
@@ -2666,7 +2800,13 @@ const App = {
       <h1>体調記録レポート</h1>
       <p>${pet.name}(${pet.species}${pet.breed ? '・'+pet.breed : ''}) ${pet.birthday ? '/ ' + ageString(pet.birthday) : ''}</p>
       <p>期間: ${from ? fmtDate(from) : '-'} 〜 ${to ? fmtDate(to) : '-'} (作成日: ${fmtDate(new Date().toISOString().slice(0,10))})</p>
-      ${chartImg ? `<img src="${chartImg}" style="width:100%;max-width:600px;">` : ''}
+      ${chartImg ? `
+        <h2 style="font-size:15px;margin-top:18px;">グラフ</h2>
+        <img src="${chartImg}" style="width:100%;max-width:600px;">
+        ${appetiteImg ? `<img src="${appetiteImg}" style="width:100%;max-width:600px;margin-top:10px;">` : ''}
+        ${walkImg ? `<img src="${walkImg}" style="width:100%;max-width:600px;margin-top:10px;">` : ''}
+      ` : ''}
+      ${symptomCountHtml}
       ${visitsHtml}
       ${medsHtml}
       ${prevsHtml}
