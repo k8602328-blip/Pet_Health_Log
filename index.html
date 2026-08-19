@@ -104,6 +104,25 @@
   .report-loading-subtext{font-size:14px;color:var(--muted);line-height:1.6;}
   .report-loading-dismiss{margin-top:6px;font-size:13px;padding:8px 16px;}
   .report-loading-warning{font-size:12px;color:var(--danger);font-weight:600;}
+  #onboardingScreen{
+    position:fixed;inset:0;background:#FFF8F0;
+    display:flex;flex-direction:column;z-index:500;
+  }
+  .onboarding-imagewrap{flex:1 1 55%;min-height:0;overflow:hidden;position:relative;}
+  .onboarding-imagewrap img{width:100%;height:100%;object-fit:cover;display:block;}
+  .onboarding-body{flex:0 0 auto;padding:18px 24px max(20px, env(safe-area-inset-bottom));display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px;}
+  .onboarding-body h2{font-size:19px;margin:2px 0 0;color:var(--text);}
+  .onboarding-body p{font-size:14px;color:var(--muted);line-height:1.6;margin:0;max-width:420px;}
+  .onboarding-note{font-size:12px;}
+  .onboarding-dots{display:flex;gap:6px;margin-bottom:4px;}
+  .onboarding-dot{width:7px;height:7px;border-radius:50%;background:var(--border);transition:width 0.2s,border-radius 0.2s;}
+  .onboarding-dot.active{background:var(--primary);width:18px;border-radius:4px;}
+  #onboardingNextBtn{width:100%;max-width:320px;margin-top:6px;}
+  .onboarding-skip{
+    position:absolute;top:max(14px, env(safe-area-inset-top));right:16px;z-index:2;
+    background:rgba(255,255,255,0.85);border:none;border-radius:999px;color:var(--muted);
+    font-size:13px;padding:7px 14px;
+  }
   .actions-cell{white-space:nowrap;}
   .actions-cell button{padding:4px 8px;font-size:12px;margin-right:4px;}
   .muted{color:var(--muted);font-size:12px;}
@@ -233,6 +252,20 @@
 </style>
 </head>
 <body>
+
+<div id="onboardingScreen" class="hidden">
+  <button type="button" class="onboarding-skip" onclick="App.finishOnboarding()">あとで見る</button>
+  <div class="onboarding-imagewrap">
+    <img id="onboardingImg" src="" alt="">
+  </div>
+  <div class="onboarding-body">
+    <div class="onboarding-dots" id="onboardingDots"></div>
+    <h2 id="onboardingTitle"></h2>
+    <p id="onboardingDesc"></p>
+    <p id="onboardingNote" class="onboarding-note hidden"></p>
+    <button type="button" id="onboardingNextBtn" onclick="App.onboardingNext()">次へ</button>
+  </div>
+</div>
 
 <div id="authScreen" class="modal-backdrop">
   <div class="modal" style="text-align:center;">
@@ -852,6 +885,34 @@ const UPGRADE_ITEMS = [
   {
     item:'familySeat', label:'家族共有 追加席(1人分)', price:'¥200/月',
     desc:'招待した家族が同じペットの記録を閲覧・記入・修正できるようになります(1人分)。'
+  }
+];
+
+// 初回オンボーディング。localStorageのフラグ1つだけで完結させる(Firestoreには持たせない)。
+// ログアウトしてもlocalStorageは消えないため、同じ端末なら再ログイン後も再表示されない。
+const ONBOARDING_STORAGE_KEY = 'onboardingSeen_v1';
+const ONBOARDING_PAGES = [
+  {
+    img:'onboarding-images/step1.jpg',
+    title:'毎日の小さな変化を、見逃さない。',
+    desc:'どうぶつ健康手帳は、ペットの毎日の様子をかんたんに残して、健康管理に役立てるための手帳です。'
+  },
+  {
+    img:'onboarding-images/step2.jpg',
+    title:'いつもの様子を、かんたん記録。',
+    desc:'体重、食事、飲水、便・尿、症状、お薬、写真など。毎日の健康情報をひとつにまとめられます。',
+    note:'記録できる項目は必要なものだけでOKです。'
+  },
+  {
+    img:'onboarding-images/step3.jpg',
+    title:'続けるほど、変化が見えてくる。',
+    desc:'記録した内容はグラフやタイムラインで整理。体重や食欲、排泄、症状などの変化を振り返りやすくなります。',
+    note:'※表示は記録内容の整理であり、診断を行うものではありません。'
+  },
+  {
+    img:'onboarding-images/step4.jpg',
+    title:'記録を、診察につなげる。',
+    desc:'受診時には、日々の記録やグラフをスマホやPDFで獣医師に共有できます。いつから、どんな変化があったのかを伝える助けになります。'
   }
 ];
 
@@ -3094,6 +3155,46 @@ const App = {
       if(printBtn){ printBtn.disabled = false; printBtn.textContent = printBtnLabel; }
       loadingOverlay.classList.add('hidden');
     }
+  },
+
+  onboardingIndex: 0,
+  startOnboarding(){
+    this.onboardingIndex = 0;
+    this.renderOnboardingPage();
+    document.getElementById('onboardingScreen').classList.remove('hidden');
+  },
+  renderOnboardingPage(){
+    const p = ONBOARDING_PAGES[this.onboardingIndex];
+    const isLast = this.onboardingIndex === ONBOARDING_PAGES.length - 1;
+    document.getElementById('onboardingImg').src = p.img;
+    document.getElementById('onboardingImg').alt = p.title;
+    document.getElementById('onboardingTitle').textContent = p.title;
+    document.getElementById('onboardingDesc').textContent = p.desc;
+    const noteEl = document.getElementById('onboardingNote');
+    if(p.note){ noteEl.textContent = p.note; noteEl.classList.remove('hidden'); }
+    else { noteEl.classList.add('hidden'); }
+    document.getElementById('onboardingDots').innerHTML = ONBOARDING_PAGES.map((_, i) =>
+      `<span class="onboarding-dot${i === this.onboardingIndex ? ' active' : ''}"></span>`
+    ).join('');
+    document.getElementById('onboardingNextBtn').textContent = isLast ? 'はじめる' : '次へ';
+  },
+  onboardingNext(){
+    if(this.onboardingIndex < ONBOARDING_PAGES.length - 1){
+      this.onboardingIndex++;
+      this.renderOnboardingPage();
+    } else {
+      this.finishOnboarding();
+    }
+  },
+  onboardingPrev(){
+    if(this.onboardingIndex > 0){
+      this.onboardingIndex--;
+      this.renderOnboardingPage();
+    }
+  },
+  finishOnboarding(){
+    localStorage.setItem(ONBOARDING_STORAGE_KEY, '1');
+    document.getElementById('onboardingScreen').classList.add('hidden');
   }
 };
 
@@ -3167,6 +3268,23 @@ window.AppAuth = AppAuth;
 
 document.addEventListener('DOMContentLoaded', () => {
   App.wireEvents();
+
+  // ログイン画面より前に見せたいため、認証状態を待たずここで判定する。
+  // z-index(500)がauthScreenより高いので、後からonAuthStateChangedがauthScreenの
+  // 表示を切り替えても、オンボーディング表示中はその下に隠れたままになる。
+  if(localStorage.getItem(ONBOARDING_STORAGE_KEY) !== '1'){
+    App.startOnboarding();
+    let touchStartX = null;
+    const onboardingEl = document.getElementById('onboardingScreen');
+    onboardingEl.addEventListener('touchstart', e => { touchStartX = e.touches[0].clientX; }, {passive:true});
+    onboardingEl.addEventListener('touchend', e => {
+      if(touchStartX === null) return;
+      const dx = e.changedTouches[0].clientX - touchStartX;
+      touchStartX = null;
+      if(Math.abs(dx) < 40) return;
+      if(dx < 0) App.onboardingNext(); else App.onboardingPrev();
+    }, {passive:true});
+  }
 
   const inAppName = detectInAppBrowser();
   if(inAppName){
