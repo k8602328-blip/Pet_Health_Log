@@ -102,6 +102,7 @@
   @keyframes report-spin{ to { transform:rotate(360deg); } }
   .report-loading-text{font-size:19px;font-weight:700;color:var(--text);}
   .report-loading-subtext{font-size:14px;color:var(--muted);line-height:1.6;}
+  .report-loading-dismiss{margin-top:6px;font-size:13px;padding:8px 16px;}
   .actions-cell{white-space:nowrap;}
   .actions-cell button{padding:4px 8px;font-size:12px;margin-right:4px;}
   .muted{color:var(--muted);font-size:12px;}
@@ -557,6 +558,7 @@
   <div class="report-loading-spinner"></div>
   <div class="report-loading-text">レポートを作成しています…</div>
   <div class="report-loading-subtext">画面が切り替わるまで、そのままお待ちください<br>(数十秒かかることがあります)</div>
+  <button type="button" class="ghost report-loading-dismiss hidden">閉じる(処理はそのまま続きます)</button>
 </div>
 
 <script>
@@ -838,10 +840,6 @@ function uid(){ return Date.now().toString(36) + Math.random().toString(36).slic
 // ため、直近に出力成功した直後の連打はクレジット消費自体をスキップして実害(無駄な消費)を防ぐ。
 let lastReportPrintAt = 0;
 const REPORT_PRINT_GRACE_MS = 60 * 1000;
-// セッションで最初の出力だけ、印刷画面が実際に表示されるまで特に時間がかかる
-// (Chart.js初期化・画像デコードなどの初回コストが重なるため)。2回目以降は
-// 数秒で表示されることを確認済みなので、初回だけ長めに待つ。
-let reportPrintWarmedUp = false;
 
 // Chart.jsのanimation:falseは即座に描画されることが多いが、そのセッションで
 // 最初にグラフを作る時だけ(ライブラリ内部の初期化コストのためか)描画が遅れ、
@@ -2992,10 +2990,35 @@ const App = {
       // 出るまでにはまだ間がある。beforeprintイベントで正確なタイミングを取ろうとしたが、
       // iPhoneでは実際に印刷画面が表示されるより10〜15秒ほど早く発火してしまい、
       // ローディング表示が先に消えてしまうことを実機で確認したため採用しなかった。
-      // 代わりに「セッション最初の出力だけ特に時間がかかり、2回目以降は数秒で終わる」
-      // という実測の傾向に合わせて、固定の待ち時間を初回だけ長くする。
-      await new Promise(resolve => setTimeout(resolve, reportPrintWarmedUp ? 3000 : 45000));
-      reportPrintWarmedUp = true;
+      // 固定の待ち時間で自動的に隠す方式も試したが、実機テストで同じ「初回」扱いの
+      // 出力でも30秒で済む場合と60秒かかる場合があり、そもそも一つの固定時間では
+      // 賄いきれないばらつきがあることが分かった。時間を正確に読むこと自体を諦め、
+      // 代わりに「待たせすぎない」「固まったと誤解させない」の両立を狙う3段構えにする。
+      await new Promise(resolve => {
+        const subtext = loadingOverlay.querySelector('.report-loading-subtext');
+        const dismissBtn = loadingOverlay.querySelector('.report-loading-dismiss');
+        const originalSubtext = subtext.innerHTML;
+        const timers = [];
+        const finish = () => {
+          timers.forEach(clearTimeout);
+          dismissBtn.classList.add('hidden');
+          dismissBtn.onclick = null;
+          subtext.innerHTML = originalSubtext;
+          resolve();
+        };
+        // 数秒後、まだ表示中なら「時間がかかることがある」ことを改めて伝えて安心させる。
+        timers.push(setTimeout(() => {
+          subtext.innerHTML = '端末の状態により1分ほどかかることがあります。<br>このままお待ちいただくか、下のボタンで閉じても処理は続行されます。';
+        }, 6000));
+        // それでも表示中なら、手動で閉じられる選択肢を提示する(閉じても印刷/共有画面は
+        // ブラウザ側の処理として引き続き表示されるため、閉じること自体に実害はない)。
+        timers.push(setTimeout(() => {
+          dismissBtn.classList.remove('hidden');
+        }, 10000));
+        // 保険として、操作されないまま長時間経過した場合は自動的に閉じる。
+        timers.push(setTimeout(finish, 90000));
+        dismissBtn.onclick = finish;
+      });
     } finally {
       if(printBtn){ printBtn.disabled = false; printBtn.textContent = printBtnLabel; }
       loadingOverlay.classList.add('hidden');
