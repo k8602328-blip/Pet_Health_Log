@@ -2974,6 +2974,16 @@ const App = {
       </table>
     `;
 
+    const hasDiet = pet.dietMain || pet.dietTopping || pet.dietTreats;
+    const dietHtml = !hasDiet ? '' : `
+      <h2 style="font-size:15px;margin-top:18px;">現在の食事</h2>
+      <table>
+        <tr><th style="white-space:nowrap;">メインの食事</th><td style="white-space:pre-wrap;">${pet.dietMain || '-'}</td></tr>
+        <tr><th style="white-space:nowrap;">トッピング</th><td style="white-space:pre-wrap;">${pet.dietTopping || '-'}</td></tr>
+        <tr><th style="white-space:nowrap;">おやつ</th><td style="white-space:pre-wrap;">${pet.dietTreats || '-'}</td></tr>
+      </table>
+    `;
+
     const prevs = petPreventions();
     const prevsHtml = prevs.length === 0 ? '' : `
       <h2 style="font-size:15px;margin-top:18px;">予防接種・ノミダニ/フィラリア予防</h2>
@@ -3021,6 +3031,7 @@ const App = {
       ${symptomTimelineHtml}
       ${visitsHtml}
       ${medsHtml}
+      ${dietHtml}
       ${prevsHtml}
       <h2 style="font-size:15px;margin-top:18px;">日々の記録</h2>
       <table>
