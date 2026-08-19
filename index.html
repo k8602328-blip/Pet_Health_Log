@@ -137,12 +137,23 @@
   .fecal-text .fecal-desc{font-size:12px;color:var(--muted);}
   .cibdai-item{display:flex;flex-direction:column;gap:3px;margin-bottom:10px;}
   .cibdai-item label{font-size:12px;font-weight:600;color:var(--muted);}
-  .upgrade-row{display:flex;align-items:center;gap:12px;padding:12px 4px;border-bottom:1px solid var(--border);}
-  .upgrade-row:last-child{border-bottom:none;}
-  .upgrade-text{flex:1;}
-  .upgrade-text .upgrade-title{font-weight:700;font-size:13px;}
-  .upgrade-text .upgrade-price{font-size:12px;color:var(--primary-dark);font-weight:600;}
-  .upgrade-text .upgrade-desc{font-size:12px;color:var(--muted);margin-top:2px;}
+  .upgrade-card{padding:14px 4px;border-bottom:1px solid var(--border);}
+  .upgrade-card:last-child{border-bottom:none;}
+  .upgrade-card-head{display:flex;align-items:flex-start;gap:12px;}
+  .upgrade-card-headtext{flex:1;}
+  .upgrade-card-headtext .upgrade-title{font-weight:700;font-size:14px;}
+  .upgrade-card-headtext .upgrade-price{font-size:12px;color:var(--primary-dark);font-weight:600;margin-top:2px;}
+  .upgrade-desc{font-size:12px;color:var(--muted);margin-top:8px;line-height:1.7;}
+  .upgrade-desc ul{margin:4px 0 0;padding-left:18px;}
+  .upgrade-desc li{margin-bottom:2px;}
+  .upgrade-diagram{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:10px;padding:10px;background:var(--bg);border-radius:10px;}
+  .upgrade-diagram-state{display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;text-align:center;}
+  .upgrade-diagram-icon{font-size:22px;}
+  .upgrade-diagram-label{font-size:11px;color:var(--muted);line-height:1.4;}
+  .upgrade-diagram-arrow{font-size:18px;color:var(--muted);flex-shrink:0;}
+  .upgrade-media{display:flex;flex-direction:column;gap:10px;margin-top:10px;}
+  .upgrade-media-item img{width:100%;border-radius:8px;border:1px solid var(--border);display:block;}
+  .upgrade-media-caption{font-size:11px;color:var(--muted);margin-top:4px;text-align:center;}
   .photo-grid{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;}
   .photo-thumb{position:relative;width:72px;height:72px;}
   .photo-thumb img{width:100%;height:100%;object-fit:cover;border-radius:8px;border:1px solid var(--border);}
@@ -801,10 +812,46 @@ const CIBDAI_ITEMS = [
 // 課金Cloud Functions(createCheckoutSession)側のPRICE_IDSマップと対応するキー。
 // 実際の価格IDはサーバー側だけが持っており、クライアントはこのキーしか送らない。
 const UPGRADE_ITEMS = [
-  { item:'extraPet', label:'追加ペットスロット', price:'¥150(買い切り)', desc:'2匹目以降のペットを追加登録できます。' },
-  { item:'reportPack', label:'レポート出力 追加パック(5回分)', price:'¥300(買い切り)', desc:'PDFレポート出力を追加5回分利用できます。' },
-  { item:'supportPlan', label:'治療サポートプラン', price:'¥480/月', desc:'投薬リマインダー・写真添付・傾向分析がセットで使えます。' },
-  { item:'familySeat', label:'家族共有 追加席(1人分)', price:'¥200/月', desc:'ご本人以外の家族にもこのペットの記録を共有できます(1人分)。' }
+  {
+    item:'extraPet', label:'追加ペットスロット', price:'¥150(買い切り)',
+    desc:'無料では1匹まで登録できます。購入すると、2匹目以降のペットも追加登録できるようになります。',
+    diagram:`
+      <div class="upgrade-diagram">
+        <div class="upgrade-diagram-state"><span class="upgrade-diagram-icon">🐾</span><span class="upgrade-diagram-label">1匹まで(無料)</span></div>
+        <span class="upgrade-diagram-arrow">→</span>
+        <div class="upgrade-diagram-state"><span class="upgrade-diagram-icon">🐾🐾🐾</span><span class="upgrade-diagram-label">2匹目以降も登録可能に</span></div>
+      </div>`
+  },
+  {
+    item:'reportPack', label:'レポート出力 追加パック(5回分)', price:'¥300(買い切り)',
+    desc:'無料枠(月1回)を使い切った後も、続けてPDFレポートを出力できるようになります。',
+    diagram:`
+      <div class="upgrade-diagram">
+        <div class="upgrade-diagram-state"><span class="upgrade-diagram-icon">🔒</span><span class="upgrade-diagram-label">今月の出力回数を使い切った状態</span></div>
+        <span class="upgrade-diagram-arrow">→</span>
+        <div class="upgrade-diagram-state"><span class="upgrade-diagram-icon">🖨️ +5</span><span class="upgrade-diagram-label">追加5回分をすぐ利用可能に</span></div>
+      </div>`
+  },
+  {
+    item:'supportPlan', label:'治療サポートプラン', price:'¥480/月',
+    descHtml:`
+      <p style="margin:0;">通院中のペットの体調管理に役立つ機能がまとめて使えるようになります。</p>
+      <ul>
+        <li>💊 投薬リマインダー通知(飲ませる時間になったらお知らせ)</li>
+        <li>📷 記録への写真添付(便・尿・患部などを残せる)</li>
+        <li>📊 グラフの拡張(食欲・お散歩の推移、日々の状態・症状のタイムライン、期間指定表示)</li>
+        <li>📝 「今週のようす」(週次の体調傾向を自動でお知らせ)</li>
+        <li>🖨 PDFレポートの拡張(グラフ画像やタイムライン表も出力)</li>
+      </ul>`,
+    media:[
+      { src:'upgrade-images/graph-sample.jpg', alt:'治療サポートプランのグラフ画面の例', caption:'グラフ:食欲・お散歩の推移や日々の状態が一目でわかります' },
+      { src:'upgrade-images/med-reminder-sample.jpg', alt:'投薬リマインダー設定画面の例', caption:'投薬リマインダー:飲ませる時間になったら通知でお知らせします' }
+    ]
+  },
+  {
+    item:'familySeat', label:'家族共有 追加席(1人分)', price:'¥200/月',
+    desc:'招待した家族が同じペットの記録を閲覧・記入・修正できるようになります(1人分)。'
+  }
 ];
 
 let state = {
@@ -1587,13 +1634,22 @@ const App = {
   renderUpgradeItems(){
     const wrap = document.getElementById('upgradeItemList');
     wrap.innerHTML = UPGRADE_ITEMS.map(it => `
-      <div class="upgrade-row">
-        <div class="upgrade-text">
-          <div class="upgrade-title">${it.label}</div>
-          <div class="upgrade-price">${it.price}</div>
-          <div class="upgrade-desc">${it.desc}</div>
+      <div class="upgrade-card">
+        <div class="upgrade-card-head">
+          <div class="upgrade-card-headtext">
+            <div class="upgrade-title">${it.label}</div>
+            <div class="upgrade-price">${it.price}</div>
+          </div>
+          <button type="button" data-upgrade-item="${it.item}" onclick="App.purchase('${it.item}')">購入する</button>
         </div>
-        <button type="button" data-upgrade-item="${it.item}" onclick="App.purchase('${it.item}')">購入する</button>
+        <div class="upgrade-desc">${it.descHtml || it.desc}</div>
+        ${it.diagram || ''}
+        ${it.media ? `<div class="upgrade-media">${it.media.map(m => `
+          <div class="upgrade-media-item">
+            <img src="${m.src}" alt="${m.alt}" loading="lazy" onerror="this.closest('.upgrade-media-item').style.display='none';">
+            <div class="upgrade-media-caption">${m.caption}</div>
+          </div>
+        `).join('')}</div>` : ''}
       </div>
     `).join('');
   },
