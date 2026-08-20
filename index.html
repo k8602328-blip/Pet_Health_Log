@@ -797,7 +797,7 @@ function buildStatusLegendHtml(){
 // グラフタブとPDFレポートの両方で使う「症状タイムライン」表のHTML。
 // opts.chunkSizeの意味はbuildDailyStatusTimelineHtml()と同じ(PDFでの紙幅対策)。
 function buildSymptomTimelineHtml(records, opts = {}){
-  const symptoms = [...new Set(records.flatMap(r => r.symptoms || []))];
+  const symptoms = [...new Set(records.flatMap(r => safeArray(r.symptoms)))];
   if(symptoms.length === 0){
     return '<div class="empty">この期間に記録された症状はありません</div>';
   }
@@ -805,8 +805,8 @@ function buildSymptomTimelineHtml(records, opts = {}){
   return chunks.map(chunk => {
     const header = `<tr><th class="symptom-row-label"></th>${chunk.map(r => `<th>${fmtDate(r.date).slice(5)}</th>`).join('')}</tr>`;
     const rows = symptoms.map(s => {
-      const cells = chunk.map(r => `<td>${(r.symptoms||[]).includes(s) ? '<span class="symptom-dot"></span>' : ''}</td>`).join('');
-      return `<tr><td class="symptom-row-label">${s}</td>${cells}</tr>`;
+      const cells = chunk.map(r => `<td>${safeArray(r.symptoms).includes(s) ? '<span class="symptom-dot"></span>' : ''}</td>`).join('');
+      return `<tr><td class="symptom-row-label">${escapeHtml(s)}</td>${cells}</tr>`;
     }).join('');
     return `<div class="symptom-timeline-scroll"><table class="symptom-timeline-table">${header}${rows}</table></div>`;
   }).join('<div style="height:8px;"></div>');
@@ -945,6 +945,59 @@ let state = {
 };
 
 function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
+
+// Firestore・認証プロフィール・フォームから来る値は、通常の画面操作を経由したかに
+// 関わらず未信頼として扱う。HTML文字列を組み立てざるを得ない既存表示では必ず
+// escapeHtml()を通し、DOMを直接組み立てられる箇所ではtextContentを優先する。
+function displayText(value, fallback = ''){
+  return value == null ? fallback : String(value);
+}
+function safeArray(value){
+  return Array.isArray(value) ? value : [];
+}
+function escapeHtml(value){
+  return displayText(value)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
+// 写真はcompressImageFile()が生成するJPEG data URLのみを保存する現行仕様。
+// 過去データとの互換性のためPNG/WebPも表示可能とするが、SVG・HTML・外部URL・
+// javascript:・blob:は受け付けない。Firestoreの1MB上限を超える値も描画しない。
+const MAX_IMAGE_DATA_URL_LENGTH = 950000;
+function isAllowedImageDataUrl(value){
+  return typeof value === 'string'
+    && value.length <= MAX_IMAGE_DATA_URL_LENGTH
+    && /^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(value);
+}
+function safeImageDataUrl(value){
+  return isAllowedImageDataUrl(value) ? value : '';
+}
+function safeStripeCheckoutUrl(value){
+  try{
+    const url = new URL(value);
+    return url.protocol === 'https:'
+      && (url.hostname === 'stripe.com' || url.hostname.endsWith('.stripe.com'))
+      ? url.href
+      : '';
+  } catch(_err){
+    return '';
+  }
+}
+function actionAttrs(action, id){
+  return `data-app-action="${action}" data-id="${escapeHtml(id)}"`;
+}
+function recordPhotosHtml(photos, className = 'record-photos'){
+  const images = (Array.isArray(photos) ? photos : [])
+    .map(safeImageDataUrl)
+    .filter(Boolean)
+    .map(src => `<img src="${src}" data-open-photo>`)
+    .join('');
+  return images ? `<div class="${className}">${images}</div>` : '';
+}
 
 // モバイルではwindow.print()を呼んだ瞬間にJSへ制御が戻ってしまい、実際の印刷画面が
 // 表示されるまでの数十秒はJS側から検知できない。ボタンの無効化だけでは連打を防ぎきれない
@@ -1170,8 +1223,8 @@ function analyzeWeeklySummary(records){
 
   const avg = list => list.reduce((a,b) => a+b, 0) / list.length;
 
-  const symptomDays = windowRecords.filter(r => (r.symptoms||[]).length > 0);
-  const distinctSymptoms = [...new Set(symptomDays.flatMap(r => r.symptoms))];
+  const symptomDays = windowRecords.filter(r => safeArray(r.symptoms).length > 0);
+  const distinctSymptoms = [...new Set(symptomDays.flatMap(r => safeArray(r.symptoms)))];
   const hasSymptoms = distinctSymptoms.length > 0;
 
   // 体重は直近7日の平均とその前7日の平均を比較する(単純な最新値同士の比較だと
@@ -1406,11 +1459,20 @@ const App = {
       console.error('familyMembers fetch failed', err);
     }
 
-    list.innerHTML = state.familyEmails.map(email => {
+    list.replaceChildren();
+    state.familyEmails.forEach(email => {
       const name = membersByEmail[email];
-      const label = name ? `${name}` : `${email}(招待中・未参加)`;
-      return `<span class="chip">${label}<button type="button" class="ghost" onclick="App.removeFamilyEmail('${email}')">×</button></span>`;
-    }).join('');
+      const chip = document.createElement('span');
+      chip.className = 'chip';
+      chip.append(document.createTextNode(name ? displayText(name) : `${displayText(email)}(招待中・未参加)`));
+      const removeButton = document.createElement('button');
+      removeButton.type = 'button';
+      removeButton.className = 'ghost';
+      removeButton.textContent = '×';
+      removeButton.addEventListener('click', () => this.removeFamilyEmail(email));
+      chip.append(removeButton);
+      list.append(chip);
+    });
   },
   async addFamilyEmail(){
     const input = document.getElementById('familyEmailInput');
@@ -1608,9 +1670,9 @@ const App = {
         ? m.reminderTimes
         : Array.from({ length: doses }, (_, i) => doses === 1 ? '服用' : `${i + 1}回目`);
       const boxes = doseLabels.map((label, i) => `
-        <label class="dose-check"><input type="checkbox" data-med="${m.id}" data-dose="${i}" ${checkedDoses[i] ? 'checked' : ''}> ${label}</label>
+        <label class="dose-check"><input type="checkbox" data-med="${escapeHtml(m.id)}" data-dose="${i}" ${checkedDoses[i] ? 'checked' : ''}> ${escapeHtml(label)}</label>
       `).join('');
-      return `<div class="med-dose-row"><div class="med-dose-name">${medLabel(m)}</div><div class="med-dose-boxes">${boxes}</div></div>`;
+      return `<div class="med-dose-row"><div class="med-dose-name">${escapeHtml(medLabel(m))}</div><div class="med-dose-boxes">${boxes}</div></div>`;
     }).join('');
   },
   collectMedsGiven(){
@@ -1630,9 +1692,13 @@ const App = {
       sel.innerHTML = `<option value="">ペット未登録</option>`;
       return;
     }
-    sel.innerHTML = state.pets.map(p =>
-      `<option value="${p.id}" ${p.id===state.currentPetId?'selected':''}>${p.species==='犬'?'🐶':(p.species==='猫'?'🐱':'🐾')} ${p.name}</option>`
-    ).join('');
+    sel.replaceChildren(...state.pets.map(p => {
+      const option = document.createElement('option');
+      option.value = displayText(p.id);
+      option.selected = p.id === state.currentPetId;
+      option.textContent = `${p.species==='犬'?'🐶':(p.species==='猫'?'🐱':'🐾')} ${displayText(p.name)}`;
+      return option;
+    }));
   },
 
   selectPet(id){
@@ -1702,7 +1768,7 @@ const App = {
             <div class="upgrade-title">${it.label}</div>
             <div class="upgrade-price">${it.price}</div>
           </div>
-          <button type="button" data-upgrade-item="${it.item}" onclick="App.purchase('${it.item}')">購入する</button>
+          <button type="button" data-upgrade-item="${escapeHtml(it.item)}" ${actionAttrs('purchase', it.item)}>購入する</button>
         </div>
         <div class="upgrade-desc">${it.descHtml || it.desc}</div>
         ${it.diagram || ''}
@@ -1776,7 +1842,9 @@ const App = {
     try{
       const createCheckoutSession = functions.httpsCallable('createCheckoutSession');
       const result = await createCheckoutSession({ item });
-      window.location.href = result.data.url;
+      const checkoutUrl = safeStripeCheckoutUrl(result && result.data && result.data.url);
+      if(!checkoutUrl) throw new Error('Unexpected checkout URL');
+      window.location.href = checkoutUrl;
     } catch(err){
       console.error('createCheckoutSession failed', err);
       errorEl.textContent = '決済ページを開けませんでした。時間をおいて再度お試しください。';
@@ -1843,11 +1911,11 @@ const App = {
       document.getElementById('rWalk').value = r.walkMinutes != null ? r.walkMinutes : '';
       document.getElementById('rMemo').value = r.memo || '';
       document.querySelectorAll('#rSymptoms input').forEach(cb => {
-        cb.checked = (r.symptoms || []).includes(cb.value);
+        cb.checked = safeArray(r.symptoms).includes(cb.value);
       });
       this.buildMedChecks(r.medsGiven || {});
       this.buildCibdaiSection(r.cibdai || null);
-      if(subscribed) state.recordPhotos = [...(r.photos || [])];
+      if(subscribed) state.recordPhotos = [...safeArray(r.photos)];
     } else {
       title.textContent = '記録を追加';
       document.getElementById('recordId').value = '';
@@ -1942,12 +2010,22 @@ const App = {
   },
   renderRecordPhotoGrid(){
     const grid = document.getElementById('rPhotoPreviewGrid');
-    grid.innerHTML = state.recordPhotos.map((src, i) => `
-      <div class="photo-thumb">
-        <img src="${src}">
-        <button type="button" class="danger" onclick="App.removeRecordPhoto(${i})">×</button>
-      </div>
-    `).join('');
+    grid.replaceChildren();
+    state.recordPhotos.forEach((source, index) => {
+      const src = safeImageDataUrl(source);
+      if(!src) return;
+      const thumb = document.createElement('div');
+      thumb.className = 'photo-thumb';
+      const img = document.createElement('img');
+      img.src = src;
+      const removeButton = document.createElement('button');
+      removeButton.type = 'button';
+      removeButton.className = 'danger';
+      removeButton.textContent = '×';
+      removeButton.addEventListener('click', () => this.removeRecordPhoto(index));
+      thumb.append(img, removeButton);
+      grid.append(thumb);
+    });
   },
 
   openMedModal(medId){
@@ -1975,10 +2053,11 @@ const App = {
       document.getElementById('medEnd').value = m.endDate || '';
       document.getElementById('medPrescriber').value = m.prescriber || '';
       document.getElementById('medMemo').value = m.memo || '';
-      if(subscribed) state.reminderTimesDraft = [...(m.reminderTimes || [])];
-      if(m.photo){
-        state.medPhotoData = m.photo;
-        document.getElementById('medPhotoPreview').src = m.photo;
+      if(subscribed) state.reminderTimesDraft = [...safeArray(m.reminderTimes)];
+      const safePhoto = safeImageDataUrl(m.photo);
+      if(safePhoto){
+        state.medPhotoData = safePhoto;
+        document.getElementById('medPhotoPreview').src = safePhoto;
         document.getElementById('medPhotoPreviewWrap').classList.remove('hidden');
       }
     } else {
@@ -2015,9 +2094,19 @@ const App = {
       wrap.innerHTML = `<span class="muted">まだ時刻が追加されていません</span>`;
       return;
     }
-    wrap.innerHTML = state.reminderTimesDraft.map(t => `
-      <span class="chip">🔔 ${t}<button type="button" class="ghost" onclick="App.removeReminderTime('${t}')">×</button></span>
-    `).join('');
+    wrap.replaceChildren();
+    state.reminderTimesDraft.forEach(time => {
+      const chip = document.createElement('span');
+      chip.className = 'chip';
+      chip.append(document.createTextNode(`🔔 ${displayText(time)}`));
+      const removeButton = document.createElement('button');
+      removeButton.type = 'button';
+      removeButton.className = 'ghost';
+      removeButton.textContent = '×';
+      removeButton.addEventListener('click', () => this.removeReminderTime(time));
+      chip.append(removeButton);
+      wrap.append(chip);
+    });
   },
   submitMed(e){
     e.preventDefault();
@@ -2233,16 +2322,16 @@ const App = {
   // どちらからも使う。opts.full=trueで飲水・便・尿・CIBDAI・メモも詳細に含める。
   // 写真はタップするまで読み込み表示せず、一覧のスクロールを軽くする。
   recordCardHtml(r, opts){
-    const symptoms = r.symptoms || [];
+    const symptoms = safeArray(r.symptoms);
     const medTags = medsGivenTags(r.medsGiven);
     const medIncomplete = medTags.some(t => !t.complete);
-    const photos = r.photos || [];
+    const photos = safeArray(r.photos).filter(isAllowedImageDataUrl);
     return `
       <div class="record-card">
         <div class="record-card-header" onclick="this.closest('.record-card').classList.toggle('expanded')">
           <div class="record-card-main">
             <span>${fmtDate(r.date)}</span>
-            <span class="record-card-weight">${r.weight ? r.weight+'kg' : ''}</span>
+              <span class="record-card-weight">${r.weight ? escapeHtml(r.weight)+'kg' : ''}</span>
           </div>
           <div class="record-card-badges">
             ${symptoms.length > 0 ? `<span class="tag">症状あり</span>` : ''}
@@ -2253,25 +2342,25 @@ const App = {
         </div>
         <div class="record-card-detail">
           <table class="record-card-detail-table">
-            <tr><th>食欲</th><td>${appetiteLabel(r.appetite)}</td></tr>
+              <tr><th>食欲</th><td>${escapeHtml(appetiteLabel(r.appetite))}</td></tr>
             ${opts.full ? `
-              <tr><th>飲水</th><td>${waterLabel(r.water)}</td></tr>
-              <tr><th>便(スコア)</th><td>${stoolLabel(r.stool)}</td></tr>
-              <tr><th>尿</th><td>${urineLabel(r.urine)}</td></tr>
-              <tr><th>お散歩</th><td>${walkLabel(r.walkMinutes)}</td></tr>
+                <tr><th>飲水</th><td>${escapeHtml(waterLabel(r.water))}</td></tr>
+                <tr><th>便(スコア)</th><td>${escapeHtml(stoolLabel(r.stool))}</td></tr>
+                <tr><th>尿</th><td>${escapeHtml(urineLabel(r.urine))}</td></tr>
+                <tr><th>お散歩</th><td>${escapeHtml(walkLabel(r.walkMinutes))}</td></tr>
               ${opts.showCibdai ? `<tr><th>CIBDAI</th><td>${r.cibdai ? cibdaiTotal(r.cibdai)+'点('+cibdaiSeverity(cibdaiTotal(r.cibdai))+')' : '-'}</td></tr>` : ''}
             ` : ''}
-            <tr><th>症状</th><td>${symptoms.map(s=>`<span class="tag">${s}</span>`).join('') || '-'}</td></tr>
-            <tr><th>投薬</th><td>${medTags.map(t => `<span class="tag ${t.complete?'':'tag-warn'}">💊 ${t.label}(${t.given}/${t.total})</span>`).join('') || '-'}</td></tr>
-            ${opts.full ? `<tr><th>メモ</th><td>${r.memo || '-'}</td></tr>` : ''}
+              <tr><th>症状</th><td>${symptoms.map(s=>`<span class="tag">${escapeHtml(s)}</span>`).join('') || '-'}</td></tr>
+              <tr><th>投薬</th><td>${medTags.map(t => `<span class="tag ${t.complete?'':'tag-warn'}">💊 ${escapeHtml(t.label)}(${t.given}/${t.total})</span>`).join('') || '-'}</td></tr>
+              ${opts.full ? `<tr><th>メモ</th><td>${escapeHtml(r.memo || '-')}</td></tr>` : ''}
           </table>
           ${photos.length > 0 ? `
             <button type="button" class="secondary" style="margin-top:8px;" onclick="this.nextElementSibling.classList.toggle('hidden')">📷 写真を表示(${photos.length})</button>
-            <div class="record-photos hidden">${photos.map(src => `<img src="${src}" onclick="window.open(this.src)">`).join('')}</div>
+            ${recordPhotosHtml(photos, 'record-photos hidden')}
           ` : ''}
           <div class="row" style="margin-top:10px;justify-content:flex-end;">
-            <button class="secondary" onclick="App.openRecordModal('${r.id}')">編集</button>
-            ${opts.showDelete ? `<button class="danger" onclick="App.deleteRecord('${r.id}')">削除</button>` : ''}
+            <button class="secondary" ${actionAttrs('openRecord', r.id)}>編集</button>
+            ${opts.showDelete ? `<button class="danger" ${actionAttrs('deleteRecord', r.id)}>削除</button>` : ''}
           </div>
         </div>
       </div>
@@ -2300,7 +2389,7 @@ const App = {
         return `
           <div class="prev-box stat">
             <div class="label">${cat}</div>
-            <div class="value">${p && p.name ? p.name : '未登録'}</div>
+            <div class="value">${p && p.name ? escapeHtml(p.name) : '未登録'}</div>
             <div class="sub">${showLastDate && p ? `最終: ${fmtDate(p.date)} ・ ` : ''}次回: ${nextHtml}</div>
           </div>
         `;
@@ -2315,7 +2404,7 @@ const App = {
     const trendCardHtml = weeklySummary ? `
       <div class="card" style="border:1px solid ${weeklySummary.level === 'concern' ? 'var(--danger)' : 'var(--border)'};">
         <h3 style="margin:0 0 8px;">${weeklySummary.level === 'concern' ? '⚠️ ' : ''}今週のようす</h3>
-        <p style="margin:0;">${weeklySummary.text}</p>
+        <p style="margin:0;">${escapeHtml(weeklySummary.text)}</p>
         <p class="hint" style="margin-top:8px;">※診断ではなく、記録の変化をお知らせする目安です。気になる場合は獣医師にご相談ください。</p>
       </div>
     ` : (subscribed ? '' : `
@@ -2325,10 +2414,10 @@ const App = {
     main.innerHTML = `
       ${trendCardHtml}
       <div class="card">
-        <h3>${pet.species==='犬'?'🐶':(pet.species==='猫'?'🐱':'🐾')} ${pet.name} ${pet.breed?('('+pet.breed+')'):''}</h3>
+        <h3>${pet.species==='犬'?'🐶':(pet.species==='猫'?'🐱':'🐾')} ${escapeHtml(pet.name)} ${pet.breed?('('+escapeHtml(pet.breed)+')'):''}</h3>
         <div class="muted">${pet.birthday ? (fmtDate(pet.birthday) + ' 生まれ ・ ' + ageString(pet.birthday)) : '誕生日未登録'}</div>
         <p class="muted mobile-only" style="margin-top:12px;font-size:13px;">
-          記録${records.length}日 ・ ${latest && latest.weight ? latest.weight+'kg' : '体重未記録'} ・ 最終記録 ${latest ? fmtDate(latest.date) : '-'}${pet.trackCibdai && lastWithCibdai ? ` ・ CIBDAI ${cibdaiTotal(lastWithCibdai.cibdai)}点` : ''}
+          記録${records.length}日 ・ ${latest && latest.weight ? escapeHtml(latest.weight)+'kg' : '体重未記録'} ・ 最終記録 ${latest ? fmtDate(latest.date) : '-'}${pet.trackCibdai && lastWithCibdai ? ` ・ CIBDAI ${cibdaiTotal(lastWithCibdai.cibdai)}点` : ''}
         </p>
         <div class="stat-row desktop-only" style="margin-top:14px;">
           <div class="stat"><div class="label">記録日数</div><div class="value">${records.length}日</div></div>
@@ -2338,11 +2427,11 @@ const App = {
         </div>
         <div style="margin-top:16px;"><button onclick="App.openRecordModal()">+ 今日の記録を追加</button></div>
         <label class="pet-toggle">
-          <input type="checkbox" ${pet.trackCibdai ? 'checked' : ''} onchange="App.toggleCibdai('${pet.id}')">
+          <input type="checkbox" ${pet.trackCibdai ? 'checked' : ''} ${actionAttrs('toggleCibdai', pet.id)}>
           CIBDAIスコアも記録する(慢性腸疾患・IBDのモニタリング向け)
         </label>
         <div style="margin-top:12px;">
-          <button type="button" class="ghost" style="padding:3px 9px;font-size:11px;color:var(--danger);border-color:var(--danger);" onclick="App.deletePet('${pet.id}')">🗑 このペットを削除</button>
+          <button type="button" class="ghost" style="padding:3px 9px;font-size:11px;color:var(--danger);border-color:var(--danger);" ${actionAttrs('deletePet', pet.id)}>🗑 このペットを削除</button>
         </div>
       </div>
       <div class="card">
@@ -2360,15 +2449,15 @@ const App = {
         <div class="stat-row" style="margin-top:10px;">
           <div class="prev-box stat">
             <div class="label">メインの食事</div>
-            <div class="value" style="white-space:pre-wrap;">${pet.dietMain || '未記入'}</div>
+            <div class="value" style="white-space:pre-wrap;">${escapeHtml(pet.dietMain || '未記入')}</div>
           </div>
           <div class="prev-box stat">
             <div class="label">トッピング</div>
-            <div class="value" style="white-space:pre-wrap;">${pet.dietTopping || '未記入'}</div>
+            <div class="value" style="white-space:pre-wrap;">${escapeHtml(pet.dietTopping || '未記入')}</div>
           </div>
           <div class="prev-box stat">
             <div class="label">おやつ</div>
-            <div class="value" style="white-space:pre-wrap;">${pet.dietTreats || '未記入'}</div>
+            <div class="value" style="white-space:pre-wrap;">${escapeHtml(pet.dietTreats || '未記入')}</div>
           </div>
         </div>
       </div>
@@ -2378,9 +2467,9 @@ const App = {
           <button class="secondary" onclick="App.switchTab('visits')">管理する</button>
         </div>
         ${lastVisit ? `
-          <div class="muted">${fmtDate(lastVisit.date)} ${lastVisit.clinic ? '・'+lastVisit.clinic : ''}</div>
-          <div style="margin-top:4px;"><strong>${lastVisit.diagnosis || '診断名は未記入'}</strong></div>
-          ${lastVisit.reason ? `<div class="muted" style="margin-top:2px;">${lastVisit.reason}</div>` : ''}
+            <div class="muted">${fmtDate(lastVisit.date)} ${lastVisit.clinic ? '・'+escapeHtml(lastVisit.clinic) : ''}</div>
+            <div style="margin-top:4px;"><strong>${escapeHtml(lastVisit.diagnosis || '診断名は未記入')}</strong></div>
+            ${lastVisit.reason ? `<div class="muted" style="margin-top:2px;">${escapeHtml(lastVisit.reason)}</div>` : ''}
         ` : '<div class="empty">まだ受診記録がありません</div>'}
       </div>
       <div class="card">
@@ -2392,12 +2481,12 @@ const App = {
           ${records.slice(0,5).map(r => `
             <tr>
               <td>${fmtDate(r.date)}</td>
-              <td>${r.weight ? r.weight+'kg' : '-'}</td>
-              <td>${appetiteLabel(r.appetite)}</td>
-              <td>${(r.symptoms||[]).map(s=>`<span class="tag">${s}</span>`).join('') || '-'}</td>
-              <td>${medsGivenTags(r.medsGiven).map(t => `<span class="tag ${t.complete ? '' : 'tag-warn'}">💊 ${t.label}(${t.given}/${t.total})</span>`).join('') || '-'}</td>
-              <td>${(r.photos||[]).length > 0 ? `📷 ${r.photos.length}` : '-'}</td>
-              <td class="actions-cell"><button class="secondary" onclick="App.openRecordModal('${r.id}')">編集</button></td>
+                <td>${r.weight ? escapeHtml(r.weight)+'kg' : '-'}</td>
+                <td>${escapeHtml(appetiteLabel(r.appetite))}</td>
+                <td>${safeArray(r.symptoms).map(s=>`<span class="tag">${escapeHtml(s)}</span>`).join('') || '-'}</td>
+                <td>${medsGivenTags(r.medsGiven).map(t => `<span class="tag ${t.complete ? '' : 'tag-warn'}">💊 ${escapeHtml(t.label)}(${t.given}/${t.total})</span>`).join('') || '-'}</td>
+              <td>${safeArray(r.photos).length > 0 ? `📷 ${safeArray(r.photos).length}` : '-'}</td>
+              <td class="actions-cell"><button class="secondary" ${actionAttrs('openRecord', r.id)}>編集</button></td>
             </tr>
           `).join('')}
         </table>
@@ -2428,20 +2517,20 @@ const App = {
           ${records.map(r => `
             <tr>
               <td>${fmtDate(r.date)}</td>
-              <td>${r.weight ? r.weight+'kg' : '-'}</td>
-              <td>${appetiteLabel(r.appetite)}</td>
-              <td>${waterLabel(r.water)}</td>
-              <td>${stoolLabel(r.stool)}</td>
-              <td>${urineLabel(r.urine)}</td>
-              <td>${walkLabel(r.walkMinutes)}</td>
-              <td>${(r.symptoms||[]).map(s=>`<span class="tag">${s}</span>`).join('') || '-'}</td>
+                <td>${r.weight ? escapeHtml(r.weight)+'kg' : '-'}</td>
+                <td>${escapeHtml(appetiteLabel(r.appetite))}</td>
+                <td>${escapeHtml(waterLabel(r.water))}</td>
+                <td>${escapeHtml(stoolLabel(r.stool))}</td>
+                <td>${escapeHtml(urineLabel(r.urine))}</td>
+                <td>${escapeHtml(walkLabel(r.walkMinutes))}</td>
+                <td>${safeArray(r.symptoms).map(s=>`<span class="tag">${escapeHtml(s)}</span>`).join('') || '-'}</td>
               ${showCibdai ? `<td>${r.cibdai ? cibdaiTotal(r.cibdai) + '点(' + cibdaiSeverity(cibdaiTotal(r.cibdai)) + ')' : '-'}</td>` : ''}
-              <td>${medsGivenTags(r.medsGiven).map(t => `<span class="tag ${t.complete ? '' : 'tag-warn'}">💊 ${t.label}(${t.given}/${t.total})</span>`).join('') || '-'}</td>
-              <td class="muted">${r.memo || '-'}</td>
-              <td>${(r.photos||[]).length > 0 ? `<div class="record-photos">${r.photos.map(src => `<img src="${src}" onclick="window.open(this.src)">`).join('')}</div>` : '-'}</td>
+                <td>${medsGivenTags(r.medsGiven).map(t => `<span class="tag ${t.complete ? '' : 'tag-warn'}">💊 ${escapeHtml(t.label)}(${t.given}/${t.total})</span>`).join('') || '-'}</td>
+                <td class="muted">${escapeHtml(r.memo || '-')}</td>
+              <td>${recordPhotosHtml(r.photos) || '-'}</td>
               <td class="actions-cell">
-                <button class="secondary" onclick="App.openRecordModal('${r.id}')">編集</button>
-                <button class="danger" onclick="App.deleteRecord('${r.id}')">削除</button>
+                <button class="secondary" ${actionAttrs('openRecord', r.id)}>編集</button>
+                <button class="danger" ${actionAttrs('deleteRecord', r.id)}>削除</button>
               </td>
             </tr>
           `).join('')}
@@ -2466,25 +2555,25 @@ const App = {
       <div class="med-card">
         <div class="row" style="justify-content:space-between;">
           <div>
-            <div class="med-title">${medLabel(m)}</div>
+            <div class="med-title">${escapeHtml(medLabel(m))}</div>
             <div class="${m.paused ? 'status-paused' : (isMedActiveOn(m, today) ? 'status-active' : 'status-ended')}">${m.paused ? '⏸ 休薬中' : (isMedActiveOn(m, today) ? '● 服用中' : '服用終了')}</div>
           </div>
           <div class="actions-cell">
-            ${!isMedActiveOn(m, today) && !m.paused ? '' : `<button class="secondary" onclick="App.toggleMedPause('${m.id}')">${m.paused ? '▶ 服用を再開する' : '⏸ 休薬にする'}</button>`}
-            <button class="secondary" onclick="App.openMedModal('${m.id}')">編集</button>
-            <button class="danger" onclick="App.deleteMed('${m.id}')">削除</button>
+            ${!isMedActiveOn(m, today) && !m.paused ? '' : `<button class="secondary" ${actionAttrs('toggleMedPause', m.id)}>${m.paused ? '▶ 服用を再開する' : '⏸ 休薬にする'}</button>`}
+            <button class="secondary" ${actionAttrs('openMed', m.id)}>編集</button>
+            <button class="danger" ${actionAttrs('deleteMed', m.id)}>削除</button>
           </div>
         </div>
         ${(!m.name || !m.dosage) ? `<div class="hint">${!m.name ? '薬品名' : ''}${(!m.name && !m.dosage) ? '・' : ''}${!m.dosage ? '用量' : ''}が未記入です。次回の受診時に「このお薬の名前と用量を教えてください」と聞いて記録しておくと安心です。</div>` : ''}
         <table style="margin-top:6px;">
-          ${m.dosage ? `<tr><th style="width:80px;">用量</th><td>${m.dosage}</td></tr>` : ''}
-          <tr><th>回数</th><td>1日${m.dosesPerDay || 1}回</td></tr>
+          ${m.dosage ? `<tr><th style="width:80px;">用量</th><td>${escapeHtml(m.dosage)}</td></tr>` : ''}
+          <tr><th>回数</th><td>1日${escapeHtml(m.dosesPerDay || 1)}回</td></tr>
           <tr><th>期間</th><td>${m.startDate ? fmtDate(m.startDate) : '不明'} 〜 ${m.endDate ? fmtDate(m.endDate) : '継続中'}</td></tr>
-          ${m.prescriber ? `<tr><th>処方元</th><td>${m.prescriber}</td></tr>` : ''}
-          ${(m.reminderTimes||[]).length > 0 ? `<tr><th>リマインダー</th><td>🔔 ${m.reminderTimes.join('、')}</td></tr>` : ''}
-          ${m.memo ? `<tr><th>メモ</th><td>${m.memo}</td></tr>` : ''}
+          ${m.prescriber ? `<tr><th>処方元</th><td>${escapeHtml(m.prescriber)}</td></tr>` : ''}
+          ${safeArray(m.reminderTimes).length > 0 ? `<tr><th>リマインダー</th><td>🔔 ${safeArray(m.reminderTimes).map(escapeHtml).join('、')}</td></tr>` : ''}
+          ${m.memo ? `<tr><th>メモ</th><td>${escapeHtml(m.memo)}</td></tr>` : ''}
         </table>
-        ${m.photo ? `<img src="${m.photo}" alt="薬袋の写真">` : ''}
+        ${safeImageDataUrl(m.photo) ? `<img src="${safeImageDataUrl(m.photo)}" alt="薬袋の写真" data-open-photo>` : ''}
       </div>
     `;
     const subscribed = !!(state.entitlements && state.entitlements.subscriptionActive);
@@ -2520,14 +2609,14 @@ const App = {
     const main = document.getElementById('mainContent');
     const rowHtml = p => `
       <tr>
-        <td>${p.category}</td>
-        <td>${p.name || '-'}</td>
+        <td>${escapeHtml(p.category)}</td>
+        <td>${escapeHtml(p.name || '-')}</td>
         <td>${fmtDate(p.date)}</td>
         <td>${p.nextDate ? (fmtDate(p.nextDate) + (p.nextDate < today ? ' <span class="status-ended" style="color:var(--danger);">(期限切れ)</span>' : '')) : '-'}</td>
-        <td>${p.clinic || '-'}</td>
+        <td>${escapeHtml(p.clinic || '-')}</td>
         <td class="actions-cell">
-          <button class="secondary" onclick="App.openPrevModal('${p.id}')">編集</button>
-          <button class="danger" onclick="App.deletePrev('${p.id}')">削除</button>
+          <button class="secondary" ${actionAttrs('openPrev', p.id)}>編集</button>
+          <button class="danger" ${actionAttrs('deletePrev', p.id)}>削除</button>
         </td>
       </tr>
     `;
@@ -2553,19 +2642,19 @@ const App = {
       <div class="med-card">
         <div class="row" style="justify-content:space-between;">
           <div>
-            <div class="med-title">${fmtDate(v.date)} ${v.clinic ? '・' + v.clinic : ''}</div>
-            <div class="muted">${v.reason || ''}</div>
+            <div class="med-title">${fmtDate(v.date)} ${v.clinic ? '・' + escapeHtml(v.clinic) : ''}</div>
+            <div class="muted">${escapeHtml(v.reason || '')}</div>
           </div>
           <div class="actions-cell">
-            <button class="secondary" onclick="App.openVisitModal('${v.id}')">編集</button>
-            <button class="danger" onclick="App.deleteVisit('${v.id}')">削除</button>
+            <button class="secondary" ${actionAttrs('openVisit', v.id)}>編集</button>
+            <button class="danger" ${actionAttrs('deleteVisit', v.id)}>削除</button>
           </div>
         </div>
         <table style="margin-top:6px;">
-          <tr><th style="width:110px;">診断名・疾患名</th><td>${v.diagnosis || '(未記入)'}</td></tr>
-          ${v.treatment ? `<tr><th>治療内容</th><td>${v.treatment}</td></tr>` : ''}
+          <tr><th style="width:110px;">診断名・疾患名</th><td>${escapeHtml(v.diagnosis || '(未記入)')}</td></tr>
+          ${v.treatment ? `<tr><th>治療内容</th><td>${escapeHtml(v.treatment)}</td></tr>` : ''}
           ${v.followUpDate ? `<tr><th>次回受診予定</th><td>${fmtDate(v.followUpDate)}</td></tr>` : ''}
-          ${v.memo ? `<tr><th>メモ</th><td>${v.memo}</td></tr>` : ''}
+          ${v.memo ? `<tr><th>メモ</th><td>${escapeHtml(v.memo)}</td></tr>` : ''}
         </table>
       </div>
     `;
@@ -2769,7 +2858,7 @@ const App = {
     }
 
     const symptomCounts = {};
-    records.forEach(r => (r.symptoms||[]).forEach(s => symptomCounts[s] = (symptomCounts[s]||0) + 1));
+    records.forEach(r => safeArray(r.symptoms).forEach(s => symptomCounts[s] = (symptomCounts[s]||0) + 1));
     const labels = Object.keys(symptomCounts);
     const sCtx = document.getElementById('symptomChartCanvas');
     if(state.symptomChart) state.symptomChart.destroy();
@@ -2970,13 +3059,13 @@ const App = {
 
       // 症状の出現回数は棒グラフの画像ではなく、レポートでは読みやすい数字の一覧にする。
       const symptomCounts = {};
-      records.forEach(r => (r.symptoms||[]).forEach(s => symptomCounts[s] = (symptomCounts[s]||0) + 1));
+      records.forEach(r => safeArray(r.symptoms).forEach(s => symptomCounts[s] = (symptomCounts[s]||0) + 1));
       const symptomEntries = Object.entries(symptomCounts);
       const symptomCountHtml = `
         <h2 style="font-size:15px;margin-top:18px;">症状の出現回数</h2>
         ${symptomEntries.length === 0 ? '<p>この期間に記録された症状はありません。</p>' : `
           <ul style="margin:6px 0 0;padding-left:18px;">
-            ${symptomEntries.map(([s,c]) => `<li>${s}: ${c}回</li>`).join('')}
+            ${symptomEntries.map(([s,c]) => `<li>${escapeHtml(s)}: ${escapeHtml(c)}回</li>`).join('')}
           </ul>
         `}
       `;
@@ -3006,16 +3095,16 @@ const App = {
       <tbody style="break-inside:avoid;page-break-inside:avoid;">
         <tr>
           <td>${fmtDate(r.date)}</td>
-          <td>${r.weight ? r.weight+'kg' : '-'}</td>
-          <td>${appetiteLabel(r.appetite)}</td>
-          <td>${waterLabel(r.water)}</td>
-          <td>${stoolLabel(r.stool)}</td>
-          <td>${urineLabel(r.urine)}</td>
-          <td>${(r.symptoms||[]).join('、') || '-'}</td>
+          <td>${r.weight ? escapeHtml(r.weight)+'kg' : '-'}</td>
+          <td>${escapeHtml(appetiteLabel(r.appetite))}</td>
+          <td>${escapeHtml(waterLabel(r.water))}</td>
+          <td>${escapeHtml(stoolLabel(r.stool))}</td>
+          <td>${escapeHtml(urineLabel(r.urine))}</td>
+          <td>${escapeHtml(safeArray(r.symptoms).join('、') || '-')}</td>
           ${showCibdai ? `<td>${r.cibdai ? cibdaiTotal(r.cibdai) + '点(' + cibdaiSeverity(cibdaiTotal(r.cibdai)) + ')' : '-'}</td>` : ''}
-          <td>${medsGivenTags(r.medsGiven).map(t => `${t.label}(${t.given}/${t.total})`).join('、') || '-'}</td>
+          <td>${medsGivenTags(r.medsGiven).map(t => `${escapeHtml(t.label)}(${t.given}/${t.total})`).join('、') || '-'}</td>
         </tr>
-        ${r.memo ? `<tr class="memo-row"><td colspan="${colCount}">📝 ${r.memo}</td></tr>` : ''}
+        ${r.memo ? `<tr class="memo-row"><td colspan="${colCount}">📝 ${escapeHtml(r.memo)}</td></tr>` : ''}
       </tbody>
     `).join('');
 
@@ -3026,10 +3115,10 @@ const App = {
         <tr><th>薬</th><th>用量</th><th>期間</th><th>処方元</th></tr>
         ${meds.map(m => `
           <tr>
-            <td>${medLabel(m)}</td>
-            <td>${m.dosage || '(未確認)'}</td>
+            <td>${escapeHtml(medLabel(m))}</td>
+            <td>${escapeHtml(m.dosage || '(未確認)')}</td>
             <td>${m.startDate ? fmtDate(m.startDate) : '不明'} 〜 ${m.endDate ? fmtDate(m.endDate) : '継続中'}</td>
-            <td>${m.prescriber || ''}</td>
+            <td>${escapeHtml(m.prescriber || '')}</td>
           </tr>
         `).join('')}
       </table>
@@ -3039,9 +3128,9 @@ const App = {
     const dietHtml = !hasDiet ? '' : `
       <h2 style="font-size:15px;margin-top:18px;">現在の食事</h2>
       <table>
-        <tr><th style="white-space:nowrap;">メインの食事</th><td style="white-space:pre-wrap;">${pet.dietMain || '-'}</td></tr>
-        <tr><th style="white-space:nowrap;">トッピング</th><td style="white-space:pre-wrap;">${pet.dietTopping || '-'}</td></tr>
-        <tr><th style="white-space:nowrap;">おやつ</th><td style="white-space:pre-wrap;">${pet.dietTreats || '-'}</td></tr>
+        <tr><th style="white-space:nowrap;">メインの食事</th><td style="white-space:pre-wrap;">${escapeHtml(pet.dietMain || '-')}</td></tr>
+        <tr><th style="white-space:nowrap;">トッピング</th><td style="white-space:pre-wrap;">${escapeHtml(pet.dietTopping || '-')}</td></tr>
+        <tr><th style="white-space:nowrap;">おやつ</th><td style="white-space:pre-wrap;">${escapeHtml(pet.dietTreats || '-')}</td></tr>
       </table>
     `;
 
@@ -3052,11 +3141,11 @@ const App = {
         <tr><th>種類</th><th>名称</th><th>実施日</th><th>次回予定</th><th>病院</th></tr>
         ${prevs.map(p => `
           <tr>
-            <td>${p.category}</td>
-            <td>${p.name || '-'}</td>
+            <td>${escapeHtml(p.category)}</td>
+            <td>${escapeHtml(p.name || '-')}</td>
             <td>${fmtDate(p.date)}</td>
             <td>${p.nextDate ? fmtDate(p.nextDate) : '-'}</td>
-            <td>${p.clinic || ''}</td>
+            <td>${escapeHtml(p.clinic || '')}</td>
           </tr>
         `).join('')}
       </table>
@@ -3070,10 +3159,10 @@ const App = {
         ${visits.map(v => `
           <tr>
             <td>${fmtDate(v.date)}</td>
-            <td>${v.clinic || ''}</td>
-            <td>${v.reason || ''}</td>
-            <td>${v.diagnosis || '(未記入)'}</td>
-            <td>${v.treatment || ''}</td>
+            <td>${escapeHtml(v.clinic || '')}</td>
+            <td>${escapeHtml(v.reason || '')}</td>
+            <td>${escapeHtml(v.diagnosis || '(未記入)')}</td>
+            <td>${escapeHtml(v.treatment || '')}</td>
           </tr>
         `).join('')}
       </table>
@@ -3081,7 +3170,7 @@ const App = {
 
     document.getElementById('printArea').innerHTML = `
       <h1>体調記録レポート</h1>
-      <p>${pet.name}(${pet.species}${pet.breed ? '・'+pet.breed : ''}) ${pet.birthday ? '/ ' + ageString(pet.birthday) : ''}</p>
+      <p>${escapeHtml(pet.name)}(${escapeHtml(pet.species)}${pet.breed ? '・'+escapeHtml(pet.breed) : ''}) ${pet.birthday ? '/ ' + ageString(pet.birthday) : ''}</p>
       <p>期間: ${from ? fmtDate(from) : '-'} 〜 ${to ? fmtDate(to) : '-'} (作成日: ${fmtDate(new Date().toISOString().slice(0,10))})</p>
       ${(chartImg || appetiteImg || walkImg) ? '<h2 style="font-size:15px;margin-top:18px;">グラフ</h2>' : ''}
       ${chartImg ? `<img src="${chartImg}" style="width:100%;max-width:600px;">` : ''}
@@ -3200,6 +3289,38 @@ const App = {
 
 window.App = App;
 
+// FirestoreドキュメントIDをインラインJavaScriptへ埋め込まず、data属性から渡す。
+// data属性はHTMLエスケープ済みで、実行コードとして解釈されない。
+document.addEventListener('click', event => {
+  const photo = event.target.closest('img[data-open-photo]');
+  if(photo){
+    const src = safeImageDataUrl(photo.src);
+    if(src) window.open(src, '_blank', 'noopener,noreferrer');
+    return;
+  }
+  const control = event.target.closest('[data-app-action]');
+  if(!control || control.matches('input[type="checkbox"]')) return;
+  const id = control.dataset.id;
+  const actions = {
+    openRecord: () => App.openRecordModal(id),
+    purchase: () => App.purchase(id),
+    deleteRecord: () => App.deleteRecord(id),
+    deletePet: () => App.deletePet(id),
+    toggleMedPause: () => App.toggleMedPause(id),
+    openMed: () => App.openMedModal(id),
+    deleteMed: () => App.deleteMed(id),
+    openPrev: () => App.openPrevModal(id),
+    deletePrev: () => App.deletePrev(id),
+    openVisit: () => App.openVisitModal(id),
+    deleteVisit: () => App.deleteVisit(id)
+  };
+  if(actions[control.dataset.appAction]) actions[control.dataset.appAction]();
+});
+document.addEventListener('change', event => {
+  const control = event.target.closest('[data-app-action="toggleCibdai"]');
+  if(control) App.toggleCibdai(control.dataset.id);
+});
+
 // Googleクライアント ID (Firebaseコンソール > Authentication > Sign-in method > Google > ウェブ SDK 構成)
 // ※末尾が "xxxxx.apps.googleusercontent.com" になっているか、コピーした値と見比べて確認してください
 const GOOGLE_CLIENT_ID = "594019463341-ld3a242bse6a173dnok147evttl895ng.apps.googleusercontent.com";
@@ -3302,8 +3423,14 @@ document.addEventListener('DOMContentLoaded', () => {
     if(user){
       currentUser = user;
       document.getElementById('authScreen').classList.add('hidden');
-      document.getElementById('userBar').innerHTML =
-        `${user.displayName || user.email} <button class="ghost" onclick="AppAuth.signOut()">ログアウト</button>`;
+      const userBar = document.getElementById('userBar');
+      userBar.replaceChildren();
+      userBar.append(document.createTextNode(displayText(user.displayName || user.email)));
+      const signOutButton = document.createElement('button');
+      signOutButton.className = 'ghost';
+      signOutButton.textContent = 'ログアウト';
+      signOutButton.addEventListener('click', () => AppAuth.signOut());
+      userBar.append(' ', signOutButton);
       await App.resolveHousehold();
       attachFirestoreListeners();
       App.start();
