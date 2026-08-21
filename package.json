@@ -1,0 +1,8 @@
+{
+  "name": "pet-health-log-client",
+  "description": "どうぶつ健康手帳 static client (GitHub Pages) — no build step, tests only",
+  "private": true,
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  }
+}
