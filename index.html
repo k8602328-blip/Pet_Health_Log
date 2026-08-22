@@ -313,6 +313,7 @@
   <div id="householdBanner" class="hidden"></div>
   <div id="billingBanner" class="hidden"></div>
   <div id="homeScreenBanner" class="hidden"></div>
+  <div id="deletionBanner" class="hidden"></div>
 
   <nav class="tabs" id="tabsNav">
     <button class="tab-btn" data-tab="home" onclick="App.switchTab('home')">ホーム</button>
@@ -939,6 +940,8 @@ let state = {
   preventions: [],
   visits: [],
   currentPetId: null,
+  deletionStatus: null,
+  deletionScheduledFor: null,
   activeTab: 'home',
   editingRecordId: null,
   editingMedId: null,
@@ -1208,6 +1211,8 @@ function attachFirestoreListeners(){
     state.entitlements = data.entitlements || null;
     state.familyEmails = data.familyEmails || [];
     state.activeFamilyEmails = data.activeFamilyEmails || state.familyEmails;
+    state.deletionStatus = data.deletionStatus || null;
+    state.deletionScheduledFor = data.deletionScheduledFor || null;
     // currentPetIdは初回読み込み時だけリモートの値を採用する。以降はselectPet/submitPet
     // などローカルの操作が唯一の正とする。ここで毎回リモート値を反映すると、
     // 自分の書き込みより古いスナップショットが後から届いた場合に選択中のペットが
@@ -1227,7 +1232,7 @@ function detachFirestoreListeners(){
   firestoreListenerGeneration++;
   firestoreUnsubscribers.forEach(u => u());
   firestoreUnsubscribers = [];
-  state = { ...state, pets:[], records:[], medications:[], preventions:[], visits:[], currentPetId:null, entitlements:null, familyEmails:[], activeFamilyEmails:[] };
+  state = { ...state, pets:[], records:[], medications:[], preventions:[], visits:[], currentPetId:null, entitlements:null, familyEmails:[], activeFamilyEmails:[], deletionStatus:null, deletionScheduledFor:null };
 }
 
 function petRecords(){
@@ -2663,10 +2668,64 @@ const App = {
     this.renderHomeScreenBanner();
   },
 
+  // アカウント削除の申請中は、猶予期間中いつでも取り消せることを常に
+  // 示す必要があるため、他のバナーと違って「閉じる」ボタンは設けない
+  // (意図的に消せないバナー)。
+  renderDeletionBanner(){
+    const banner = document.getElementById('deletionBanner');
+    if(state.deletionStatus === 'requested' || state.deletionStatus === 'ready_for_execution'){
+      banner.classList.remove('hidden');
+      const scheduledDate = state.deletionScheduledFor
+        ? state.deletionScheduledFor.toDate().toLocaleDateString('ja-JP', {year:'numeric', month:'2-digit', day:'2-digit'})
+        : '(日付を読み込み中)';
+      banner.innerHTML = `<span>🗑 アカウント削除を申請中です。${scheduledDate}に削除されます。</span><button onclick="App.cancelAccountDeletion()">申請を取り消す</button>`;
+    } else {
+      banner.classList.add('hidden');
+      banner.innerHTML = '';
+    }
+  },
+  async requestAccountDeletion(){
+    if(!confirm('アカウントを削除しますか?\nペット・記録・写真などすべてのデータが対象になります。\n(申請後、猶予期間内であればいつでも取り消せます)')) return;
+    const typed = prompt(`本当に削除を申請する場合は、確認のためログイン中のメールアドレス「${currentUser.email}」を入力してください。`);
+    if(typed === null) return;
+    if(typed.trim().toLowerCase() !== (currentUser.email || '').toLowerCase()){
+      alert('入力がメールアドレスと一致しなかったため、申請を中止しました。');
+      return;
+    }
+    try{
+      const requestAccountDeletion = functions.httpsCallable('requestAccountDeletion');
+      const result = await requestAccountDeletion();
+      state.deletionStatus = 'requested';
+      if(result.data && result.data.scheduledFor){
+        state.deletionScheduledFor = firebase.firestore.Timestamp.fromMillis(result.data.scheduledFor);
+      }
+      this.renderDeletionBanner();
+      alert('アカウント削除を申請しました。猶予期間内であれば、いつでも取り消せます。');
+    } catch(err){
+      console.error('requestAccountDeletion failed', err);
+      alert('削除申請に失敗しました。時間をおいて再度お試しください。');
+    }
+  },
+  async cancelAccountDeletion(){
+    if(!confirm('アカウント削除の申請を取り消しますか?')) return;
+    try{
+      const cancelAccountDeletion = functions.httpsCallable('cancelAccountDeletion');
+      await cancelAccountDeletion();
+      state.deletionStatus = null;
+      state.deletionScheduledFor = null;
+      this.renderDeletionBanner();
+      alert('削除申請を取り消しました。');
+    } catch(err){
+      console.error('cancelAccountDeletion failed', err);
+      alert('取り消しに失敗しました。時間をおいて再度お試しください。');
+    }
+  },
+
   render(){
     this.renderHouseholdBanner();
     this.renderBillingBanner();
     this.renderHomeScreenBanner();
+    this.renderDeletionBanner();
     this.renderPetSelect();
     const main = document.getElementById('mainContent');
     if(state.pets.length === 0){
@@ -3802,7 +3861,16 @@ document.addEventListener('DOMContentLoaded', () => {
       signOutButton.className = 'ghost';
       signOutButton.textContent = 'ログアウト';
       signOutButton.addEventListener('click', () => AppAuth.signOut());
-      userBar.append(' ', signOutButton);
+      // アカウント削除への入り口。頻繁に押すボタンではないため、他の操作より
+      // 目立たない小さいリンクとして置く(deletePet()の危険操作ボタンと同様、
+      // 誤タップを避けるためあえて目立たせない配置)。
+      const deleteAccountLink = document.createElement('button');
+      deleteAccountLink.className = 'ghost';
+      deleteAccountLink.style.fontSize = '11px';
+      deleteAccountLink.style.color = 'var(--muted)';
+      deleteAccountLink.textContent = 'アカウント削除';
+      deleteAccountLink.addEventListener('click', () => App.requestAccountDeletion());
+      userBar.append(' ', signOutButton, ' ', deleteAccountLink);
       await App.resolveHousehold();
       attachFirestoreListeners();
       App.start();
