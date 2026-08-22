@@ -1153,6 +1153,26 @@ async function confirmedHouseholdWrite(writeOperation, operationName){
   }
   return withTimeout(writeOperation(), 8000, operationName);
 }
+// オーナー側で完全に共有解除された(=再参加も不可能な)場合に呼ぶ。
+// linkedOwnerUidだけでなくknownHouseholdUidも消すのがポイント:
+// knownHouseholdUidは「離脱してもワンクリックで戻れる」ためにあえて
+// 残す設計だが、それはオーナーがまだ許可している場合の話で、
+// 解除済みなら「戻る」導線自体を出してはいけない(出しても必ず失敗する)。
+async function clearRevokedHouseholdLink(){
+  try{
+    await confirmedHouseholdWrite(
+      () => ownUserDocRef().update({ linkedOwnerUid: null, knownHouseholdUid: null }),
+      'clear revoked household link'
+    );
+    state.knownHouseholdUid = null;
+    state.householdStatus = 'personal';
+    state.householdError = null;
+    return true;
+  } catch(clearErr){
+    console.error('共有解除の永続化に失敗', clearErr);
+    return false;
+  }
+}
 function handleFirestoreListenerError(err, generation, sourceUid){
   if(generation !== firestoreListenerGeneration) return;
   console.error('Firestore listener error:', err);
@@ -1522,19 +1542,10 @@ const App = {
           state.linkedOwnerUid = null;
           state.householdStatus = 'revoked';
           state.householdError = '共有情報はありますが、オーナー側で共有が解除されています。';
-          // ここでFirestore側のlinkedOwnerUidも消しておかないと、次回読み込み時に
-          // またownData.linkedOwnerUidから同じ失効済みUIDを読み直して同じエラーを
-          // 繰り返してしまう(バナーが永久に消えないバグの原因だった)。
-          try{
-            await confirmedHouseholdWrite(
-              () => ownUserDocRef().update({ linkedOwnerUid: null }),
-              'clear revoked household link'
-            );
-            state.householdStatus = state.knownHouseholdUid ? 'left' : 'personal';
-            state.householdError = null;
-          } catch(clearErr){
-            console.error('共有解除の永続化に失敗', clearErr);
-          }
+          // Firestore側のlinkedOwnerUid/knownHouseholdUidも消しておかないと、
+          // 次回読み込み時にまた同じ失効済みUIDを読み直して同じエラーを繰り返す
+          // (バナーが永久に消えないバグの原因だった)。
+          await clearRevokedHouseholdLink();
         } else {
           state.householdStatus = 'offline';
           state.householdError = 'オフラインのため、前回確認した共有情報を表示しています。';
@@ -1593,12 +1604,18 @@ const App = {
     } catch(err){
       console.error('rejoinHousehold failed', err);
       state.linkedOwnerUid = null;
-      state.householdStatus = isPermissionDenied(err) ? 'revoked' : 'unavailable';
-      state.householdError = isPermissionDenied(err)
-        ? '共有情報はありますが、オーナー側で共有が解除されています。'
-        : isHouseholdWriteUnconfirmed(err)
-          ? '通信の問題で切り替えの完了を確認できません。再操作せず、通信復帰後に「再試行」で状態を確認してください。'
-          : '共有状態の切り替えに失敗しました。';
+      if(isPermissionDenied(err)){
+        const cleared = await clearRevokedHouseholdLink();
+        this.render();
+        alert(cleared
+          ? '共有はオーナー側で解除されているため、自分のデータの表示に戻しました。'
+          : '共有情報はありますが、オーナー側で共有が解除されています。');
+        return;
+      }
+      state.householdStatus = 'unavailable';
+      state.householdError = isHouseholdWriteUnconfirmed(err)
+        ? '通信の問題で切り替えの完了を確認できません。再操作せず、通信復帰後に「再試行」で状態を確認してください。'
+        : '共有状態の切り替えに失敗しました。';
       this.render();
       alert(state.householdError);
     }
