@@ -1522,6 +1522,19 @@ const App = {
           state.linkedOwnerUid = null;
           state.householdStatus = 'revoked';
           state.householdError = '共有情報はありますが、オーナー側で共有が解除されています。';
+          // ここでFirestore側のlinkedOwnerUidも消しておかないと、次回読み込み時に
+          // またownData.linkedOwnerUidから同じ失効済みUIDを読み直して同じエラーを
+          // 繰り返してしまう(バナーが永久に消えないバグの原因だった)。
+          try{
+            await confirmedHouseholdWrite(
+              () => ownUserDocRef().update({ linkedOwnerUid: null }),
+              'clear revoked household link'
+            );
+            state.householdStatus = state.knownHouseholdUid ? 'left' : 'personal';
+            state.householdError = null;
+          } catch(clearErr){
+            console.error('共有解除の永続化に失敗', clearErr);
+          }
         } else {
           state.householdStatus = 'offline';
           state.householdError = 'オフラインのため、前回確認した共有情報を表示しています。';
