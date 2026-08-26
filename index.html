@@ -2678,14 +2678,14 @@ const App = {
       const scheduledDate = state.deletionScheduledFor
         ? state.deletionScheduledFor.toDate().toLocaleDateString('ja-JP', {year:'numeric', month:'2-digit', day:'2-digit'})
         : '(日付を読み込み中)';
-      banner.innerHTML = `<span>🗑 アカウント削除を申請中です。${scheduledDate}に削除されます。</span><button onclick="App.cancelAccountDeletion()">申請を取り消す</button>`;
+      banner.innerHTML = `<span>🗑 アカウント削除を申請中です。${scheduledDate}以降、削除の対象になります。</span><button onclick="App.cancelAccountDeletion()">申請を取り消す</button>`;
     } else {
       banner.classList.add('hidden');
       banner.innerHTML = '';
     }
   },
   async requestAccountDeletion(){
-    if(!confirm('アカウントを削除しますか?\nペット・記録・写真などすべてのデータが対象になります。\n(申請後、猶予期間内であればいつでも取り消せます)')) return;
+    if(!confirm('アカウントを削除しますか?\nペット・記録・写真などすべてのデータが対象になります。\n(申請後、削除処理が始まるまではいつでも取り消せます)')) return;
     const typed = prompt(`本当に削除を申請する場合は、確認のためログイン中のメールアドレス「${currentUser.email}」を入力してください。`);
     if(typed === null) return;
     if(typed.trim().toLowerCase() !== (currentUser.email || '').toLowerCase()){
@@ -2700,7 +2700,7 @@ const App = {
         state.deletionScheduledFor = firebase.firestore.Timestamp.fromMillis(result.data.scheduledFor);
       }
       this.renderDeletionBanner();
-      alert('アカウント削除を申請しました。猶予期間内であれば、いつでも取り消せます。');
+      alert('アカウント削除を申請しました。削除処理が始まるまでは、いつでも取り消せます。');
     } catch(err){
       console.error('requestAccountDeletion failed', err);
       alert('削除申請に失敗しました。時間をおいて再度お試しください。');
