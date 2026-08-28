@@ -134,6 +134,7 @@ test('index.html に usage-guide.html を開く常設導線がある', () => {
 
 test('ユーザー操作とアカウント削除が視覚的に分離されている', () => {
   assert.ok(indexHtml.includes("sessionRow.append(userName, signOutButton)"));
+  assert.ok(indexHtml.includes('grid-template-columns:repeat(2,minmax(0,1fr))'));
   assert.ok(indexHtml.includes('id="accountFooter" class="account-footer hidden"'));
   assert.ok(indexHtml.includes('id="deleteAccountButton"'));
   assert.ok(indexHtml.includes("accountFooter.classList.remove('hidden')"));
