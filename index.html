@@ -47,6 +47,22 @@
     padding:18px 4px;
   }
   .brand{font-size:22px;font-weight:700;color:var(--primary-dark);}
+  .user-bar{display:flex;flex-direction:column;align-items:stretch;gap:8px;width:min(100%,360px);}
+  .user-session-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:stretch;}
+  .user-name{
+    display:flex;align-items:center;min-width:0;padding:8px 14px;border:1px solid var(--border);
+    border-radius:8px;background:var(--card);color:var(--muted);font-size:12px;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  }
+  button.user-sign-out{min-height:38px;}
+  button.usage-guide-button{
+    width:100%;background:#FFF3E6;color:var(--primary-dark);border:1px solid var(--primary);
+  }
+  .account-footer{text-align:right;margin-top:28px;padding:12px 4px 0;border-top:1px solid var(--border);}
+  button.account-delete-link{
+    padding:4px 6px;background:transparent;border:none;color:var(--danger);font-size:11px;
+    font-weight:500;text-decoration:underline;text-underline-offset:2px;
+  }
   .pet-switch{display:flex;gap:8px;align-items:center;}
   select, input[type=text], input[type=number], input[type=date], textarea{
     font-family:inherit;font-size:14px;padding:8px 10px;border:1px solid var(--border);
@@ -302,7 +318,7 @@
 <div class="app">
   <header class="topbar">
     <div class="brand">🐾 どうぶつ健康手帳</div>
-    <div id="userBar" class="muted" style="font-size:12px;"></div>
+    <div id="userBar" class="user-bar"></div>
     <div class="pet-switch">
       <select id="petSelect" onchange="App.selectPet(this.value)"></select>
       <button class="secondary" onclick="App.openPetModal()"><span class="btn-label-full">+ ペット追加</span><span class="btn-label-compact">+🐶🐱</span></button>
@@ -326,6 +342,9 @@
   </nav>
 
   <main id="mainContent"></main>
+  <footer id="accountFooter" class="account-footer hidden">
+    <button id="deleteAccountButton" type="button" class="account-delete-link">アカウントを削除する</button>
+  </footer>
 </div>
 
 <div id="petModalBackdrop" class="modal-backdrop hidden">
@@ -3856,28 +3875,28 @@ document.addEventListener('DOMContentLoaded', () => {
       document.getElementById('authScreen').classList.add('hidden');
       const userBar = document.getElementById('userBar');
       userBar.replaceChildren();
-      userBar.append(document.createTextNode(displayText(user.displayName || user.email)));
-      // 使い方ガイドへの常設導線。ログイン後いつでも開けるよう、ログアウト等と
-      // 同じ控えめなghostボタンとしてトップバーに置く(初回オンボーディングの
-      // 再表示とは別物)。新しいタブで開き、記録操作の画面遷移を邪魔しない。
+      const sessionRow = document.createElement('div');
+      sessionRow.className = 'user-session-row';
+      const userName = document.createElement('span');
+      userName.className = 'user-name';
+      userName.textContent = displayText(user.displayName || user.email);
+      userName.title = userName.textContent;
+      // ガイドはアカウント操作とは役割が異なるため独立した下段に置き、
+      // 初めての利用者にも見つけやすい控えめなアクセントを付ける。
       const usageGuideButton = document.createElement('button');
-      usageGuideButton.className = 'ghost';
-      usageGuideButton.textContent = '使い方ガイド';
+      usageGuideButton.className = 'usage-guide-button';
+      usageGuideButton.textContent = '📖 使い方ガイド';
       usageGuideButton.addEventListener('click', () => window.open('usage-guide.html', '_blank', 'noopener'));
       const signOutButton = document.createElement('button');
-      signOutButton.className = 'ghost';
+      signOutButton.className = 'ghost user-sign-out';
       signOutButton.textContent = 'ログアウト';
       signOutButton.addEventListener('click', () => AppAuth.signOut());
-      // アカウント削除への入り口。頻繁に押すボタンではないため、他の操作より
-      // 目立たない小さいリンクとして置く(deletePet()の危険操作ボタンと同様、
-      // 誤タップを避けるためあえて目立たせない配置)。
-      const deleteAccountLink = document.createElement('button');
-      deleteAccountLink.className = 'ghost';
-      deleteAccountLink.style.fontSize = '11px';
-      deleteAccountLink.style.color = 'var(--muted)';
-      deleteAccountLink.textContent = 'アカウント削除';
-      deleteAccountLink.addEventListener('click', () => App.requestAccountDeletion());
-      userBar.append(' ', usageGuideButton, ' ', signOutButton, ' ', deleteAccountLink);
+      sessionRow.append(userName, signOutButton);
+      userBar.append(sessionRow, usageGuideButton);
+      const accountFooter = document.getElementById('accountFooter');
+      const deleteAccountButton = document.getElementById('deleteAccountButton');
+      deleteAccountButton.onclick = () => App.requestAccountDeletion();
+      accountFooter.classList.remove('hidden');
       await App.resolveHousehold();
       attachFirestoreListeners();
       App.start();
@@ -3889,7 +3908,8 @@ document.addEventListener('DOMContentLoaded', () => {
       state.householdStatus = 'loading';
       state.householdError = null;
       document.getElementById('authScreen').classList.remove('hidden');
-      document.getElementById('userBar').innerHTML = '';
+      document.getElementById('userBar').replaceChildren();
+      document.getElementById('accountFooter').classList.add('hidden');
     }
   });
 });

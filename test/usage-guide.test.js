@@ -129,8 +129,13 @@ test('セクション1の不一致画像と重複する注意書きを掲載し�
 test('index.html に usage-guide.html を開く常設導線がある', () => {
   assert.ok(indexHtml.includes("window.open('usage-guide.html'"), 'usage-guide.html を開く導線が無い');
   assert.ok(indexHtml.includes('使い方ガイド'), '「使い方ガイド」ボタン文言が無い');
-  assert.ok(
-    indexHtml.includes("userBar.append(' ', usageGuideButton,"),
-    'usageGuideButton が userBar に追加されていない'
-  );
+  assert.ok(indexHtml.includes('userBar.append(sessionRow, usageGuideButton)'), 'ガイドが独立した下段に追加されていない');
+});
+
+test('ユーザー操作とアカウント削除が視覚的に分離されている', () => {
+  assert.ok(indexHtml.includes("sessionRow.append(userName, signOutButton)"));
+  assert.ok(indexHtml.includes('id="accountFooter" class="account-footer hidden"'));
+  assert.ok(indexHtml.includes('id="deleteAccountButton"'));
+  assert.ok(indexHtml.includes("accountFooter.classList.remove('hidden')"));
+  assert.ok(indexHtml.includes("document.getElementById('accountFooter').classList.add('hidden')"));
 });
