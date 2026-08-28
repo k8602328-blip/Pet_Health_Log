@@ -3857,6 +3857,13 @@ document.addEventListener('DOMContentLoaded', () => {
       const userBar = document.getElementById('userBar');
       userBar.replaceChildren();
       userBar.append(document.createTextNode(displayText(user.displayName || user.email)));
+      // 使い方ガイドへの常設導線。ログイン後いつでも開けるよう、ログアウト等と
+      // 同じ控えめなghostボタンとしてトップバーに置く(初回オンボーディングの
+      // 再表示とは別物)。新しいタブで開き、記録操作の画面遷移を邪魔しない。
+      const usageGuideButton = document.createElement('button');
+      usageGuideButton.className = 'ghost';
+      usageGuideButton.textContent = '使い方ガイド';
+      usageGuideButton.addEventListener('click', () => window.open('usage-guide.html', '_blank', 'noopener'));
       const signOutButton = document.createElement('button');
       signOutButton.className = 'ghost';
       signOutButton.textContent = 'ログアウト';
@@ -3870,7 +3877,7 @@ document.addEventListener('DOMContentLoaded', () => {
       deleteAccountLink.style.color = 'var(--muted)';
       deleteAccountLink.textContent = 'アカウント削除';
       deleteAccountLink.addEventListener('click', () => App.requestAccountDeletion());
-      userBar.append(' ', signOutButton, ' ', deleteAccountLink);
+      userBar.append(' ', usageGuideButton, ' ', signOutButton, ' ', deleteAccountLink);
       await App.resolveHousehold();
       attachFirestoreListeners();
       App.start();
