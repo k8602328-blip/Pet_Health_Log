@@ -43,11 +43,11 @@
   }
   .app{max-width:920px;margin:0 auto;padding:0 16px 60px;}
   header.topbar{
-    display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;
+    display:grid;grid-template-columns:auto minmax(280px,360px);gap:12px;align-items:center;justify-content:space-between;
     padding:18px 4px;
   }
   .brand{font-size:22px;font-weight:700;color:var(--primary-dark);}
-  .user-bar{display:flex;flex-direction:column;align-items:stretch;gap:8px;width:min(100%,360px);}
+  .user-bar{width:100%;}
   .user-session-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;align-items:stretch;}
   .user-name{
     display:flex;align-items:center;min-width:0;padding:8px 14px;border:1px solid var(--border);
@@ -56,8 +56,9 @@
   }
   button.user-sign-out{min-height:38px;}
   button.usage-guide-button{
-    width:100%;background:#FFF3E6;color:var(--primary-dark);border:1px solid var(--primary);
+    background:#FFF3E6;color:var(--primary-dark);border:1px solid var(--primary);
   }
+  .header-tools{grid-column:1/-1;display:flex;gap:12px;align-items:center;flex-wrap:wrap;}
   .account-footer{text-align:right;margin-top:28px;padding:12px 4px 0;border-top:1px solid var(--border);}
   button.account-delete-link{
     padding:4px 6px;background:transparent;border:none;color:var(--danger);font-size:11px;
@@ -242,6 +243,9 @@
   .prev-box .sub{font-size:12px;color:var(--muted);margin-top:2px;}
 
   @media (max-width: 640px){
+    header.topbar{grid-template-columns:1fr;}
+    .header-tools{flex-direction:column;align-items:stretch;}
+    .header-tools .usage-guide-button{order:-1;width:100%;}
     .records-table-view{display:none;}
     .records-card-view{display:block;}
     .btn-label-full{display:none;}
@@ -319,11 +323,14 @@
   <header class="topbar">
     <div class="brand">🐾 どうぶつ健康手帳</div>
     <div id="userBar" class="user-bar"></div>
-    <div class="pet-switch">
-      <select id="petSelect" onchange="App.selectPet(this.value)"></select>
-      <button class="secondary" onclick="App.openPetModal()"><span class="btn-label-full">+ ペット追加</span><span class="btn-label-compact">+🐶🐱</span></button>
-      <button class="ghost" onclick="App.openFamilyModal()"><span class="btn-label-full">👪 家族共有</span><span class="btn-label-compact">👪</span></button>
-      <button class="ghost" onclick="App.openUpgradeModal()"><span class="btn-label-full">⭐ アップグレード</span><span class="btn-label-compact">⭐</span></button>
+    <div class="header-tools">
+      <div class="pet-switch">
+        <select id="petSelect" onchange="App.selectPet(this.value)"></select>
+        <button class="secondary" onclick="App.openPetModal()"><span class="btn-label-full">+ ペット追加</span><span class="btn-label-compact">+🐶🐱</span></button>
+        <button class="ghost" onclick="App.openFamilyModal()"><span class="btn-label-full">👪 家族共有</span><span class="btn-label-compact">👪</span></button>
+        <button class="ghost" onclick="App.openUpgradeModal()"><span class="btn-label-full">⭐ アップグレード</span><span class="btn-label-compact">⭐</span></button>
+      </div>
+      <button id="usageGuideButton" type="button" class="usage-guide-button hidden">📖 使い方ガイド</button>
     </div>
   </header>
   <div id="householdBanner" class="hidden"></div>
@@ -3881,18 +3888,15 @@ document.addEventListener('DOMContentLoaded', () => {
       userName.className = 'user-name';
       userName.textContent = displayText(user.displayName || user.email);
       userName.title = userName.textContent;
-      // ガイドはアカウント操作とは役割が異なるため独立した下段に置き、
-      // 初めての利用者にも見つけやすい控えめなアクセントを付ける。
-      const usageGuideButton = document.createElement('button');
-      usageGuideButton.className = 'usage-guide-button';
-      usageGuideButton.textContent = '📖 使い方ガイド';
-      usageGuideButton.addEventListener('click', () => window.open('usage-guide.html', '_blank', 'noopener'));
       const signOutButton = document.createElement('button');
       signOutButton.className = 'ghost user-sign-out';
       signOutButton.textContent = 'ログアウト';
       signOutButton.addEventListener('click', () => AppAuth.signOut());
       sessionRow.append(userName, signOutButton);
-      userBar.append(sessionRow, usageGuideButton);
+      userBar.append(sessionRow);
+      const usageGuideButton = document.getElementById('usageGuideButton');
+      usageGuideButton.onclick = () => window.open('usage-guide.html', '_blank', 'noopener');
+      usageGuideButton.classList.remove('hidden');
       const accountFooter = document.getElementById('accountFooter');
       const deleteAccountButton = document.getElementById('deleteAccountButton');
       deleteAccountButton.onclick = () => App.requestAccountDeletion();
@@ -3909,6 +3913,7 @@ document.addEventListener('DOMContentLoaded', () => {
       state.householdError = null;
       document.getElementById('authScreen').classList.remove('hidden');
       document.getElementById('userBar').replaceChildren();
+      document.getElementById('usageGuideButton').classList.add('hidden');
       document.getElementById('accountFooter').classList.add('hidden');
     }
   });
