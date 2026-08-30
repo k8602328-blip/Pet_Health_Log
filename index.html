@@ -220,6 +220,19 @@
   /* 記録をコンパクトなカードにまとめて表示するモバイル向けビュー。
      デスクトップの<table>はそのまま残し、CSSの幅切り替えだけで出し分ける。 */
   .records-card-view{display:none;}
+  .daily-record-header{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px;}
+  .daily-record-date{font-weight:700;font-size:18px;text-align:center;}
+  .daily-record-date small{display:block;color:var(--muted);font-size:12px;font-weight:400;margin-top:3px;}
+  .date-step{min-width:42px;padding:8px;}
+  .event-timeline{display:flex;flex-direction:column;gap:6px;}
+  .event-row{display:grid;grid-template-columns:54px 32px minmax(0,1fr) 14px;gap:8px;align-items:center;width:100%;border:1px solid var(--border);border-radius:10px;background:#fff;padding:10px;text-align:left;cursor:pointer;}
+  .event-row:hover{background:#fffaf5;}
+  .event-time{font-variant-numeric:tabular-nums;font-weight:700;color:var(--muted);}
+  .event-icon{font-size:22px;text-align:center;}.event-main{min-width:0;}.event-title{font-weight:700;}.event-summary{font-size:13px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}.event-chevron{color:var(--muted);}
+  .quick-event-bar{display:flex;gap:8px;overflow-x:auto;padding:8px 2px 12px;scroll-snap-type:x proximity;}
+  .quick-event-button{flex:0 0 74px;min-height:72px;padding:8px 5px;display:flex;flex-direction:column;gap:4px;align-items:center;justify-content:center;border:1px solid var(--border);background:#fff;border-radius:12px;scroll-snap-align:start;font-size:12px;}.quick-event-button span{font-size:24px;}
+  .event-detail-list{margin:0;padding:0;list-style:none;}.event-detail-list li{display:grid;grid-template-columns:96px minmax(0,1fr);gap:8px;padding:9px 0;border-bottom:1px solid var(--border);}.event-detail-list strong{color:var(--muted);font-size:13px;}.event-form-fields .field{margin-bottom:12px;}
+  .graph-tabs{display:flex;gap:6px;overflow-x:auto;margin:0 0 12px;padding-bottom:2px;}.graph-tab{white-space:nowrap;flex:0 0 auto;}.menu-section{margin:18px 0 6px;color:var(--muted);font-size:12px;font-weight:700;}.menu-item{display:flex;width:100%;align-items:center;gap:10px;text-align:left;padding:13px 8px;border:0;border-bottom:1px solid var(--border);background:#fff;font:inherit;cursor:pointer;}.menu-item-icon{font-size:21px;width:28px;text-align:center;}.menu-item-copy{flex:1;}.menu-item-copy small{display:block;color:var(--muted);font-size:12px;margin-top:2px;}.menu-item-arrow{color:var(--muted);}
   .record-card{border:1px solid var(--border);border-radius:10px;margin-bottom:8px;overflow:hidden;}
   .record-card-header{display:flex;align-items:center;gap:8px;padding:10px 12px;cursor:pointer;}
   .record-card-main{display:flex;align-items:baseline;gap:8px;font-weight:600;white-space:nowrap;}
@@ -339,19 +352,32 @@
   <div id="deletionBanner" class="hidden"></div>
 
   <nav class="tabs" id="tabsNav">
-    <button class="tab-btn" data-tab="home" onclick="App.switchTab('home')">ホーム</button>
-    <button class="tab-btn" data-tab="list" onclick="App.switchTab('list')">記録一覧</button>
-    <button class="tab-btn" data-tab="chart" onclick="App.switchTab('chart')">グラフ</button>
-    <button class="tab-btn" data-tab="meds" onclick="App.switchTab('meds')">お薬</button>
-    <button class="tab-btn" data-tab="prev" onclick="App.switchTab('prev')">予防</button>
-    <button class="tab-btn" data-tab="visits" onclick="App.switchTab('visits')">受診歴</button>
-    <button class="tab-btn" data-tab="export" onclick="App.switchTab('export')">出力</button>
+    <button class="tab-btn" data-tab="daily" onclick="App.switchTab('daily')">📝 本日の記録</button>
+    <button class="tab-btn" data-tab="chart" onclick="App.switchTab('chart')">📊 グラフ</button>
+    <button class="tab-btn" data-tab="menu" onclick="App.switchTab('menu')">☰ メニュー</button>
   </nav>
 
   <main id="mainContent"></main>
   <footer id="accountFooter" class="account-footer hidden">
     <button id="deleteAccountButton" type="button" class="account-delete-link">アカウントを削除する</button>
   </footer>
+</div>
+
+<div id="eventModalBackdrop" class="modal-backdrop hidden">
+  <div class="modal">
+    <h3 id="eventModalTitle">記録を追加</h3>
+    <form id="eventForm">
+      <input type="hidden" id="eventId"><input type="hidden" id="eventType">
+      <div class="row"><div class="field"><label>日付</label><input type="date" id="eventDate" required></div><div class="field"><label>時刻</label><input type="time" id="eventTime" step="300" required></div></div>
+      <div id="eventFormFields" class="event-form-fields"></div>
+      <div class="field"><label>ひとことメモ（任意）</label><textarea id="eventNote" rows="2" placeholder="様子や気づいたこと"></textarea></div>
+      <div class="row" style="justify-content:flex-end;margin-top:8px;"><button type="button" class="ghost" onclick="App.closeEventModal()">キャンセル</button><button type="submit">保存する</button></div>
+    </form>
+  </div>
+</div>
+
+<div id="eventDetailBackdrop" class="modal-backdrop hidden">
+  <div class="modal"><h3 id="eventDetailTitle">記録の詳細</h3><ul id="eventDetailList" class="event-detail-list"></ul><div class="row" style="justify-content:space-between;margin-top:14px;"><button type="button" class="danger" id="eventDeleteButton">削除する</button><div><button type="button" class="ghost" onclick="App.closeEventDetail()">閉じる</button><button type="button" id="eventEditButton">編集</button></div></div></div>
 </div>
 
 <div id="petModalBackdrop" class="modal-backdrop hidden">
@@ -962,13 +988,18 @@ const ONBOARDING_PAGES = [
 let state = {
   pets: [],
   records: [],
+  events: [],
+  mealProfiles: [],
   medications: [],
   preventions: [],
   visits: [],
   currentPetId: null,
   deletionStatus: null,
   deletionScheduledFor: null,
-  activeTab: 'home',
+  activeTab: 'daily',
+  selectedRecordDate: localDateString(),
+  activeGraph: 'weight',
+  editingEventId: null,
   editingRecordId: null,
   editingMedId: null,
   editingPrevId: null,
@@ -1004,6 +1035,60 @@ function displayText(value, fallback = ''){
 }
 function safeArray(value){
   return Array.isArray(value) ? value : [];
+}
+function localDateString(date = new Date()){
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+const EVENT_TYPES = {
+  urine: { label:'おしっこ', icon:'💧' }, stool: { label:'うんち', icon:'💩' },
+  walk: { label:'お散歩', icon:'🐾' }, play: { label:'遊び', icon:'🎾' },
+  treat: { label:'おやつ', icon:'🍪' }, meal: { label:'ごはん', icon:'🍚' }, water: { label:'飲水', icon:'🥤' },
+  medication: { label:'くすり', icon:'💊' }, weight: { label:'体重', icon:'⚖️' },
+  symptom: { label:'症状', icon:'🩺' }, visit: { label:'病院', icon:'🏥' }, memo: { label:'メモ', icon:'📝' }
+};
+function eventTypeInfo(type){ return EVENT_TYPES[type] || { label:'記録', icon:'📝' }; }
+// クイック記録の数値項目。入力は<select>だが、eventsへは必ずnumber型で保存する。
+const NUMERIC_EVENT_FIELDS = new Set(['durationMinutes', 'distanceMeters', 'intakePercent', 'kilograms']);
+function coerceEventFieldValue(key, rawValue){
+  if(!NUMERIC_EVENT_FIELDS.has(key)) return rawValue;
+  return rawValue === '' || rawValue == null ? null : Number(rawValue);
+}
+function sortEvents(events){ return safeArray(events).slice().sort((a,b) => String(a.sortKey || `${a.date||''}T${a.time||''}`).localeCompare(String(b.sortKey || `${b.date||''}T${b.time||''}`))); }
+function filterEventsByDate(events, date){ return sortEvents(events).filter(event => event.date === date); }
+function eventSummary(event){
+  const d = event?.details || {};
+  switch(event?.type){
+    case 'urine': return ({normal:'量：ふつう',more:'量：多い',less:'量：少ない'})[d.amount] || '';
+    case 'stool': return d.score ? `スコア ${d.score}` : '';
+    case 'walk': return [d.durationMinutes != null ? `${d.durationMinutes}分` : '', d.distanceMeters != null ? `${d.distanceMeters}m` : ''].filter(Boolean).join('・');
+    case 'play': return d.durationMinutes != null ? `${d.durationMinutes}分` : '';
+    case 'treat': return d.item || '';
+    case 'meal': return [d.intakePercent != null ? `${d.intakePercent}%` : '', safeArray(d.mealProfileLabels).join('・')].filter(Boolean).join(' ');
+    case 'water': return ({normal:'量：ふつう',more:'量：多い',less:'量：少ない'})[d.amount] || '';
+    case 'medication': return d.medicationLabel || '';
+    case 'weight': return d.kilograms != null ? `${d.kilograms}kg` : '';
+    case 'symptom': return safeArray(d.symptoms).slice(0,2).join('・');
+    case 'visit': return d.clinic || d.diagnosis || '';
+    case 'memo': return d.text || event.note || '';
+    default: return '';
+  }
+}
+function recordedMealIntakes(events){ return safeArray(events).filter(e => e.type === 'meal' && Number.isFinite(Number(e.details?.intakePercent))).map(e => Number(e.details.intakePercent)); }
+function mergeTimelineItems(events, scheduledItems){
+  return [
+    ...safeArray(events).map(event => ({ kind:'event', time:event.time || '', event })),
+    ...safeArray(scheduledItems).map(item => ({ kind:'scheduled', time:item.time || '', ...item })),
+  ].sort((a, b) => a.time.localeCompare(b.time));
+}
+// 予定時刻の投薬が完了済みか。1イベントに複数薬をまとめた場合も取りこぼさないよう、
+// 単数medicationIdと複数medicationIdsの両方を突き合わせる。
+function scheduledDoseTaken(events, medicationId, time){
+  return safeArray(events).some(e => e.type === 'medication'
+    && e.details?.scheduledTime === time
+    && (e.details?.medicationId === medicationId || safeArray(e.details?.medicationIds).includes(medicationId)));
 }
 function escapeHtml(value){
   return displayText(value)
@@ -1220,7 +1305,7 @@ function handleFirestoreListenerError(err, generation, sourceUid){
 function attachFirestoreListeners(){
   const generation = ++firestoreListenerGeneration;
   const sourceUid = dataUid();
-  const collections = ['pets','records','medications','preventions','visits'];
+  const collections = ['pets','records','medications','preventions','visits','events','mealProfiles'];
   collections.forEach(name => {
     const unsub = colRef(name).onSnapshot(snap => {
       state[name] = snap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -1258,7 +1343,7 @@ function detachFirestoreListeners(){
   firestoreListenerGeneration++;
   firestoreUnsubscribers.forEach(u => u());
   firestoreUnsubscribers = [];
-  state = { ...state, pets:[], records:[], medications:[], preventions:[], visits:[], currentPetId:null, entitlements:null, familyEmails:[], activeFamilyEmails:[], deletionStatus:null, deletionScheduledFor:null };
+  state = { ...state, pets:[], records:[], events:[], mealProfiles:[], medications:[], preventions:[], visits:[], currentPetId:null, entitlements:null, familyEmails:[], activeFamilyEmails:[], deletionStatus:null, deletionScheduledFor:null };
 }
 
 function petRecords(){
@@ -1266,6 +1351,8 @@ function petRecords(){
     .filter(r => r.petId === state.currentPetId)
     .sort((a,b) => a.date < b.date ? 1 : -1);
 }
+function petEvents(){ return sortEvents(state.events.filter(event => event.petId === state.currentPetId)); }
+function petMealProfiles(){ return state.mealProfiles.filter(profile => profile.petId === state.currentPetId && profile.active !== false).sort((a,b) => (a.sortOrder || 0) - (b.sortOrder || 0)); }
 function petMedications(){
   return state.medications
     .filter(m => m.petId === state.currentPetId)
@@ -1433,6 +1520,7 @@ const App = {
     document.getElementById('medForm').addEventListener('submit', e => this.submitMed(e));
     document.getElementById('prevForm').addEventListener('submit', e => this.submitPrev(e));
     document.getElementById('visitForm').addEventListener('submit', e => this.submitVisit(e));
+    document.getElementById('eventForm').addEventListener('submit', e => this.submitEvent(e));
     document.getElementById('rDate').addEventListener('change', () => this.buildMedChecks());
     document.getElementById('medPhoto').addEventListener('change', e => this.handleMedPhoto(e));
     document.getElementById('rPhotoInput').addEventListener('change', e => this.handleRecordPhotos(e));
@@ -1455,7 +1543,7 @@ const App = {
   },
 
   start(){
-    this.switchTab('home');
+    this.switchTab('daily');
   },
 
   handleCheckoutRedirect(){
@@ -2767,6 +2855,8 @@ const App = {
       state.currentPetId = state.pets[0].id;
       this.renderPetSelect();
     }
+    if(state.activeTab === 'daily') return this.renderDaily();
+    if(state.activeTab === 'menu') return this.renderMenu();
     if(state.activeTab === 'home') return this.renderHome();
     if(state.activeTab === 'list') return this.renderList();
     if(state.activeTab === 'chart') return this.renderChartTab();
@@ -2775,6 +2865,152 @@ const App = {
     if(state.activeTab === 'visits') return this.renderVisitsTab();
     if(state.activeTab === 'export') return this.renderExportTab();
   },
+
+  // 週次の体調傾向分析(「今週のようす」)。有料プラン限定。
+  // 集計対象は当面、従来の日次記録(records)のみ。eventsをこの分析へ含めるのは別フェーズ。
+  weeklyTrendCardHtml(){
+    const subscribed = !!(state.entitlements && state.entitlements.subscriptionActive);
+    if(!subscribed) return `
+      <p class="muted" style="font-size:12px;margin:0 0 12px;">週次の体調傾向分析(今週のようす)は治療サポートプランで利用できます。 <button type="button" class="ghost" style="padding:1px 6px;font-size:11px;" onclick="App.openUpgradeModal();">アップグレードを見る</button></p>
+    `;
+    const weeklySummary = analyzeWeeklySummary(petRecords());
+    if(!weeklySummary) return '';
+    return `
+      <div class="card" style="border:1px solid ${weeklySummary.level === 'concern' ? 'var(--danger)' : 'var(--border)'};">
+        <h3 style="margin:0 0 8px;">${weeklySummary.level === 'concern' ? '⚠️ ' : ''}今週のようす</h3>
+        <p style="margin:0;">${escapeHtml(weeklySummary.text)}</p>
+        <p class="hint" style="margin-top:8px;">※診断ではなく、記録の変化をお知らせする目安です。気になる場合は獣医師にご相談ください。</p>
+      </div>
+    `;
+  },
+
+  renderDaily(){
+    const main = document.getElementById('mainContent');
+    const date = state.selectedRecordDate;
+    const day = new Date(`${date}T00:00:00`);
+    const dateLabel = day.toLocaleDateString('ja-JP', {month:'long', day:'numeric', weekday:'short'});
+    const events = filterEventsByDate(petEvents(), date);
+    // 予定は投薬済みイベントとは別に表示する。時刻になっただけで投薬済みにせず、
+    // ユーザーが予定行をタップして確認した時点でイベントを作成する。開始・終了期間内
+    // なら過去・未来の選択日にも表示し、保存済みの完了イベントがある予定だけ除外する。
+    const scheduledItems = petMedications().flatMap(m => safeArray(m.reminderTimes)
+      .filter(time => isMedActiveOn(m, date) && !scheduledDoseTaken(events, m.id, time))
+      .map(time => ({ medication:m, time })));
+    const allRows = mergeTimelineItems(events, scheduledItems).map(item => {
+      if(item.kind === 'scheduled'){
+        const medication = item.medication;
+        return `<button type="button" class="event-row" ${actionAttrs('openScheduledMedication', medication.id)} data-time="${escapeHtml(item.time)}"><span class="event-time">${escapeHtml(item.time)}</span><span class="event-icon">💊</span><span class="event-main"><span class="event-title">${escapeHtml(medLabel(medication))}</span><span class="event-summary">投薬予定・未完了</span></span><span class="event-chevron">›</span></button>`;
+      }
+      const event = item.event;
+      const info = eventTypeInfo(event.type);
+      return `<button type="button" class="event-row" ${actionAttrs('openEventDetail', event.id)}><span class="event-time">${escapeHtml(event.time || '--:--')}</span><span class="event-icon">${info.icon}</span><span class="event-main"><span class="event-title">${escapeHtml(info.label)}</span>${eventSummary(event) ? `<span class="event-summary">${escapeHtml(eventSummary(event))}</span>` : ''}</span><span class="event-chevron">›</span></button>`;
+    }).join('') || '<div class="empty">この日の記録はまだありません。下のボタンから記録できます。</div>';
+    const buttons = Object.entries(EVENT_TYPES).map(([type, info]) => `<button type="button" class="quick-event-button" onclick="App.openEventModal('${type}')"><span>${info.icon}</span>${escapeHtml(info.label)}</button>`).join('');
+    main.innerHTML = `${this.weeklyTrendCardHtml()}<div class="card"><div class="daily-record-header"><button class="secondary date-step" type="button" onclick="App.changeRecordDate(-1)">‹</button><div class="daily-record-date">${date === localDateString() ? '本日の記録' : '日付の記録'}<small>${escapeHtml(dateLabel)}</small></div><button class="secondary date-step" type="button" onclick="App.changeRecordDate(1)">›</button></div><div class="row" style="justify-content:center;margin-bottom:12px;"><input type="date" aria-label="表示する日付" value="${escapeHtml(date)}" onchange="App.setRecordDate(this.value)"></div><div class="event-timeline">${allRows}</div></div><div class="card"><h3 style="margin:0 0 4px;">記録を追加</h3><p class="hint">よく使う項目を選ぶと、選択した日付と現在時刻で入力を始められます。</p><div class="quick-event-bar">${buttons}</div></div>`;
+  },
+  setRecordDate(date){ if(date){ state.selectedRecordDate = date; this.render(); } },
+  changeRecordDate(offset){ const d = new Date(`${state.selectedRecordDate}T00:00:00`); d.setDate(d.getDate() + offset); state.selectedRecordDate = localDateString(d); this.render(); },
+  eventFieldsHtml(type, details = {}){
+    const options = (items, value, label) => `<div class="field"><label>${label}</label><select data-event-field="${value}">${items}</select></div>`;
+    const selected = (value, current) => String(value) === String(current) ? 'selected' : '';
+    const amount = options(['normal','more','less'].map(v => `<option value="${v}" ${selected(v,details.amount)}>${({normal:'ふつう',more:'多い',less:'少ない'})[v]}</option>`).join(''), 'amount', '量');
+    const rollerOptions = (max, step, value, unit) => Array.from({length: max / step + 1}, (_, i) => i * step).map(v => `<option value="${v}" ${selected(v,value)}>${v}${unit}</option>`).join('');
+    const duration = `<div class="field"><label>時間</label><select data-event-field="durationMinutes">${rollerOptions(360,5,details.durationMinutes,'分')}</select></div>`;
+    if(type === 'urine') return `${amount}${options(['normal','pale','dark'].map(v => `<option value="${v}" ${selected(v,details.color)}>${({normal:'ふつう',pale:'薄い',dark:'濃い'})[v]}</option>`).join(''), 'color', '色')}`;
+    if(type === 'stool') return `<div class="field"><label>糞便スコア <button type="button" class="ghost" onclick="App.openFecalGuide()">見本を見る</button></label><select data-event-field="score">${FECAL_SCALE.map(f => `<option value="${f.v}" ${selected(f.v,details.score)}>${escapeHtml(f.title)}</option>`).join('')}</select></div>${amount}`;
+    if(type === 'walk') return `${duration}<div class="field"><label>距離</label><select data-event-field="distanceMeters">${rollerOptions(20000,100,details.distanceMeters,'m')}</select></div>`;
+    if(type === 'play') return duration;
+    if(type === 'treat') return `<div class="field"><label>食べたもの</label><input data-event-field="item" value="${escapeHtml(details.item || '')}" placeholder="例: ささみ"></div>`;
+    if(type === 'meal'){
+      const profiles = petMealProfiles();
+      const checked = new Set(safeArray(details.mealProfileIds));
+      return `<div class="field"><label>食べた量</label><select data-event-field="intakePercent">${[0,25,50,75,100].map(v => `<option value="${v}" ${selected(v,details.intakePercent)}>${v}%</option>`).join('')}</select></div><div class="field"><label>ごはん（複数選択可）</label><div class="checks">${profiles.length ? profiles.map(p => `<label class="dose-check"><input type="checkbox" data-meal-profile="${escapeHtml(p.id)}" data-meal-label="${escapeHtml(p.label || '')}" ${checked.has(p.id) ? 'checked' : ''}> ${escapeHtml(p.label || '名称未設定')}</label>`).join('') : '<p class="hint">ごはんの候補はメニューの「ごはんの設定」から追加できます。</p>'}</div></div>`;
+    }
+    if(type === 'water') return amount;
+    if(type === 'medication'){
+      const checked = new Set(safeArray(details.medicationIds).length ? details.medicationIds : (details.medicationId ? [details.medicationId] : []));
+      return `<div class="field"><label>投薬したお薬</label><div class="checks">${petMedications().length ? petMedications().map(m => `<label class="dose-check"><input type="checkbox" data-medication-id="${escapeHtml(m.id)}" data-medication-label="${escapeHtml(medLabel(m))}" ${checked.has(m.id) ? 'checked' : ''}> ${escapeHtml(medLabel(m))}</label>`).join('') : '<p class="hint">お薬の設定がありません。メニューから登録してください。</p>'}</div></div>`;
+    }
+    if(type === 'weight') return `<div class="field"><label>体重</label><select data-event-field="kilograms" required>${Array.from({length:1001},(_,i)=>i/10).map(v => `<option value="${v}" ${selected(v,details.kilograms)}>${v.toFixed(1)}kg</option>`).join('')}</select></div>`;
+    if(type === 'symptom') { const checked = new Set(safeArray(details.symptoms)); return `<div class="field"><label>気になる症状（複数選択可）</label><div class="checks">${SYMPTOM_OPTIONS.map(s => `<label class="dose-check"><input type="checkbox" data-symptom="${escapeHtml(s)}" ${checked.has(s) ? 'checked' : ''}> ${escapeHtml(s)}</label>`).join('')}</div></div>`; }
+    if(type === 'visit') return ['clinic|病院名','reason|相談内容','diagnosis|診断名','treatment|治療内容'].map(pair => { const [key,label] = pair.split('|'); return `<div class="field"><label>${label}</label><input data-event-field="${key}" value="${escapeHtml(details[key] || '')}"></div>`; }).join('') + `<div class="field"><label>次回の予定</label><input data-event-field="followUpDate" type="date" value="${escapeHtml(details.followUpDate || '')}"></div>`;
+    if(type === 'memo') return `<div class="field"><label>メモ</label><textarea data-event-field="text" rows="4" required>${escapeHtml(details.text || '')}</textarea></div>`;
+    return '';
+  },
+  openEventModal(type, eventId){
+    const event = eventId ? state.events.find(item => item.id === eventId) : null;
+    const actualType = event?.type || type;
+    if(!actualType) return;
+    state.editingEventId = event?.id || null;
+    const now = new Date();
+    document.getElementById('eventModalTitle').textContent = event ? `${eventTypeInfo(actualType).label}を編集` : `${eventTypeInfo(actualType).label}を記録`;
+    document.getElementById('eventId').value = event?.id || '';
+    document.getElementById('eventType').value = actualType;
+    document.getElementById('eventDate').value = event?.date || state.selectedRecordDate;
+    document.getElementById('eventTime').value = event?.time || `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+    document.getElementById('eventNote').value = event?.note || '';
+    document.getElementById('eventFormFields').innerHTML = this.eventFieldsHtml(actualType, event?.details || {});
+    document.getElementById('eventModalBackdrop').classList.remove('hidden');
+  },
+  openScheduledMedication(medicationId, scheduledTime){
+    const medication = state.medications.find(item => item.id === medicationId); if(!medication) return;
+    this.openEventModal('medication');
+    document.getElementById('eventTime').value = scheduledTime;
+    const checkbox = document.querySelector(`#eventFormFields input[data-medication-id="${CSS.escape(medicationId)}"]`);
+    if(checkbox) checkbox.checked = true;
+    // scheduledTimeは保存時に手入力分と区別するため、フォームのdatasetへ保持する。
+    document.getElementById('eventForm').dataset.scheduledTime = scheduledTime;
+  },
+  closeEventModal(){ document.getElementById('eventModalBackdrop').classList.add('hidden'); document.getElementById('eventForm').dataset.scheduledTime = ''; state.editingEventId = null; },
+  readEventDetails(type){
+    const root = document.getElementById('eventFormFields'); const details = {};
+    root.querySelectorAll('[data-event-field]').forEach(input => { details[input.dataset.eventField] = coerceEventFieldValue(input.dataset.eventField, input.value); });
+    if(type === 'meal'){ const meals = [...root.querySelectorAll('[data-meal-profile]:checked')]; details.mealProfileIds = meals.map(el => el.dataset.mealProfile); details.mealProfileLabels = meals.map(el => el.dataset.mealLabel); }
+    if(type === 'medication'){ const meds = [...root.querySelectorAll('[data-medication-id]:checked')]; details.medicationIds = meds.map(el => el.dataset.medicationId); details.medicationLabels = meds.map(el => el.dataset.medicationLabel); details.medicationId = details.medicationIds[0] || ''; details.medicationLabel = details.medicationLabels.join('・'); details.source = document.getElementById('eventForm').dataset.scheduledTime ? 'scheduled' : 'manual'; details.scheduledTime = document.getElementById('eventForm').dataset.scheduledTime || null; }
+    if(type === 'symptom') details.symptoms = [...root.querySelectorAll('[data-symptom]:checked')].map(el => el.dataset.symptom);
+    return details;
+  },
+  submitEvent(e){
+    e.preventDefault(); if(!state.currentPetId) return;
+    const id = document.getElementById('eventId').value || uid(); const type = document.getElementById('eventType').value;
+    const date = document.getElementById('eventDate').value; const time = document.getElementById('eventTime').value;
+    if(!date || !time) return;
+    const previous = state.events.find(item => item.id === id);
+    const data = { petId:state.currentPetId, type, date, time, sortKey:`${date}T${time}`, note:document.getElementById('eventNote').value.trim(), details:this.readEventDetails(type), updatedAt:firebase.firestore.FieldValue.serverTimestamp() };
+    if(!previous) data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+    colRef('events').doc(id).set(data, {merge:true}); state.selectedRecordDate = date; this.closeEventModal();
+  },
+  eventDetailRows(event){
+    const d = event.details || {}; const rows = [['日時', `${fmtDate(event.date)} ${event.time || ''}`], ['種類', eventTypeInfo(event.type).label]];
+    const add = (label, value) => { if(value !== '' && value != null && (!Array.isArray(value) || value.length)) rows.push([label, Array.isArray(value) ? value.join('・') : value]); };
+    if(event.type === 'urine'){ add('量', ({normal:'ふつう',more:'多い',less:'少ない'})[d.amount]); add('色', ({normal:'ふつう',pale:'薄い',dark:'濃い'})[d.color]); }
+    if(event.type === 'stool'){ add('糞便スコア', d.score); add('量', ({normal:'ふつう',more:'多い',less:'少ない'})[d.amount]); }
+    if(['walk','play'].includes(event.type)) add('時間', d.durationMinutes != null ? `${d.durationMinutes}分` : '');
+    if(event.type === 'walk') add('距離', d.distanceMeters != null ? `${d.distanceMeters}m` : '');
+    if(event.type === 'treat') add('食べたもの', d.item);
+    if(event.type === 'meal'){ add('食べた量', d.intakePercent != null ? `${d.intakePercent}%` : ''); add('ごはん', d.mealProfileLabels); }
+    if(event.type === 'water') add('量', ({normal:'ふつう',more:'多い',less:'少ない'})[d.amount]);
+    if(event.type === 'medication') add('お薬', d.medicationLabels || d.medicationLabel);
+    if(event.type === 'weight') add('体重', d.kilograms != null ? `${d.kilograms}kg` : '');
+    if(event.type === 'symptom') add('症状', d.symptoms);
+    if(event.type === 'visit'){ [['病院名','clinic'],['相談内容','reason'],['診断名','diagnosis'],['治療内容','treatment'],['次回の予定','followUpDate']].forEach(([label,key]) => add(label,d[key])); }
+    if(event.type === 'memo') add('メモ', d.text);
+    add('ひとことメモ', event.note); return rows;
+  },
+  openEventDetail(id){ const event = state.events.find(item => item.id === id); if(!event) return; document.getElementById('eventDetailTitle').textContent = `${eventTypeInfo(event.type).icon} ${eventTypeInfo(event.type).label}`; document.getElementById('eventDetailList').innerHTML = this.eventDetailRows(event).map(([label,value]) => `<li><strong>${escapeHtml(label)}</strong><span style="white-space:pre-wrap;">${escapeHtml(value)}</span></li>`).join(''); document.getElementById('eventEditButton').onclick = () => { this.closeEventDetail(); this.openEventModal(event.type,event.id); }; document.getElementById('eventDeleteButton').onclick = () => this.deleteEvent(event.id); document.getElementById('eventDetailBackdrop').classList.remove('hidden'); },
+  closeEventDetail(){ document.getElementById('eventDetailBackdrop').classList.add('hidden'); },
+  deleteEvent(id){ if(!confirm('この記録を削除しますか？')) return; colRef('events').doc(id).delete(); this.closeEventDetail(); },
+  renderMenu(){
+    const group = (title, items) => `<div class="menu-section">${escapeHtml(title)}</div><div class="card" style="padding:0;">${items.map(([icon,label,description,action]) => `<button class="menu-item" type="button" onclick="${action}"><span class="menu-item-icon">${icon}</span><span class="menu-item-copy">${escapeHtml(label)}${description ? `<small>${escapeHtml(description)}</small>` : ''}</span><span class="menu-item-arrow">›</span></button>`).join('')}</div>`;
+    document.getElementById('mainContent').innerHTML = `${group('ペットと日々の設定', [['🐾','ペットの登録・編集','ペットの切替や情報の変更',"App.openPetModal()"],['🍚','ごはんの設定','食事候補の登録・編集',"App.renderMealProfiles()"],['💊','お薬の設定','薬・用量・投薬時刻',"App.switchTab('meds')"]])}${group('記録を見返す', [['🗓️','これまでの記録','新UI以前の日次記録の一覧・編集',"App.switchTab('list')"],['📄','記録を出力','主治医への共有レポート',"App.switchTab('export')"]])}${group('健康管理', [['🛡️','予防', '',"App.switchTab('prev')"],['🏥','受診歴', '',"App.switchTab('visits')"]])}${group('サービス', [['👪','家族共有','家族や同居の方と記録を共有',"App.openFamilyModal()"],['⭐','プラン・お支払い','有料機能とお支払い',"App.openUpgradeModal()"],['❔','ヘルプ','使い方ガイド',"window.open('usage-guide.html','_blank','noopener')"]])}${group('プライバシーとアカウント', [['✉️','お問い合わせ','',"window.location.href='mailto:contact@pet-health-log.com'"],['🔒','プライバシーポリシー・利用規約','',"window.open('privacy.html','_blank','noopener')"],['↪️','ログアウト','',"AppAuth.signOut()"],['🗑️','アカウントを削除する','',"App.requestAccountDeletion()"]])}`;
+  },
+  renderMealProfiles(){
+    const profiles = petMealProfiles();
+    document.getElementById('mainContent').innerHTML = `<div class="card"><div class="row" style="justify-content:space-between;"><h3 style="margin:0;">ごはんの設定</h3><button type="button" onclick="App.addMealProfile()">+ 追加</button></div><p class="hint">朝・昼・夜に限らず、普段食べるごはんを候補として登録できます。記録時に複数選択できます。</p>${profiles.length ? profiles.map(profile => `<div class="med-card"><strong>${escapeHtml(profile.label || '名称未設定')}</strong>${profile.description ? `<div class="muted">${escapeHtml(profile.description)}</div>` : ''}${profile.suggestedTime ? `<div class="hint">目安時刻 ${escapeHtml(profile.suggestedTime)}</div>` : ''}<div class="row" style="justify-content:flex-end;"><button class="secondary" ${actionAttrs('editMealProfile', profile.id)}>編集</button><button class="danger" ${actionAttrs('deleteMealProfile', profile.id)}>削除</button></div></div>`).join('') : '<div class="empty">まだ食事候補がありません</div>'}<div class="row" style="justify-content:flex-end;margin-top:10px;"><button class="ghost" onclick="App.switchTab(\'menu\')">メニューへ戻る</button></div></div>`;
+  },
+  addMealProfile(){ this.editMealProfile(); },
+  editMealProfile(id){ const item = id ? state.mealProfiles.find(profile => profile.id === id) : null; const label = prompt('食事候補の名前を入力してください', item?.label || ''); if(label === null) return; if(!label.trim()){ alert('名前を入力してください。'); return; } const description = prompt('内容（任意）', item?.description || ''); if(description === null) return; const suggestedTime = prompt('目安時刻（任意、例: 07:00）', item?.suggestedTime || ''); if(suggestedTime === null) return; const docId = id || uid(); colRef('mealProfiles').doc(docId).set({petId:state.currentPetId,label:label.trim(),description:description.trim(),suggestedTime:suggestedTime.trim(),sortOrder:item?.sortOrder || state.mealProfiles.length,active:true,updatedAt:firebase.firestore.FieldValue.serverTimestamp(),...(item ? {} : {createdAt:firebase.firestore.FieldValue.serverTimestamp()})},{merge:true}); },
+  deleteMealProfile(id){ if(!confirm('この食事候補を削除しますか？過去の記録は変更されません。')) return; colRef('mealProfiles').doc(id).delete(); },
 
   // モバイル向けの折りたたみ記録カード。ホーム(概要のみ)と記録一覧(全項目)の
   // どちらからも使う。opts.full=trueで飲水・便・尿・CIBDAI・メモも詳細に含める。
@@ -2857,20 +3093,8 @@ const App = {
     const lastVisit = visits[0];
     const lastWithCibdai = records.find(r => r.cibdai);
 
-    const subscribed = !!(state.entitlements && state.entitlements.subscriptionActive);
-    const weeklySummary = subscribed ? analyzeWeeklySummary(records) : null;
-    const trendCardHtml = weeklySummary ? `
-      <div class="card" style="border:1px solid ${weeklySummary.level === 'concern' ? 'var(--danger)' : 'var(--border)'};">
-        <h3 style="margin:0 0 8px;">${weeklySummary.level === 'concern' ? '⚠️ ' : ''}今週のようす</h3>
-        <p style="margin:0;">${escapeHtml(weeklySummary.text)}</p>
-        <p class="hint" style="margin-top:8px;">※診断ではなく、記録の変化をお知らせする目安です。気になる場合は獣医師にご相談ください。</p>
-      </div>
-    ` : (subscribed ? '' : `
-      <p class="muted" style="font-size:12px;margin:0 0 12px;">週次の体調傾向分析(今週のようす)は治療サポートプランで利用できます。 <button type="button" class="ghost" style="padding:1px 6px;font-size:11px;" onclick="App.openUpgradeModal();">アップグレードを見る</button></p>
-    `);
-
     main.innerHTML = `
-      ${trendCardHtml}
+      ${this.weeklyTrendCardHtml()}
       <div class="card">
         <h3>${pet.species==='犬'?'🐶':(pet.species==='猫'?'🐱':'🐾')} ${escapeHtml(pet.name)} ${pet.breed?('('+escapeHtml(pet.breed)+')'):''}</h3>
         <div class="muted">${pet.birthday ? (fmtDate(pet.birthday) + ' 生まれ ・ ' + ageString(pet.birthday)) : '誕生日未登録'}</div>
@@ -2965,9 +3189,10 @@ const App = {
     main.innerHTML = `
       <div class="card">
         <div class="row" style="justify-content:space-between;align-items:center;">
-          <h3 style="margin:0;">記録一覧 (${records.length}件)</h3>
+          <h3 style="margin:0;">これまでの記録 (${records.length}件)</h3>
           <button onclick="App.openRecordModal()">+ 記録を追加</button>
         </div>
+        <p class="hint">新しい「本日の記録」より前の日次記録です。従来どおり閲覧・編集できます。</p>
         ${records.length === 0 ? '<div class="empty">まだ記録がありません</div>' : `
         <div class="records-table-view">
         <table>
@@ -2998,6 +3223,7 @@ const App = {
           ${records.map(r => this.recordCardHtml(r, { full: true, showCibdai, showDelete: true })).join('')}
         </div>
         `}
+        <div class="row" style="justify-content:flex-end;margin-top:10px;"><button class="ghost" onclick="App.switchTab('menu')">メニューへ戻る</button></div>
       </div>
     `;
   },
@@ -3147,47 +3373,29 @@ const App = {
         <option value="7">直近7日</option>
         <option value="30">直近30日</option>
       `;
-    const upsellHtml = `
-      <div class="card">
-        <h3>食欲の推移・お散歩時間の推移・日々の状態・症状タイムライン</h3>
-        <p class="hint">これらのグラフは治療サポートプランで利用できます。 <button type="button" class="ghost" style="padding:2px 8px;font-size:11px;" onclick="App.openUpgradeModal();">アップグレードを見る</button></p>
-      </div>
-    `;
-    const fullChartsHtml = `
-      <div class="card">
-        <h3>食欲の推移</h3>
-        <div class="chart-wrap"><canvas id="appetiteChartCanvas"></canvas></div>
-      </div>
-      <div class="card">
-        <h3>お散歩時間の推移</h3>
-        <div class="chart-wrap"><canvas id="walkChartCanvas"></canvas></div>
-      </div>
-      <div class="card">
-        <h3>日々の状態(飲水・便・尿)</h3>
-        <div id="dailyStatusTimelineWrap"></div>
-        ${buildStatusLegendHtml()}
-      </div>
-      <div class="card">
-        <h3>症状タイムライン</h3>
-        <div id="symptomTimelineWrap"></div>
-      </div>
-    `;
+    const graphs = [['weight','体重'],['appetite','食欲'],['walk','お散歩'],['status','日々の状態'],['symptom','症状']];
+    if(!subscribed && ['appetite','walk','status'].includes(state.activeGraph)) state.activeGraph = 'weight';
+    const graphTabs = graphs.map(([key,label]) => `<button type="button" class="graph-tab ${state.activeGraph === key ? 'active' : ''}" onclick="App.setActiveGraph('${key}')">${escapeHtml(label)}</button>`).join('');
+    const graphTitle = Object.fromEntries(graphs)[state.activeGraph] || '体重';
+    let graphBody = '';
+    if(!subscribed && ['appetite','walk','status'].includes(state.activeGraph)) graphBody = `<p class="hint">このグラフは治療サポートプランで利用できます。 <button type="button" class="ghost" onclick="App.openUpgradeModal()">アップグレードを見る</button></p>`;
+    else if(state.activeGraph === 'weight') graphBody = '<div class="chart-wrap"><canvas id="weightChartCanvas"></canvas></div>';
+    else if(state.activeGraph === 'appetite') graphBody = '<div class="chart-wrap"><canvas id="appetiteChartCanvas"></canvas></div>';
+    else if(state.activeGraph === 'walk') graphBody = '<div class="chart-wrap"><canvas id="walkChartCanvas"></canvas></div>';
+    else if(state.activeGraph === 'status') graphBody = `<div id="dailyStatusTimelineWrap"></div>${buildStatusLegendHtml()}`;
+    else graphBody = '<div class="chart-wrap"><canvas id="symptomChartCanvas"></canvas></div><div id="symptomTimelineWrap"></div>';
     main.innerHTML = `
       <div class="card">
+        <div class="graph-tabs">${graphTabs}</div>
         <div class="row" style="justify-content:space-between;align-items:center;">
-          <h3 style="margin:0;">体重の推移</h3>
+          <h3 style="margin:0;">${escapeHtml(graphTitle)}の推移</h3>
           <select id="rangeSelect" onchange="App.setChartRange(this.value)">${rangeOptionsHtml}</select>
         </div>
         <div class="row hidden" id="customRangeFields" style="margin-top:8px;">
           <div class="field"><label>開始日</label><input type="date" id="chartFrom" onchange="App.setCustomChartRange()"></div>
           <div class="field"><label>終了日</label><input type="date" id="chartTo" onchange="App.setCustomChartRange()"></div>
         </div>
-        <div class="chart-wrap"><canvas id="weightChartCanvas"></canvas></div>
-      </div>
-      ${subscribed ? fullChartsHtml : upsellHtml}
-      <div class="card">
-        <h3>症状の出現回数</h3>
-        <div class="chart-wrap"><canvas id="symptomChartCanvas"></canvas></div>
+        ${graphBody}
       </div>
     `;
     document.getElementById('rangeSelect').value = state.chartRange;
@@ -3198,6 +3406,8 @@ const App = {
     }
     this.drawCharts();
   },
+
+  setActiveGraph(graph){ state.activeGraph = graph; this.renderChartTab(); },
 
   filterByRange(records){
     if(state.chartRange === 'custom'){
@@ -3244,8 +3454,7 @@ const App = {
 
     const weightData = records.filter(r => r.weight != null);
     const wCtx = document.getElementById('weightChartCanvas');
-    if(state.weightChart) state.weightChart.destroy();
-    state.weightChart = new Chart(wCtx, {
+    if(wCtx){ if(state.weightChart) state.weightChart.destroy(); state.weightChart = new Chart(wCtx, {
       type: 'line',
       data: {
         labels: weightData.map(r => fmtDate(r.date)),
@@ -3260,15 +3469,14 @@ const App = {
         }]
       },
       options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}} }
-    });
+    }); }
 
     if(subscribed){
       // 食欲は過去の質的ラベル(良好/普通/不良/絶食)のままの記録もあるため、
       // 表示と同じくappetiteValue()で数値ラベルへ変換してからグラフ化する。
       const appetiteData = records.filter(r => r.appetite != null && r.appetite !== '');
       const aCtx = document.getElementById('appetiteChartCanvas');
-      if(state.appetiteChart) state.appetiteChart.destroy();
-      state.appetiteChart = new Chart(aCtx, {
+      if(aCtx){ if(state.appetiteChart) state.appetiteChart.destroy(); state.appetiteChart = new Chart(aCtx, {
         type: 'line',
         data: {
           labels: appetiteData.map(r => fmtDate(r.date)),
@@ -3286,12 +3494,11 @@ const App = {
           responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}},
           scales:{ y:{ min:0, max:100, ticks:{ stepSize:25, callback:v => v+'%' } } }
         }
-      });
+      }); }
 
       const walkData = records.filter(r => r.walkMinutes != null);
       const wkCtx = document.getElementById('walkChartCanvas');
-      if(state.walkChart) state.walkChart.destroy();
-      state.walkChart = new Chart(wkCtx, {
+      if(wkCtx){ if(state.walkChart) state.walkChart.destroy(); state.walkChart = new Chart(wkCtx, {
         type: 'line',
         data: {
           labels: walkData.map(r => fmtDate(r.date)),
@@ -3309,7 +3516,7 @@ const App = {
           responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}},
           scales:{ y:{ beginAtZero:true, ticks:{ callback:v => v+'分' } } }
         }
-      });
+      }); }
 
       this.renderDailyStatusTimeline(records);
       this.renderSymptomTimeline(records);
@@ -3319,8 +3526,7 @@ const App = {
     records.forEach(r => safeArray(r.symptoms).forEach(s => symptomCounts[s] = (symptomCounts[s]||0) + 1));
     const labels = Object.keys(symptomCounts);
     const sCtx = document.getElementById('symptomChartCanvas');
-    if(state.symptomChart) state.symptomChart.destroy();
-    state.symptomChart = new Chart(sCtx, {
+    if(sCtx){ if(state.symptomChart) state.symptomChart.destroy(); state.symptomChart = new Chart(sCtx, {
       type: 'bar',
       data: {
         labels,
@@ -3331,7 +3537,7 @@ const App = {
         }]
       },
       options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true, ticks:{stepSize:1}}} }
-    });
+    }); }
   },
 
   // 飲水・便・尿を同じ日付軸の3行で並べ、「いつ・どの項目に変化が出たか」を
@@ -3769,7 +3975,11 @@ document.addEventListener('click', event => {
     openPrev: () => App.openPrevModal(id),
     deletePrev: () => App.deletePrev(id),
     openVisit: () => App.openVisitModal(id),
-    deleteVisit: () => App.deleteVisit(id)
+    deleteVisit: () => App.deleteVisit(id),
+    openEventDetail: () => App.openEventDetail(id),
+    openScheduledMedication: () => App.openScheduledMedication(id, control.dataset.time),
+    editMealProfile: () => App.editMealProfile(id),
+    deleteMealProfile: () => App.deleteMealProfile(id)
   };
   if(actions[control.dataset.appAction]) actions[control.dataset.appAction]();
 });
@@ -3925,7 +4135,9 @@ if (typeof module !== 'undefined') {
   module.exports = {
     waterLabel, urineLabel, appetiteValue, appetiteLabel, walkLabel,
     stoolLabel, escapeHtml, cibdaiTotal, cibdaiSeverity, daysAgoStr,
-    analyzeWeeklySummary,
+    analyzeWeeklySummary, sortEvents, filterEventsByDate, eventSummary,
+    recordedMealIntakes, mergeTimelineItems, localDateString, actionAttrs,
+    coerceEventFieldValue, scheduledDoseTaken,
   };
 }
 </script>
