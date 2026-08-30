@@ -221,18 +221,32 @@
      デスクトップの<table>はそのまま残し、CSSの幅切り替えだけで出し分ける。 */
   .records-card-view{display:none;}
   .daily-record-header{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px;}
-  .daily-record-date{font-weight:700;font-size:18px;text-align:center;}
-  .daily-record-date small{display:block;color:var(--muted);font-size:12px;font-weight:400;margin-top:3px;}
+  /* 日付表示は1箇所に統合。ラベルの上に透明なdate入力を重ね、タップで日付選択を開く。 */
+  .daily-record-date-wrap{position:relative;flex:1;display:flex;align-items:center;justify-content:center;min-height:40px;}
+  .daily-record-date{font-weight:700;font-size:17px;text-align:center;}
+  .daily-record-date-input{position:absolute;inset:0;width:100%;height:100%;opacity:0;border:0;margin:0;padding:0;cursor:pointer;-webkit-appearance:none;appearance:none;}
   .date-step{min-width:42px;padding:8px;}
+  .daily-screen{padding-bottom:132px;}
+  /* クイック記録バーを本日の記録画面の下端へ固定する。タイムライン最終行が隠れないよう
+     .daily-screenのpadding-bottomで逃がす。メニュー等へ切り替えるとmainContentごと消える。 */
+  .daily-quick-dock{position:fixed;left:0;right:0;bottom:0;z-index:40;background:var(--card);border-top:1px solid var(--border);
+    padding:6px 12px calc(6px + env(safe-area-inset-bottom));box-shadow:0 -4px 12px rgba(58,46,40,0.08);}
+  .daily-quick-dock .quick-event-bar{margin:0;padding:2px;max-width:920px;margin:0 auto;}
   .event-timeline{display:flex;flex-direction:column;gap:6px;}
   .event-row{display:grid;grid-template-columns:54px 32px minmax(0,1fr) 14px;gap:8px;align-items:center;width:100%;border:1px solid var(--border);border-radius:10px;background:#fff;padding:10px;text-align:left;cursor:pointer;}
   .event-row:hover{background:#fffaf5;}
+  /* 未完了の投薬予定行は、保存済みの記録と一目で区別できるよう破線枠＋淡い色にする */
+  .event-row--scheduled{border-style:dashed;border-color:var(--primary);background:#FFF4E6;}
+  .event-row--scheduled:hover{background:#FFECD4;}
+  .event-row--scheduled .event-summary{color:var(--primary-dark,#B5540A);}
+  .event-row--scheduled .event-chevron{color:var(--primary);font-weight:700;}
   .event-time{font-variant-numeric:tabular-nums;font-weight:700;color:var(--muted);}
-  .event-icon{font-size:22px;text-align:center;}.event-main{min-width:0;}.event-title{font-weight:700;}.event-summary{font-size:13px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}.event-chevron{color:var(--muted);}
+  .event-icon{font-size:22px;text-align:center;}.event-main{min-width:0;}.event-title{display:block;color:var(--text);font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}.event-summary{display:block;font-size:13px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}.event-chevron{color:var(--muted);}
   .quick-event-bar{display:flex;gap:8px;overflow-x:auto;padding:8px 2px 12px;scroll-snap-type:x proximity;}
   .quick-event-button{flex:0 0 74px;min-height:72px;padding:8px 5px;display:flex;flex-direction:column;gap:4px;align-items:center;justify-content:center;border:1px solid var(--border);background:#fff;border-radius:12px;scroll-snap-align:start;font-size:12px;}.quick-event-button span{font-size:24px;}
   .event-detail-list{margin:0;padding:0;list-style:none;}.event-detail-list li{display:grid;grid-template-columns:96px minmax(0,1fr);gap:8px;padding:9px 0;border-bottom:1px solid var(--border);}.event-detail-list strong{color:var(--muted);font-size:13px;}.event-form-fields .field{margin-bottom:12px;}
-  .graph-tabs{display:flex;gap:6px;overflow-x:auto;margin:0 0 12px;padding-bottom:2px;}.graph-tab{white-space:nowrap;flex:0 0 auto;}.menu-section{margin:18px 0 6px;color:var(--muted);font-size:12px;font-weight:700;}.menu-item{display:flex;width:100%;align-items:center;gap:10px;text-align:left;padding:13px 8px;border:0;border-bottom:1px solid var(--border);background:#fff;font:inherit;cursor:pointer;}.menu-item-icon{font-size:21px;width:28px;text-align:center;}.menu-item-copy{flex:1;}.menu-item-copy small{display:block;color:var(--muted);font-size:12px;margin-top:2px;}.menu-item-arrow{color:var(--muted);}
+  .scheduled-lock{font-weight:700;font-size:15px;padding:8px 10px;background:var(--bg);border:1px solid var(--border);border-radius:8px;}
+  .graph-tabs{display:flex;gap:6px;overflow-x:auto;margin:0 0 12px;padding-bottom:2px;}.graph-tab{white-space:nowrap;flex:0 0 auto;}.menu-section{margin:18px 0 6px;color:var(--muted);font-size:12px;font-weight:700;}.menu-item{display:flex;width:100%;align-items:center;gap:10px;text-align:left;padding:13px 8px;border:0;border-bottom:1px solid var(--border);background:#fff;color:var(--text);font:inherit;cursor:pointer;}.menu-item-icon{font-size:21px;width:28px;text-align:center;}.menu-item-copy{flex:1;}.menu-item-copy small{display:block;color:var(--muted);font-size:12px;margin-top:2px;}.menu-item-arrow{color:var(--muted);}
   .record-card{border:1px solid var(--border);border-radius:10px;margin-bottom:8px;overflow:hidden;}
   .record-card-header{display:flex;align-items:center;gap:8px;padding:10px 12px;cursor:pointer;}
   .record-card-main{display:flex;align-items:baseline;gap:8px;font-weight:600;white-space:nowrap;}
@@ -358,9 +372,6 @@
   </nav>
 
   <main id="mainContent"></main>
-  <footer id="accountFooter" class="account-footer hidden">
-    <button id="deleteAccountButton" type="button" class="account-delete-link">アカウントを削除する</button>
-  </footer>
 </div>
 
 <div id="eventModalBackdrop" class="modal-backdrop hidden">
@@ -368,7 +379,7 @@
     <h3 id="eventModalTitle">記録を追加</h3>
     <form id="eventForm">
       <input type="hidden" id="eventId"><input type="hidden" id="eventType">
-      <div class="row"><div class="field"><label>日付</label><input type="date" id="eventDate" required></div><div class="field"><label>時刻</label><input type="time" id="eventTime" step="300" required></div></div>
+      <div class="row"><div class="field"><label>日付</label><input type="date" id="eventDate" required></div><div class="field"><label>時刻</label><input type="time" id="eventTime" step="60" required></div></div>
       <div id="eventFormFields" class="event-form-fields"></div>
       <div class="field"><label>ひとことメモ（任意）</label><textarea id="eventNote" rows="2" placeholder="様子や気づいたこと"></textarea></div>
       <div class="row" style="justify-content:flex-end;margin-top:8px;"><button type="button" class="ghost" onclick="App.closeEventModal()">キャンセル</button><button type="submit">保存する</button></div>
@@ -377,7 +388,7 @@
 </div>
 
 <div id="eventDetailBackdrop" class="modal-backdrop hidden">
-  <div class="modal"><h3 id="eventDetailTitle">記録の詳細</h3><ul id="eventDetailList" class="event-detail-list"></ul><div class="row" style="justify-content:space-between;margin-top:14px;"><button type="button" class="danger" id="eventDeleteButton">削除する</button><div><button type="button" class="ghost" onclick="App.closeEventDetail()">閉じる</button><button type="button" id="eventEditButton">編集</button></div></div></div>
+  <div class="modal"><h3 id="eventDetailTitle">記録の詳細</h3><ul id="eventDetailList" class="event-detail-list"></ul><div class="row" style="justify-content:space-between;margin-top:14px;"><div><button type="button" class="danger" id="eventDeleteButton">削除する</button><button type="button" class="secondary" id="eventUndoScheduledButton" style="display:none;">未完了に戻す</button></div><div><button type="button" class="ghost" onclick="App.closeEventDetail()">閉じる</button><button type="button" id="eventEditButton">編集</button></div></div></div>
 </div>
 
 <div id="petModalBackdrop" class="modal-backdrop hidden">
@@ -518,18 +529,27 @@
         <div class="field"><label>終了日(継続中なら空欄)</label><input type="date" id="medEnd"></div>
       </div>
       <div class="field"><label>処方元(病院名など・任意)</label><input type="text" id="medPrescriber"></div>
+      <div id="medScheduledField" class="field">
+        <label>投薬予定の時刻</label>
+        <div class="row" style="align-items:flex-end;">
+          <div class="field" style="flex:0 0 auto;"><input type="time" id="medScheduledTimeInput" step="60"></div>
+          <button type="button" class="secondary" onclick="App.addScheduledTime()">+ 追加</button>
+        </div>
+        <div id="medScheduledTimeList" class="chip-list"></div>
+        <p class="hint">本日の記録に「投薬予定」として表示されます。通知は届きません。どなたでも設定できます。</p>
+      </div>
       <div id="medReminderField" class="field">
-        <label>リマインダー時刻(治療サポートプラン)</label>
+        <label>通知の時刻(治療サポートプラン)</label>
         <div class="row" style="align-items:flex-end;">
           <div class="field" style="flex:0 0 auto;"><input type="time" id="medReminderTimeInput" step="300"></div>
           <button type="button" class="secondary" onclick="App.addReminderTime()">+ 追加</button>
         </div>
         <div id="medReminderTimeList" class="chip-list"></div>
-        <p class="hint">5分刻みで指定できます。この時刻になったら通知します。</p>
+        <p class="hint">5分刻みで指定できます。この時刻に通知します。予定の時刻とは別に管理されます。</p>
       </div>
       <div id="medReminderUpsell" class="field hidden">
-        <label>リマインダー時刻</label>
-        <p class="hint">投薬リマインダー通知は治療サポートプランで利用できます。 <button type="button" class="ghost" style="padding:2px 8px;font-size:11px;" onclick="App.closeMedModal(); App.openUpgradeModal();">アップグレードを見る</button></p>
+        <label>通知の時刻</label>
+        <p class="hint">投薬リマインダー通知は治療サポートプランで利用できます。予定の時刻だけなら上で設定できます。 <button type="button" class="ghost" style="padding:2px 8px;font-size:11px;" onclick="App.closeMedModal(); App.openUpgradeModal();">アップグレードを見る</button></p>
       </div>
       <div class="field"><label>薬袋・お薬手帳の写真(任意)</label><input type="file" id="medPhoto" accept="image/*"></div>
       <div id="medPhotoPreviewWrap" class="field hidden"><img id="medPhotoPreview" style="max-width:160px;border-radius:8px;"><button type="button" class="ghost" onclick="App.clearMedPhoto()">写真を削除</button></div>
@@ -1009,6 +1029,8 @@ let state = {
   photoViewerPreviousOverflow: '',
   photoViewerReturnFocus: null,
   reminderTimesDraft: [],
+  scheduledTimesDraft: [],
+  scheduledContext: null,
   chartRange: '30',
   chartCustomFrom: null,
   chartCustomTo: null,
@@ -1089,6 +1111,12 @@ function scheduledDoseTaken(events, medicationId, time){
   return safeArray(events).some(e => e.type === 'medication'
     && e.details?.scheduledTime === time
     && (e.details?.medicationId === medicationId || safeArray(e.details?.medicationIds).includes(medicationId)));
+}
+// 本日の記録に出す「投薬予定」の時刻。無料のscheduledTimesを優先し、
+// 未設定の既存薬は有料の通知用reminderTimesを予定時刻として読む(互換フォールバック)。
+function medScheduledTimes(m){
+  const scheduled = safeArray(m?.scheduledTimes);
+  return scheduled.length ? scheduled : safeArray(m?.reminderTimes);
 }
 function escapeHtml(value){
   return displayText(value)
@@ -2486,6 +2514,7 @@ const App = {
     document.getElementById('medReminderField').classList.toggle('hidden', !subscribed);
     document.getElementById('medReminderUpsell').classList.toggle('hidden', subscribed);
     state.reminderTimesDraft = [];
+    state.scheduledTimesDraft = [];
 
     if(medId){
       const m = state.medications.find(x => x.id === medId);
@@ -2502,6 +2531,7 @@ const App = {
       // 停止中の編集で既存リマインダー設定を消さない。通知送信自体は
       // Cloud FunctionがsubscriptionActiveで停止する。
       state.reminderTimesDraft = [...safeArray(m.reminderTimes)];
+      state.scheduledTimesDraft = [...safeArray(m.scheduledTimes)];
       const safePhoto = safeImageDataUrl(m.photo);
       if(safePhoto){
         state.medPhotoData = safePhoto;
@@ -2515,6 +2545,7 @@ const App = {
       document.getElementById('medStart').value = new Date().toISOString().slice(0,10);
     }
     this.renderReminderTimeList();
+    this.renderScheduledTimeList();
     document.getElementById('medModalBackdrop').classList.remove('hidden');
   },
   closeMedModal(){
@@ -2556,6 +2587,42 @@ const App = {
       wrap.append(chip);
     });
   },
+  // 投薬予定の時刻(無料)。通知用reminderTimesとは独立して編集する。
+  addScheduledTime(){
+    const input = document.getElementById('medScheduledTimeInput');
+    const t = input.value; // <input type="time">はHH:MMを保証する
+    if(!t) return;
+    if(!state.scheduledTimesDraft.includes(t)){
+      state.scheduledTimesDraft.push(t);
+      state.scheduledTimesDraft.sort();
+    }
+    input.value = '';
+    this.renderScheduledTimeList();
+  },
+  removeScheduledTime(t){
+    state.scheduledTimesDraft = state.scheduledTimesDraft.filter(x => x !== t);
+    this.renderScheduledTimeList();
+  },
+  renderScheduledTimeList(){
+    const wrap = document.getElementById('medScheduledTimeList');
+    if(state.scheduledTimesDraft.length === 0){
+      wrap.innerHTML = `<span class="muted">まだ時刻が追加されていません</span>`;
+      return;
+    }
+    wrap.replaceChildren();
+    state.scheduledTimesDraft.forEach(time => {
+      const chip = document.createElement('span');
+      chip.className = 'chip';
+      chip.append(document.createTextNode(`🕒 ${displayText(time)}`));
+      const removeButton = document.createElement('button');
+      removeButton.type = 'button';
+      removeButton.className = 'ghost';
+      removeButton.textContent = '×';
+      removeButton.addEventListener('click', () => this.removeScheduledTime(time));
+      chip.append(removeButton);
+      wrap.append(chip);
+    });
+  },
   submitMed(e){
     e.preventDefault();
     if(!state.currentPetId){ alert('先にペットを登録してください'); return; }
@@ -2568,6 +2635,9 @@ const App = {
     const reminderTimes = subscribed
       ? [...state.reminderTimesDraft]
       : [...safeArray(existing?.reminderTimes)];
+    // 投薬予定の時刻は無料機能。全ユーザーが編集できる。通知用reminderTimesとは別管理で、
+    // 既存reminderTimesの移行・書き換えは行わない。
+    const scheduledTimes = [...state.scheduledTimesDraft];
     const data = {
       petId: state.currentPetId,
       name: document.getElementById('medName').value.trim(),
@@ -2580,6 +2650,7 @@ const App = {
       memo: document.getElementById('medMemo').value.trim(),
       photo: state.medPhotoData,
       reminderTimes,
+      scheduledTimes,
       paused: existing ? !!existing.paused : false
     };
     const docId = id || uid();
@@ -2888,25 +2959,34 @@ const App = {
     const main = document.getElementById('mainContent');
     const date = state.selectedRecordDate;
     const day = new Date(`${date}T00:00:00`);
-    const dateLabel = day.toLocaleDateString('ja-JP', {month:'long', day:'numeric', weekday:'short'});
+    const dateLabel = day.toLocaleDateString('ja-JP', {year:'numeric', month:'long', day:'numeric', weekday:'short'});
     const events = filterEventsByDate(petEvents(), date);
     // 予定は投薬済みイベントとは別に表示する。時刻になっただけで投薬済みにせず、
     // ユーザーが予定行をタップして確認した時点でイベントを作成する。開始・終了期間内
     // なら過去・未来の選択日にも表示し、保存済みの完了イベントがある予定だけ除外する。
-    const scheduledItems = petMedications().flatMap(m => safeArray(m.reminderTimes)
+    const scheduledItems = petMedications().flatMap(m => medScheduledTimes(m)
       .filter(time => isMedActiveOn(m, date) && !scheduledDoseTaken(events, m.id, time))
       .map(time => ({ medication:m, time })));
     const allRows = mergeTimelineItems(events, scheduledItems).map(item => {
       if(item.kind === 'scheduled'){
         const medication = item.medication;
-        return `<button type="button" class="event-row" ${actionAttrs('openScheduledMedication', medication.id)} data-time="${escapeHtml(item.time)}"><span class="event-time">${escapeHtml(item.time)}</span><span class="event-icon">💊</span><span class="event-main"><span class="event-title">${escapeHtml(medLabel(medication))}</span><span class="event-summary">投薬予定・未完了</span></span><span class="event-chevron">›</span></button>`;
+        return `<button type="button" class="event-row event-row--scheduled" ${actionAttrs('openScheduledMedication', medication.id)} data-time="${escapeHtml(item.time)}"><span class="event-time">${escapeHtml(item.time)}</span><span class="event-icon">💊</span><span class="event-main"><span class="event-title">${escapeHtml(medLabel(medication))}</span><span class="event-summary">投薬予定・未完了</span></span><span class="event-chevron">＋</span></button>`;
       }
       const event = item.event;
       const info = eventTypeInfo(event.type);
       return `<button type="button" class="event-row" ${actionAttrs('openEventDetail', event.id)}><span class="event-time">${escapeHtml(event.time || '--:--')}</span><span class="event-icon">${info.icon}</span><span class="event-main"><span class="event-title">${escapeHtml(info.label)}</span>${eventSummary(event) ? `<span class="event-summary">${escapeHtml(eventSummary(event))}</span>` : ''}</span><span class="event-chevron">›</span></button>`;
     }).join('') || '<div class="empty">この日の記録はまだありません。下のボタンから記録できます。</div>';
     const buttons = Object.entries(EVENT_TYPES).map(([type, info]) => `<button type="button" class="quick-event-button" onclick="App.openEventModal('${type}')"><span>${info.icon}</span>${escapeHtml(info.label)}</button>`).join('');
-    main.innerHTML = `${this.weeklyTrendCardHtml()}<div class="card"><div class="daily-record-header"><button class="secondary date-step" type="button" onclick="App.changeRecordDate(-1)">‹</button><div class="daily-record-date">${date === localDateString() ? '本日の記録' : '日付の記録'}<small>${escapeHtml(dateLabel)}</small></div><button class="secondary date-step" type="button" onclick="App.changeRecordDate(1)">›</button></div><div class="row" style="justify-content:center;margin-bottom:12px;"><input type="date" aria-label="表示する日付" value="${escapeHtml(date)}" onchange="App.setRecordDate(this.value)"></div><div class="event-timeline">${allRows}</div></div><div class="card"><h3 style="margin:0 0 4px;">記録を追加</h3><p class="hint">よく使う項目を選ぶと、選択した日付と現在時刻で入力を始められます。</p><div class="quick-event-bar">${buttons}</div></div>`;
+    main.innerHTML = `<div class="daily-screen">${this.weeklyTrendCardHtml()}<div class="card">`
+      + `<div class="daily-record-header">`
+      +   `<button class="secondary date-step" type="button" onclick="App.changeRecordDate(-1)" aria-label="前の日">‹</button>`
+      +   `<span class="daily-record-date-wrap"><span class="daily-record-date">${escapeHtml(dateLabel)}</span>`
+      +     `<input type="date" class="daily-record-date-input" value="${escapeHtml(date)}" aria-label="日付を選択" onchange="App.setRecordDate(this.value)"></span>`
+      +   `<button class="secondary date-step" type="button" onclick="App.changeRecordDate(1)" aria-label="次の日">›</button>`
+      + `</div>`
+      + `<div class="event-timeline">${allRows}</div>`
+      + `</div></div>`
+      + `<div class="daily-quick-dock"><div class="quick-event-bar">${buttons}</div></div>`;
   },
   setRecordDate(date){ if(date){ state.selectedRecordDate = date; this.render(); } },
   changeRecordDate(offset){ const d = new Date(`${state.selectedRecordDate}T00:00:00`); d.setDate(d.getDate() + offset); state.selectedRecordDate = localDateString(d); this.render(); },
@@ -2942,6 +3022,8 @@ const App = {
     const actualType = event?.type || type;
     if(!actualType) return;
     state.editingEventId = event?.id || null;
+    state.scheduledContext = null;
+    document.getElementById('eventForm').dataset.scheduledTime = '';
     const now = new Date();
     document.getElementById('eventModalTitle').textContent = event ? `${eventTypeInfo(actualType).label}を編集` : `${eventTypeInfo(actualType).label}を記録`;
     document.getElementById('eventId').value = event?.id || '';
@@ -2952,21 +3034,42 @@ const App = {
     document.getElementById('eventFormFields').innerHTML = this.eventFieldsHtml(actualType, event?.details || {});
     document.getElementById('eventModalBackdrop').classList.remove('hidden');
   },
+  // 予定行から開いたときは、その予定の薬だけを完了登録する。他の薬を選ぶチェックボックスは出さない。
   openScheduledMedication(medicationId, scheduledTime){
     const medication = state.medications.find(item => item.id === medicationId); if(!medication) return;
-    this.openEventModal('medication');
-    document.getElementById('eventTime').value = scheduledTime;
-    const checkbox = document.querySelector(`#eventFormFields input[data-medication-id="${CSS.escape(medicationId)}"]`);
-    if(checkbox) checkbox.checked = true;
-    // scheduledTimeは保存時に手入力分と区別するため、フォームのdatasetへ保持する。
-    document.getElementById('eventForm').dataset.scheduledTime = scheduledTime;
+    const label = medLabel(medication);
+    state.scheduledContext = { medicationId, medicationLabel: label, scheduledTime: scheduledTime || null };
+    state.editingEventId = null;
+    const now = new Date();
+    document.getElementById('eventModalTitle').textContent = `${label}を投薬済みにする`;
+    document.getElementById('eventId').value = '';
+    document.getElementById('eventType').value = 'medication';
+    document.getElementById('eventDate').value = state.selectedRecordDate;
+    document.getElementById('eventTime').value = scheduledTime || `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+    document.getElementById('eventNote').value = '';
+    document.getElementById('eventFormFields').innerHTML = `<div class="field"><label>お薬</label><div class="scheduled-lock">💊 ${escapeHtml(label)}</div><p class="hint">この予定の投薬を完了として記録します。時刻は必要に応じて調整できます。</p></div>`;
+    document.getElementById('eventForm').dataset.scheduledTime = scheduledTime || '';
+    document.getElementById('eventModalBackdrop').classList.remove('hidden');
   },
-  closeEventModal(){ document.getElementById('eventModalBackdrop').classList.add('hidden'); document.getElementById('eventForm').dataset.scheduledTime = ''; state.editingEventId = null; },
+  closeEventModal(){ document.getElementById('eventModalBackdrop').classList.add('hidden'); document.getElementById('eventForm').dataset.scheduledTime = ''; state.editingEventId = null; state.scheduledContext = null; },
   readEventDetails(type){
     const root = document.getElementById('eventFormFields'); const details = {};
     root.querySelectorAll('[data-event-field]').forEach(input => { details[input.dataset.eventField] = coerceEventFieldValue(input.dataset.eventField, input.value); });
     if(type === 'meal'){ const meals = [...root.querySelectorAll('[data-meal-profile]:checked')]; details.mealProfileIds = meals.map(el => el.dataset.mealProfile); details.mealProfileLabels = meals.map(el => el.dataset.mealLabel); }
-    if(type === 'medication'){ const meds = [...root.querySelectorAll('[data-medication-id]:checked')]; details.medicationIds = meds.map(el => el.dataset.medicationId); details.medicationLabels = meds.map(el => el.dataset.medicationLabel); details.medicationId = details.medicationIds[0] || ''; details.medicationLabel = details.medicationLabels.join('・'); details.source = document.getElementById('eventForm').dataset.scheduledTime ? 'scheduled' : 'manual'; details.scheduledTime = document.getElementById('eventForm').dataset.scheduledTime || null; }
+    if(type === 'medication'){
+      if(state.scheduledContext){
+        // 予定行由来。ロックした1剤だけを完了登録する。
+        const c = state.scheduledContext;
+        details.medicationId = c.medicationId; details.medicationLabel = c.medicationLabel;
+        details.medicationIds = [c.medicationId]; details.medicationLabels = [c.medicationLabel];
+        details.source = 'scheduled'; details.scheduledTime = c.scheduledTime || null;
+      } else {
+        const meds = [...root.querySelectorAll('[data-medication-id]:checked')];
+        details.medicationIds = meds.map(el => el.dataset.medicationId); details.medicationLabels = meds.map(el => el.dataset.medicationLabel);
+        details.medicationId = details.medicationIds[0] || ''; details.medicationLabel = details.medicationLabels.join('・');
+        details.source = 'manual'; details.scheduledTime = null;
+      }
+    }
     if(type === 'symptom') details.symptoms = [...root.querySelectorAll('[data-symptom]:checked')].map(el => el.dataset.symptom);
     return details;
   },
@@ -2997,12 +3100,34 @@ const App = {
     if(event.type === 'memo') add('メモ', d.text);
     add('ひとことメモ', event.note); return rows;
   },
-  openEventDetail(id){ const event = state.events.find(item => item.id === id); if(!event) return; document.getElementById('eventDetailTitle').textContent = `${eventTypeInfo(event.type).icon} ${eventTypeInfo(event.type).label}`; document.getElementById('eventDetailList').innerHTML = this.eventDetailRows(event).map(([label,value]) => `<li><strong>${escapeHtml(label)}</strong><span style="white-space:pre-wrap;">${escapeHtml(value)}</span></li>`).join(''); document.getElementById('eventEditButton').onclick = () => { this.closeEventDetail(); this.openEventModal(event.type,event.id); }; document.getElementById('eventDeleteButton').onclick = () => this.deleteEvent(event.id); document.getElementById('eventDetailBackdrop').classList.remove('hidden'); },
+  openEventDetail(id){
+    const event = state.events.find(item => item.id === id); if(!event) return;
+    document.getElementById('eventDetailTitle').textContent = `${eventTypeInfo(event.type).icon} ${eventTypeInfo(event.type).label}`;
+    document.getElementById('eventDetailList').innerHTML = this.eventDetailRows(event).map(([label,value]) => `<li><strong>${escapeHtml(label)}</strong><span style="white-space:pre-wrap;">${escapeHtml(value)}</span></li>`).join('');
+    // 予定由来で完了した投薬は「未完了に戻す」だけを出し、他剤を選べる編集・削除は隠す。
+    const fromSchedule = event.type === 'medication' && event.details?.source === 'scheduled';
+    const editBtn = document.getElementById('eventEditButton');
+    const deleteBtn = document.getElementById('eventDeleteButton');
+    const undoBtn = document.getElementById('eventUndoScheduledButton');
+    editBtn.style.display = fromSchedule ? 'none' : '';
+    deleteBtn.style.display = fromSchedule ? 'none' : '';
+    undoBtn.style.display = fromSchedule ? '' : 'none';
+    editBtn.onclick = () => { this.closeEventDetail(); this.openEventModal(event.type, event.id); };
+    deleteBtn.onclick = () => this.deleteEvent(event.id);
+    undoBtn.onclick = () => this.undoScheduledMedication(event.id);
+    document.getElementById('eventDetailBackdrop').classList.remove('hidden');
+  },
   closeEventDetail(){ document.getElementById('eventDetailBackdrop').classList.add('hidden'); },
   deleteEvent(id){ if(!confirm('この記録を削除しますか？')) return; colRef('events').doc(id).delete(); this.closeEventDetail(); },
+  // 予定由来の完了を取り消す。完了イベントを削除すると、その予定行が本日の記録へ復帰する。
+  undoScheduledMedication(id){
+    if(!confirm('この投薬を未完了に戻しますか？予定として本日の記録に再表示されます。')) return;
+    colRef('events').doc(id).delete();
+    this.closeEventDetail();
+  },
   renderMenu(){
     const group = (title, items) => `<div class="menu-section">${escapeHtml(title)}</div><div class="card" style="padding:0;">${items.map(([icon,label,description,action]) => `<button class="menu-item" type="button" onclick="${action}"><span class="menu-item-icon">${icon}</span><span class="menu-item-copy">${escapeHtml(label)}${description ? `<small>${escapeHtml(description)}</small>` : ''}</span><span class="menu-item-arrow">›</span></button>`).join('')}</div>`;
-    document.getElementById('mainContent').innerHTML = `${group('ペットと日々の設定', [['🐾','ペットの登録・編集','ペットの切替や情報の変更',"App.openPetModal()"],['🍚','ごはんの設定','食事候補の登録・編集',"App.renderMealProfiles()"],['💊','お薬の設定','薬・用量・投薬時刻',"App.switchTab('meds')"]])}${group('記録を見返す', [['🗓️','これまでの記録','新UI以前の日次記録の一覧・編集',"App.switchTab('list')"],['📄','記録を出力','主治医への共有レポート',"App.switchTab('export')"]])}${group('健康管理', [['🛡️','予防', '',"App.switchTab('prev')"],['🏥','受診歴', '',"App.switchTab('visits')"]])}${group('サービス', [['👪','家族共有','家族や同居の方と記録を共有',"App.openFamilyModal()"],['⭐','プラン・お支払い','有料機能とお支払い',"App.openUpgradeModal()"],['❔','ヘルプ','使い方ガイド',"window.open('usage-guide.html','_blank','noopener')"]])}${group('プライバシーとアカウント', [['✉️','お問い合わせ','',"window.location.href='mailto:contact@pet-health-log.com'"],['🔒','プライバシーポリシー・利用規約','',"window.open('privacy.html','_blank','noopener')"],['↪️','ログアウト','',"AppAuth.signOut()"],['🗑️','アカウントを削除する','',"App.requestAccountDeletion()"]])}`;
+    document.getElementById('mainContent').innerHTML = `${group('記録の設定', [['🍚','ごはんの登録','食事候補の登録・編集・並び替え',"App.renderMealProfiles()"],['💊','くすりの登録','薬・用量・投薬予定・通知',"App.switchTab('meds')"]])}${group('健康管理', [['🛡️','予防','ワクチン・ノミダニ・フィラリア',"App.switchTab('prev')"],['🏥','受診歴','通院の記録',"App.switchTab('visits')"]])}${group('記録を活用', [['📄','レポート出力','主治医への共有レポート・PDF',"App.switchTab('export')"],['🗓️','これまでの記録','新UI以前の日次記録の一覧・編集',"App.switchTab('list')"]])}${group('サービス', [['👪','家族共有','家族や同居の方と記録を共有',"App.openFamilyModal()"],['⭐','アップグレード','有料機能とお支払い',"App.openUpgradeModal()"]])}${group('サポート', [['❔','使い方ガイド','',"window.open('usage-guide.html','_blank','noopener')"],['✉️','お問い合わせ','',"window.location.href='mailto:contact@pet-health-log.com'"]])}${group('プライバシーとアカウント', [['🔒','プライバシーポリシー・利用規約','',"window.open('privacy.html','_blank','noopener')"],['↪️','ログアウト','',"AppAuth.signOut()"],['🗑️','アカウントを削除する','',"App.requestAccountDeletion()"]])}`;
   },
   renderMealProfiles(){
     const profiles = petMealProfiles();
@@ -3254,7 +3379,8 @@ const App = {
           <tr><th>回数</th><td>1日${escapeHtml(m.dosesPerDay || 1)}回</td></tr>
           <tr><th>期間</th><td>${m.startDate ? fmtDate(m.startDate) : '不明'} 〜 ${m.endDate ? fmtDate(m.endDate) : '継続中'}</td></tr>
           ${m.prescriber ? `<tr><th>処方元</th><td>${escapeHtml(m.prescriber)}</td></tr>` : ''}
-          ${safeArray(m.reminderTimes).length > 0 ? `<tr><th>リマインダー</th><td>🔔 ${safeArray(m.reminderTimes).map(escapeHtml).join('、')}</td></tr>` : ''}
+          ${medScheduledTimes(m).length > 0 ? `<tr><th>投薬予定</th><td>🕒 ${medScheduledTimes(m).map(escapeHtml).join('、')}${safeArray(m.scheduledTimes).length === 0 && safeArray(m.reminderTimes).length > 0 ? '（通知時刻を予定として表示中）' : ''}</td></tr>` : ''}
+          ${safeArray(m.reminderTimes).length > 0 ? `<tr><th>通知</th><td>🔔 ${safeArray(m.reminderTimes).map(escapeHtml).join('、')}</td></tr>` : ''}
           ${m.memo ? `<tr><th>メモ</th><td>${escapeHtml(m.memo)}</td></tr>` : ''}
         </table>
         ${safeImageDataUrl(m.photo) ? `<img src="${safeImageDataUrl(m.photo)}" alt="薬袋の写真" data-open-photo tabindex="0" role="button" aria-label="薬袋の写真を拡大表示">` : ''}
@@ -4107,10 +4233,6 @@ document.addEventListener('DOMContentLoaded', () => {
       const usageGuideButton = document.getElementById('usageGuideButton');
       usageGuideButton.onclick = () => window.open('usage-guide.html', '_blank', 'noopener');
       usageGuideButton.classList.remove('hidden');
-      const accountFooter = document.getElementById('accountFooter');
-      const deleteAccountButton = document.getElementById('deleteAccountButton');
-      deleteAccountButton.onclick = () => App.requestAccountDeletion();
-      accountFooter.classList.remove('hidden');
       await App.resolveHousehold();
       attachFirestoreListeners();
       App.start();
@@ -4124,7 +4246,6 @@ document.addEventListener('DOMContentLoaded', () => {
       document.getElementById('authScreen').classList.remove('hidden');
       document.getElementById('userBar').replaceChildren();
       document.getElementById('usageGuideButton').classList.add('hidden');
-      document.getElementById('accountFooter').classList.add('hidden');
     }
   });
 });
@@ -4137,7 +4258,7 @@ if (typeof module !== 'undefined') {
     stoolLabel, escapeHtml, cibdaiTotal, cibdaiSeverity, daysAgoStr,
     analyzeWeeklySummary, sortEvents, filterEventsByDate, eventSummary,
     recordedMealIntakes, mergeTimelineItems, localDateString, actionAttrs,
-    coerceEventFieldValue, scheduledDoseTaken,
+    coerceEventFieldValue, scheduledDoseTaken, medScheduledTimes,
   };
 }
 </script>

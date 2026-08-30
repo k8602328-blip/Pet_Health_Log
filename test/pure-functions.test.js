@@ -148,3 +148,15 @@ test('scheduledDoseTaken hides a schedule row once its dose is logged, including
   assert.equal(app.scheduledDoseTaken(events, 'med-c', '08:00'), false);
   assert.equal(app.scheduledDoseTaken([{ type: 'medication', details: { medicationId: 'med-a', scheduledTime: null } }], 'med-a', '08:00'), false);
 });
+
+test('medScheduledTimes prefers the free scheduledTimes and falls back to reminderTimes for legacy meds', () => {
+  // scheduledTimes があればそれを使う
+  assert.deepEqual(app.medScheduledTimes({ scheduledTimes: ['07:00', '19:00'], reminderTimes: ['08:00'] }), ['07:00', '19:00']);
+  // scheduledTimes 未設定の既存薬は reminderTimes を予定時刻として読む（互換フォールバック）
+  assert.deepEqual(app.medScheduledTimes({ reminderTimes: ['08:00', '20:00'] }), ['08:00', '20:00']);
+  // 空配列も未設定として扱う
+  assert.deepEqual(app.medScheduledTimes({ scheduledTimes: [], reminderTimes: ['21:00'] }), ['21:00']);
+  // どちらも無ければ空
+  assert.deepEqual(app.medScheduledTimes({}), []);
+  assert.deepEqual(app.medScheduledTimes(null), []);
+});

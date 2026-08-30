@@ -134,11 +134,12 @@ test('index.html に usage-guide.html を開く常設導線がある', () => {
   assert.ok(indexHtml.includes("document.getElementById('usageGuideButton').classList.add('hidden')"), 'ログアウト後にガイドが隠れない');
 });
 
-test('ユーザー操作とアカウント削除が視覚的に分離されている', () => {
+test('アカウント削除はメニュー内だけに置き、常設フッターは持たない', () => {
   assert.ok(indexHtml.includes("sessionRow.append(userName, signOutButton)"));
   assert.ok(indexHtml.includes('grid-template-columns:repeat(2,minmax(0,1fr))'));
-  assert.ok(indexHtml.includes('id="accountFooter" class="account-footer hidden"'));
-  assert.ok(indexHtml.includes('id="deleteAccountButton"'));
-  assert.ok(indexHtml.includes("accountFooter.classList.remove('hidden')"));
-  assert.ok(indexHtml.includes("document.getElementById('accountFooter').classList.add('hidden')"));
+  // 常設のaccountFooter/削除リンクは廃止。日常操作の導線から誤操作しないようメニュー内に集約する。
+  assert.ok(!indexHtml.includes('id="accountFooter"'), '常設accountFooterが残っている');
+  assert.ok(!indexHtml.includes('id="deleteAccountButton"'), '常設の削除ボタンが残っている');
+  // メニューの「プライバシーとアカウント」からのみ削除フローへ入れること。
+  assert.ok(indexHtml.includes("'アカウントを削除する','',\"App.requestAccountDeletion()\""), 'メニューにアカウント削除項目が無い');
 });
