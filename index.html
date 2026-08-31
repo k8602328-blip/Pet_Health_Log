@@ -281,25 +281,12 @@
     .desktop-only{display:none;}
   }
 
-  /* 統一アイコン。絵文字を置換したインラインSVG(冒頭のスプライトを<use>参照)。
-     docs/design-concepts/ の正本7枚（利用上限・写真添付を含む）へ、輪郭・内部パーツ・
-     比率・丸み・パステル塗り分けを忠実に合わせてトレースしている。テーマは単一ライトのみ。
-     <symbol>は viewBox 0 0 32 32・濃茶の均一アウトライン。ここでは配色と表示サイズだけを指定する。 */
+  /* 統一アイコン。docs/design-concepts/ の正本PNGからアイコン本体を直接切り出した素材。
+     再描画やSVGトレースは行わず、生成画像の画素・陰影・線をそのまま表示する。 */
   .ic{
-    --ic-ink:#6b5040;
-    --ic-blue:#a9d3e8; --ic-blue-deep:#8bc0dd;
-    --ic-brown:#9a7a5c; --ic-paw:#8a6a4d;
-    --ic-peach:#f1c9a4;
-    --ic-mint:#a9cba0; --ic-mint-deep:#7fae7a;
-    --ic-gold:#edc879; --ic-gold-soft:#f6e4b0;
-    --ic-coral:#e8917a; --ic-coral-deep:#df7a5f;
-    --ic-turq:#7cbdb4; --ic-turq-light:#a9dcd3;
-    --ic-lavender:#c7b6df; --ic-cream:#f6ead0; --ic-yellow:#f2df9f; --ic-tan:#e3c7a6;
-    display:inline-block;width:1em;height:1em;flex:0 0 auto;fill:none;stroke:var(--ic-ink);
-    stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:-0.15em;
+    display:inline-block;width:1em;height:1em;flex:0 0 auto;object-fit:contain;
+    vertical-align:-0.15em;
   }
-  /* アカウント削除だけは危険操作と分かる控えめなコーラル系のアウトラインにする。 */
-  .ic--danger{--ic-ink:#c9756a;}
   /* 表示サイズ（正本の細部が読める大きさを優先）:
      固定バー30〜32 / 主要ナビ・ヘッダー24〜28 / メニュー26〜30 / ペット種別24 */
   .brand .ic{width:26px;height:26px;vertical-align:-5px;margin-right:4px;}
@@ -416,7 +403,7 @@
 
 <div id="authScreen" class="modal-backdrop">
   <div class="modal" style="text-align:center;">
-    <div class="brand" style="margin-bottom:6px;"><svg class="ic" aria-hidden="true" focusable="false"><use href="#ic-paw"/></svg>どうぶつ健康手帳</div>
+    <div class="brand" style="margin-bottom:6px;"><img class="ic" src="icons/paw.png" alt="">どうぶつ健康手帳</div>
     <div id="authNormal">
       <p class="muted">ログインすると記録がクラウドに保存され、別の端末からも同じデータにアクセスできます。</p>
       <div id="gSignInButtonContainer" style="display:flex;justify-content:center;margin:10px 0;"></div>
@@ -442,17 +429,17 @@
 
 <div class="app">
   <header class="topbar">
-    <div class="brand"><svg class="ic" aria-hidden="true" focusable="false"><use href="#ic-paw"/></svg>どうぶつ健康手帳</div>
+    <div class="brand"><img class="ic" src="icons/paw.png" alt="">どうぶつ健康手帳</div>
     <div id="userBar" class="user-bar"></div>
     <div class="header-tools">
       <div class="pet-switch">
         <span class="pet-switch-species" id="petSwitchSpecies" aria-hidden="true"></span>
         <select id="petSelect" onchange="App.selectPet(this.value)"></select>
-        <button class="secondary" onclick="App.openPetModal()" aria-label="ペット追加"><span class="btn-label-full">+ ペット追加</span><span class="btn-label-compact">+<svg class="ic" aria-hidden="true" focusable="false"><use href="#ic-dog"/></svg><svg class="ic" aria-hidden="true" focusable="false"><use href="#ic-cat"/></svg></span></button>
-        <button class="ghost" onclick="App.openFamilyModal()" aria-label="家族共有"><span class="btn-label-full"><svg class="ic" aria-hidden="true" focusable="false"><use href="#ic-family"/></svg> 家族共有</span><span class="btn-label-compact"><svg class="ic" aria-hidden="true" focusable="false"><use href="#ic-family"/></svg></span></button>
-        <button class="ghost" onclick="App.openUpgradeModal()" aria-label="アップグレード"><span class="btn-label-full"><svg class="ic" aria-hidden="true" focusable="false"><use href="#ic-upgrade"/></svg> アップグレード</span><span class="btn-label-compact"><svg class="ic" aria-hidden="true" focusable="false"><use href="#ic-upgrade"/></svg></span></button>
+        <button class="secondary" onclick="App.openPetModal()" aria-label="ペット追加"><span class="btn-label-full">+ ペット追加</span><span class="btn-label-compact">+<img class="ic" src="icons/dog.png" alt=""><img class="ic" src="icons/cat.png" alt=""></span></button>
+        <button class="ghost" onclick="App.openFamilyModal()" aria-label="家族共有"><span class="btn-label-full"><img class="ic" src="icons/family.png" alt=""> 家族共有</span><span class="btn-label-compact"><img class="ic" src="icons/family.png" alt=""></span></button>
+        <button class="ghost" onclick="App.openUpgradeModal()" aria-label="アップグレード"><span class="btn-label-full"><img class="ic" src="icons/upgrade.png" alt=""> アップグレード</span><span class="btn-label-compact"><img class="ic" src="icons/upgrade.png" alt=""></span></button>
       </div>
-      <button id="usageGuideButton" type="button" class="usage-guide-button hidden"><svg class="ic" aria-hidden="true" focusable="false"><use href="#ic-guide"/></svg>使い方ガイド</button>
+      <button id="usageGuideButton" type="button" class="usage-guide-button hidden"><img class="ic" src="icons/guide.png" alt="">使い方ガイド</button>
     </div>
   </header>
   <div id="householdBanner" class="hidden"></div>
@@ -461,9 +448,9 @@
   <div id="deletionBanner" class="hidden"></div>
 
   <nav class="tabs" id="tabsNav">
-    <button class="tab-btn" data-tab="daily" onclick="App.switchTab('daily')"><svg class="ic" aria-hidden="true" focusable="false"><use href="#ic-daily"/></svg>本日の記録</button>
-    <button class="tab-btn" data-tab="chart" onclick="App.switchTab('chart')"><svg class="ic" aria-hidden="true" focusable="false"><use href="#ic-chart"/></svg>グラフ</button>
-    <button class="tab-btn" data-tab="menu" onclick="App.switchTab('menu')"><svg class="ic" aria-hidden="true" focusable="false"><use href="#ic-menu"/></svg>メニュー</button>
+    <button class="tab-btn" data-tab="daily" onclick="App.switchTab('daily')"><img class="ic" src="icons/daily.png" alt="">本日の記録</button>
+    <button class="tab-btn" data-tab="chart" onclick="App.switchTab('chart')"><img class="ic" src="icons/chart.png" alt="">グラフ</button>
+    <button class="tab-btn" data-tab="menu" onclick="App.switchTab('menu')"><img class="ic" src="icons/menu.png" alt="">メニュー</button>
   </nav>
 
   <main id="mainContent"></main>
@@ -1159,14 +1146,14 @@ function localDateString(date = new Date()){
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 }
-// 統一アイコン。index.html冒頭のSVGスプライトの<symbol>を<use>で参照する。
-// 絵文字と同じく「装飾」なので aria-hidden、意味は隣の可視ラベルが担う。
+// 正本コンセプト画像から直接切り出したPNGを参照する。
+// 絵文字と同じく「装飾」なので空alt、意味は隣の可視ラベルが担う。
 function iconSvg(id, extraClass){
-  return `<svg class="ic${extraClass ? ' ' + extraClass : ''}" aria-hidden="true" focusable="false"><use href="#ic-${id}"/></svg>`;
+  return `<img class="ic${extraClass ? ' ' + extraClass : ''}" src="icons/${id}.png" alt="">`;
 }
 // ペット種別だけは可視ラベルを持たないため、代替テキストで種別を伝える。
 function petTypeIcon(id, label){
-  return `<svg class="ic pet-type-ic" role="img" aria-label="${label}"><use href="#ic-${id}"/></svg>`;
+  return `<img class="ic pet-type-ic" src="icons/${id}.png" alt="${label}">`;
 }
 const EVENT_TYPES = {
   urine: { label:'おしっこ', icon:iconSvg('urine') }, stool: { label:'うんち', icon:iconSvg('stool') },
