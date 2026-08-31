@@ -281,6 +281,30 @@
     .desktop-only{display:none;}
   }
 
+  /* 統一アイコン。絵文字を置換した軽量インラインSVG(冒頭のスプライトを<use>参照)。
+     コンセプト(docs/design-concepts/, docs/ui-brand-guide-refresh-plan.md §1)の
+     「やわらかいパステル面 ＋ 濃茶の均一アウトライン」を再現する。テーマは単一ライトのみ。
+     線幅・角丸・余白は<symbol>側で統一し、ここでは配色と表示サイズだけを指定する。 */
+  .ic{
+    --ic-ink:#7a6453;
+    --ic-blue:#c2e4f2; --ic-brown:#cf9f78; --ic-peach:#f8cebb; --ic-mint:#c1e3d2;
+    --ic-gold:#f1d79f; --ic-coral:#f3b5a5; --ic-coral-deep:#e88b78; --ic-turq:#a9d9d6;
+    --ic-lavender:#dacdef; --ic-cream:#f7edd9; --ic-yellow:#f4e5a6; --ic-tan:#e8d6bf;
+    display:inline-block;width:1em;height:1em;flex:0 0 auto;fill:none;stroke:var(--ic-ink);
+    stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;vertical-align:-0.15em;
+  }
+  /* アカウント削除だけは危険操作と分かる控えめなコーラル系のアウトラインにする。 */
+  .ic--danger{--ic-ink:#cc7c70;}
+  .tab-btn .ic{width:20px;height:20px;vertical-align:-4px;margin-right:3px;}
+  .pet-switch .btn-label-full .ic{width:20px;height:20px;vertical-align:-4px;margin-right:4px;}
+  .btn-label-compact .ic{width:22px;height:22px;vertical-align:-6px;}
+  .quick-event-button{color:var(--text);}
+  .quick-event-button span .ic{width:26px;height:26px;}
+  .event-icon .ic{width:22px;height:22px;vertical-align:middle;}
+  .menu-item-icon .ic{width:22px;height:22px;vertical-align:-5px;}
+  .scheduled-lock .ic{width:20px;height:20px;vertical-align:-4px;margin-right:4px;}
+  .pet-type-ic{width:20px;height:20px;vertical-align:-4px;margin-right:4px;}
+
   @media print{
     /* Chromeは既定で背景色・背景画像を印刷しない(印刷ダイアログの「背景のグラフィック」
        設定に依存する)。Safariとの見た目の差が出ないよう、常に出力させる。 */
@@ -305,6 +329,44 @@
 </style>
 </head>
 <body>
+
+<!-- 統一アイコンのスプライト。絵文字を置換した軽量インラインSVG。外部通信・スクリプト・ラスター画像は一切含まない。
+     同じ意味のアイコン(家族共有・アップグレード・くすり等)は1つの<symbol>を<use>で共有し、重複素材を作らない。 -->
+<svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" style="position:absolute;width:0;height:0;overflow:hidden;" data-role="icon-sprite">
+  <defs>
+    <symbol id="ic-urine" viewBox="0 0 24 24"><path d="M12 3.6C8.6 7.7 6.8 10.6 6.8 13.2a5.2 5.2 0 0 0 10.4 0C17.2 10.6 15.4 7.7 12 3.6Z" fill="var(--ic-blue)"/><path d="M18.2 4.2v2.4M17 5.4h2.4"/></symbol>
+    <symbol id="ic-stool" viewBox="0 0 24 24"><path d="M7.5 19.5h9a2.5 2.5 0 0 0 .4-4.96 2.5 2.5 0 0 0-1.9-3.9 2.3 2.3 0 0 0-1.7-3.24 1.9 1.9 0 0 0-2.6 0 2.3 2.3 0 0 0-1.7 3.24 2.5 2.5 0 0 0-1.9 3.9A2.5 2.5 0 0 0 7.5 19.5Z" fill="var(--ic-brown)"/></symbol>
+    <symbol id="ic-symptom" viewBox="0 0 24 24"><rect x="4" y="9" width="16" height="6" rx="3" transform="rotate(-45 12 12)" fill="var(--ic-peach)"/><path d="M12 14c-1.4-1.1-2.4-1.9-2.4-3A1.4 1.4 0 0 1 12 10a1.4 1.4 0 0 1 2.4 1c0 1.1-1 1.9-2.4 3Z" fill="var(--ic-coral-deep)" stroke="none"/></symbol>
+    <symbol id="ic-weight" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="14" rx="3.5" fill="var(--ic-mint)"/><path d="M9 9h6"/><circle cx="12" cy="14.6" r="1.5" fill="var(--ic-ink)" stroke="none"/><circle cx="9.4" cy="12.9" r=".9" fill="var(--ic-ink)" stroke="none"/><circle cx="14.6" cy="12.9" r=".9" fill="var(--ic-ink)" stroke="none"/><circle cx="10.4" cy="16.4" r=".7" fill="var(--ic-ink)" stroke="none"/><circle cx="13.6" cy="16.4" r=".7" fill="var(--ic-ink)" stroke="none"/></symbol>
+    <symbol id="ic-treat" viewBox="0 0 24 24"><path d="M8 12h8"/><circle cx="6.5" cy="10.3" r="2.1" fill="var(--ic-gold)"/><circle cx="6.5" cy="13.7" r="2.1" fill="var(--ic-gold)"/><circle cx="17.5" cy="10.3" r="2.1" fill="var(--ic-gold)"/><circle cx="17.5" cy="13.7" r="2.1" fill="var(--ic-gold)"/></symbol>
+    <symbol id="ic-meal" viewBox="0 0 24 24"><path d="M4 11.5h16a8 8 0 0 1-16 0Z" fill="var(--ic-coral)"/><path d="M6.2 11.5c.8-2.4 3-3.7 5.8-3.7s5 1.3 5.8 3.7" fill="var(--ic-gold)"/><circle cx="9.5" cy="9.7" r=".7" fill="var(--ic-ink)" stroke="none"/><circle cx="12" cy="9" r=".7" fill="var(--ic-ink)" stroke="none"/><circle cx="14.5" cy="9.7" r=".7" fill="var(--ic-ink)" stroke="none"/></symbol>
+    <symbol id="ic-water" viewBox="0 0 24 24"><path d="M4 11.5h16a8 8 0 0 1-16 0Z" fill="var(--ic-turq)"/><path d="M3.3 11.5h17.4"/><path d="M9.5 14.6c.8-.8 1.6-.8 2.5 0s1.7.8 2.5 0"/></symbol>
+    <symbol id="ic-walk" viewBox="0 0 24 24"><path d="M5 19.2c1.8-.9 3-2.2 4.3-3" stroke-dasharray="0.1 3"/><g fill="var(--ic-brown)" stroke="none"><ellipse cx="8" cy="16.5" rx="1.7" ry="2"/><circle cx="6.1" cy="14.3" r=".7"/><circle cx="8" cy="13.6" r=".7"/><circle cx="9.9" cy="14.3" r=".7"/></g><g fill="var(--ic-brown)" stroke="none"><ellipse cx="15.5" cy="10.5" rx="1.7" ry="2"/><circle cx="13.6" cy="8.3" r=".7"/><circle cx="15.5" cy="7.6" r=".7"/><circle cx="17.4" cy="8.3" r=".7"/></g></symbol>
+    <symbol id="ic-play" viewBox="0 0 24 24"><circle cx="11" cy="12" r="6.5" fill="var(--ic-mint)"/><path d="M5.2 9.2c3 1 8 1 11.6-1.6M6.5 16.4C8 13 10 8.5 14.6 6" stroke="var(--ic-coral-deep)"/><path d="M18.4 15.4c1 .7 1.8 1.7 2.3 2.9M17.4 18c1.1.2 2.2.1 3.2-.3" stroke-width="1.3"/></symbol>
+    <symbol id="ic-medication" viewBox="0 0 24 24"><path d="M4.8 12.3 12 5.1a3.6 3.6 0 0 1 5.1 5.1l-7.2 7.2A3.6 3.6 0 0 1 4.8 12.3Z" fill="var(--ic-lavender)"/><path d="M8.4 8.7l5.1 5.1"/><circle cx="17" cy="17" r="4" fill="var(--ic-cream)"/><path d="M17 15v2l1.4.9"/></symbol>
+    <symbol id="ic-visit" viewBox="0 0 24 24"><path d="M4 20h16"/><path d="M5 20V9l7-4 7 4v11" fill="var(--ic-cream)"/><path d="M12 6.6v3M10.5 8.1h3" stroke="var(--ic-coral-deep)"/><circle cx="12" cy="14.6" r="1.2" fill="var(--ic-ink)" stroke="none"/><circle cx="10.2" cy="13.3" r=".7" fill="var(--ic-ink)" stroke="none"/><circle cx="13.8" cy="13.3" r=".7" fill="var(--ic-ink)" stroke="none"/></symbol>
+    <symbol id="ic-memo" viewBox="0 0 24 24"><rect x="4" y="4.5" width="11" height="15" rx="2" fill="var(--ic-yellow)"/><path d="M7 3.2v2.6M11 3.2v2.6M7 9.5h5M7 12.5h5M7 15.5h3"/><path d="M17.8 8.5l2.2 2.2-6 6-2.6.4.4-2.6Z" fill="var(--ic-coral)"/><path d="M16.4 9.9l2.2 2.2"/></symbol>
+    <symbol id="ic-paw" viewBox="0 0 24 24"><g fill="var(--ic-brown)" stroke="none"><ellipse cx="12" cy="15" rx="3.4" ry="3"/><circle cx="6.5" cy="11" r="1.8"/><circle cx="10" cy="7.7" r="1.9"/><circle cx="14" cy="7.7" r="1.9"/><circle cx="17.5" cy="11" r="1.8"/></g></symbol>
+    <symbol id="ic-dog" viewBox="0 0 24 24"><path d="M6.3 7.2C4 8.2 3.4 11 4.4 13.6M17.7 7.2c2.3 1 2.9 3.8 1.9 6.4"/><circle cx="12" cy="12.8" r="6.6" fill="var(--ic-cream)"/><circle cx="9.8" cy="11.8" r=".95" fill="var(--ic-ink)" stroke="none"/><circle cx="14.2" cy="11.8" r=".95" fill="var(--ic-ink)" stroke="none"/><circle cx="12" cy="13.5" r=".85" fill="var(--ic-ink)" stroke="none"/><path d="M12 14.3v1.2M10.7 15.4a1.8 1.8 0 0 0 2.6 0"/></symbol>
+    <symbol id="ic-cat" viewBox="0 0 24 24"><path d="M8.6 6.4 6 2.9 5.2 7.4M15.4 6.4 18 2.9l.8 4.5" fill="var(--ic-cream)"/><circle cx="12" cy="12.8" r="6.6" fill="var(--ic-cream)"/><circle cx="9.8" cy="12" r=".95" fill="var(--ic-ink)" stroke="none"/><circle cx="14.2" cy="12" r=".95" fill="var(--ic-ink)" stroke="none"/><circle cx="12" cy="13.4" r=".6" fill="var(--ic-ink)" stroke="none"/><path d="M12 14v.9M10.9 14.9a1.6 1.6 0 0 0 2.2 0M4.6 12.4h2.4M4.6 14.1h2.4M19.4 12.4h-2.4M19.4 14.1h-2.4"/></symbol>
+    <symbol id="ic-daily" viewBox="0 0 24 24"><rect x="5" y="5.5" width="11" height="13" rx="2" fill="var(--ic-cream)"/><path d="M8 4v3M13 4v3"/><circle cx="10" cy="11" r="1.1" fill="var(--ic-ink)" stroke="none"/><circle cx="8.4" cy="9.7" r=".65" fill="var(--ic-ink)" stroke="none"/><circle cx="11.6" cy="9.7" r=".65" fill="var(--ic-ink)" stroke="none"/><circle cx="16.5" cy="16" r="4" fill="var(--ic-blue)"/><path d="M16.5 14v2l1.4.9"/></symbol>
+    <symbol id="ic-chart" viewBox="0 0 24 24"><path d="M4 20h16"/><rect x="5.6" y="14" width="3" height="6" rx=".6" fill="var(--ic-gold)"/><rect x="10.5" y="11" width="3" height="9" rx=".6" fill="var(--ic-coral)"/><rect x="15.4" y="15" width="3" height="5" rx=".6" fill="var(--ic-coral-deep)"/><path d="M5 12l4.5-4 3 2.5L20 4"/><path d="M16.5 4H20v3.5"/></symbol>
+    <symbol id="ic-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h9"/><circle cx="17" cy="18" r="1.1" fill="var(--ic-brown)" stroke="none"/><circle cx="15.4" cy="16.8" r=".6" fill="var(--ic-brown)" stroke="none"/><circle cx="18.6" cy="16.8" r=".6" fill="var(--ic-brown)" stroke="none"/></symbol>
+    <symbol id="ic-family" viewBox="0 0 24 24"><path d="M12 4.6c-.7-.8-2-.8-2.6 0-.6.8-.4 1.7 2.6 3.4 3-1.7 3.2-2.6 2.6-3.4-.6-.8-1.9-.8-2.6 0Z" fill="var(--ic-coral-deep)" stroke="none"/><circle cx="12" cy="12" r="2.3" fill="var(--ic-tan)"/><path d="M8 20.5v-.8a4 4 0 0 1 8 0v.8"/><circle cx="5" cy="13.5" r="1.9" fill="var(--ic-tan)"/><path d="M2.6 20v-.6A3.2 3.2 0 0 1 7 16.4"/><circle cx="19" cy="13.5" r="1.9" fill="var(--ic-tan)"/><path d="M21.4 20v-.6a3.2 3.2 0 0 0-4.4-3"/></symbol>
+    <symbol id="ic-upgrade" viewBox="0 0 24 24"><path d="M4 8l3.5 3L12 5.5 16.5 11 20 8l-1.6 9H5.6L4 8Z" fill="var(--ic-gold)"/><path d="M5.6 17h12.8"/><circle cx="12" cy="12" r="1.15" fill="var(--ic-coral-deep)" stroke="none"/><circle cx="10.3" cy="10.7" r=".62" fill="var(--ic-coral-deep)" stroke="none"/><circle cx="13.7" cy="10.7" r=".62" fill="var(--ic-coral-deep)" stroke="none"/></symbol>
+    <symbol id="ic-meal-setup" viewBox="0 0 24 24"><path d="M3 11.5h12a6 6 0 0 1-12 0Z" fill="var(--ic-coral)"/><path d="M4.8 11.5c.6-2 2.4-3.1 4.2-3.1s3.6 1.1 4.2 3.1" fill="var(--ic-gold)"/><circle cx="17.5" cy="14.6" r="2.4" fill="var(--ic-cream)"/><path d="M17.5 10.8v1.4M17.5 17v1.4M13.7 14.6h1.4M19.9 14.6h1.4M14.8 11.9l1 1M20.2 17.3l-1-1M14.8 17.3l1-1M20.2 11.9l-1 1"/></symbol>
+    <symbol id="ic-med-setup" viewBox="0 0 24 24"><path d="M3.6 11 9 5.6a3.2 3.2 0 0 1 4.5 4.5L8.1 15.5A3.2 3.2 0 0 1 3.6 11Z" fill="var(--ic-lavender)"/><path d="M6.9 7.7l4.5 4.5"/><circle cx="17.5" cy="15.6" r="2.4" fill="var(--ic-cream)"/><path d="M17.5 11.8v1.4M17.5 19.4v-1.4M13.7 15.6h1.4M21.3 15.6h-1.4M14.8 12.9l1 1M20.2 18.3l-1-1M14.8 18.3l1-1M20.2 12.9l-1 1"/></symbol>
+    <symbol id="ic-prevention" viewBox="0 0 24 24"><path d="M12 3.5 5 6v5.5c0 4.2 2.9 7.3 7 8.5 4.1-1.2 7-4.3 7-8.5V6l-7-2.5Z" fill="var(--ic-mint)"/><circle cx="12" cy="12" r="1.3" fill="var(--ic-brown)" stroke="none"/><circle cx="10" cy="10.3" r=".72" fill="var(--ic-brown)" stroke="none"/><circle cx="14" cy="10.3" r=".72" fill="var(--ic-brown)" stroke="none"/><path d="M19.4 3.8v2.2M18.3 4.9h2.2" stroke-width="1.3"/></symbol>
+    <symbol id="ic-visits" viewBox="0 0 24 24"><path d="M4 10.5 10.5 5 17 10.5Z" fill="var(--ic-cream)"/><path d="M5.5 10v8h10v-8" fill="var(--ic-cream)"/><path d="M10.5 7.5v3M9 9h3" stroke="var(--ic-coral-deep)"/><rect x="13" y="12.5" width="8" height="7" rx="1.2" fill="var(--ic-blue)"/><path d="M13 15h8M16 11.6v1.9M18.5 11.6v1.9"/></symbol>
+    <symbol id="ic-report" viewBox="0 0 24 24"><path d="M6 3.5h7L17 7.5V20a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1Z" fill="var(--ic-cream)"/><path d="M13 3.5V8h4"/><path d="M7.5 12h2l1-1.8L12 14l1-2h2.5" stroke="var(--ic-coral-deep)"/><path d="M18.6 21v-5M16.6 18l2-2 2 2" stroke-width="1.4"/></symbol>
+    <symbol id="ic-history" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15" rx="2" fill="var(--ic-cream)"/><path d="M3.5 9.5V7a2 2 0 0 1 2-2h13a2 2 0 0 1 2 2v2.5Z" fill="var(--ic-yellow)"/><path d="M3.5 9.5h17M8 3.5v3M16 3.5v3"/><path d="M9 14.5h5a2.6 2.6 0 1 1-2.6 2.6"/><path d="M9 12.3v2.2h2.2" stroke-width="1.4"/></symbol>
+    <symbol id="ic-guide" viewBox="0 0 24 24"><path d="M12 6.5C10 5 7.5 4.5 4.5 5v12c3-.5 5.5 0 7.5 1.5 2-1.5 4.5-2 7.5-1.5V5c-3-.5-5.5 0-7.5 1.5Z" fill="var(--ic-cream)"/><path d="M12 6.5v12"/><path d="M15 10.1a1.4 1.4 0 1 1 1.9 1.3c-.5.2-.9.6-.9 1.2M16 14.6v.1" stroke="var(--ic-coral-deep)" stroke-width="1.3"/></symbol>
+    <symbol id="ic-contact" viewBox="0 0 24 24"><rect x="3" y="6" width="14" height="11" rx="2" fill="var(--ic-coral)"/><path d="M3.5 7l6.5 5 6.5-5"/><circle cx="18" cy="6" r="3.3" fill="var(--ic-cream)"/><circle cx="16.8" cy="6" r=".5" fill="var(--ic-ink)" stroke="none"/><circle cx="18" cy="6" r=".5" fill="var(--ic-ink)" stroke="none"/><circle cx="19.2" cy="6" r=".5" fill="var(--ic-ink)" stroke="none"/></symbol>
+    <symbol id="ic-privacy" viewBox="0 0 24 24"><path d="M6 3.5h7L17 7.5V15a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1Z" fill="var(--ic-cream)"/><path d="M12 3.5V8h4"/><path d="M8 10.5h4M8 12.8h3"/><path d="M16.5 12 13 13.4v2.3c0 2 1.5 3.4 3.5 4 2-.6 3.5-2 3.5-4v-2.3L16.5 12Z" fill="var(--ic-mint)"/><path d="M15.2 15.6l1 1 1.8-1.9" stroke-width="1.3"/></symbol>
+    <symbol id="ic-logout" viewBox="0 0 24 24"><path d="M13 4.5H6.5a1 1 0 0 0-1 1v13a1 1 0 0 0 1 1H13" fill="var(--ic-cream)"/><path d="M10 12h9M15.5 8.5 19 12l-3.5 3.5" stroke="var(--ic-coral-deep)"/></symbol>
+    <symbol id="ic-account-delete" viewBox="0 0 24 24"><circle cx="9.5" cy="8" r="3.2" fill="var(--ic-coral)"/><path d="M3.8 19v-.8c0-2.7 2.4-4.7 5.7-4.7 1 0 2 .2 2.8.55" fill="var(--ic-coral)"/><path d="M14 14.5h6.5M18.7 14.5v5.2a1 1 0 0 1-1 1h-2.9a1 1 0 0 1-1-1v-5.2M16 14.3v-.8a1 1 0 0 1 1-1h.7a1 1 0 0 1 1 1v.8"/></symbol>
+  </defs>
+</svg>
 
 <div id="onboardingScreen" class="hidden">
   <button type="button" class="onboarding-skip" onclick="App.finishOnboarding()">あとで見る</button>
@@ -354,8 +416,8 @@
       <div class="pet-switch">
         <select id="petSelect" onchange="App.selectPet(this.value)"></select>
         <button class="secondary" onclick="App.openPetModal()"><span class="btn-label-full">+ ペット追加</span><span class="btn-label-compact">+🐶🐱</span></button>
-        <button class="ghost" onclick="App.openFamilyModal()"><span class="btn-label-full">👪 家族共有</span><span class="btn-label-compact">👪</span></button>
-        <button class="ghost" onclick="App.openUpgradeModal()"><span class="btn-label-full">⭐ アップグレード</span><span class="btn-label-compact">⭐</span></button>
+        <button class="ghost" onclick="App.openFamilyModal()" aria-label="家族共有"><span class="btn-label-full"><svg class="ic" aria-hidden="true" focusable="false"><use href="#ic-family"/></svg> 家族共有</span><span class="btn-label-compact"><svg class="ic" aria-hidden="true" focusable="false"><use href="#ic-family"/></svg></span></button>
+        <button class="ghost" onclick="App.openUpgradeModal()" aria-label="アップグレード"><span class="btn-label-full"><svg class="ic" aria-hidden="true" focusable="false"><use href="#ic-upgrade"/></svg> アップグレード</span><span class="btn-label-compact"><svg class="ic" aria-hidden="true" focusable="false"><use href="#ic-upgrade"/></svg></span></button>
       </div>
       <button id="usageGuideButton" type="button" class="usage-guide-button hidden">📖 使い方ガイド</button>
     </div>
@@ -366,9 +428,9 @@
   <div id="deletionBanner" class="hidden"></div>
 
   <nav class="tabs" id="tabsNav">
-    <button class="tab-btn" data-tab="daily" onclick="App.switchTab('daily')">📝 本日の記録</button>
-    <button class="tab-btn" data-tab="chart" onclick="App.switchTab('chart')">📊 グラフ</button>
-    <button class="tab-btn" data-tab="menu" onclick="App.switchTab('menu')">☰ メニュー</button>
+    <button class="tab-btn" data-tab="daily" onclick="App.switchTab('daily')"><svg class="ic" aria-hidden="true" focusable="false"><use href="#ic-daily"/></svg>本日の記録</button>
+    <button class="tab-btn" data-tab="chart" onclick="App.switchTab('chart')"><svg class="ic" aria-hidden="true" focusable="false"><use href="#ic-chart"/></svg>グラフ</button>
+    <button class="tab-btn" data-tab="menu" onclick="App.switchTab('menu')"><svg class="ic" aria-hidden="true" focusable="false"><use href="#ic-menu"/></svg>メニュー</button>
   </nav>
 
   <main id="mainContent"></main>
@@ -1064,14 +1126,23 @@ function localDateString(date = new Date()){
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 }
+// 統一アイコン。index.html冒頭のSVGスプライトの<symbol>を<use>で参照する。
+// 絵文字と同じく「装飾」なので aria-hidden、意味は隣の可視ラベルが担う。
+function iconSvg(id, extraClass){
+  return `<svg class="ic${extraClass ? ' ' + extraClass : ''}" aria-hidden="true" focusable="false"><use href="#ic-${id}"/></svg>`;
+}
+// ペット種別だけは可視ラベルを持たないため、代替テキストで種別を伝える。
+function petTypeIcon(id, label){
+  return `<svg class="ic pet-type-ic" role="img" aria-label="${label}"><use href="#ic-${id}"/></svg>`;
+}
 const EVENT_TYPES = {
-  urine: { label:'おしっこ', icon:'💧' }, stool: { label:'うんち', icon:'💩' },
-  walk: { label:'お散歩', icon:'🐾' }, play: { label:'遊び', icon:'🎾' },
-  treat: { label:'おやつ', icon:'🍪' }, meal: { label:'ごはん', icon:'🍚' }, water: { label:'飲水', icon:'🥤' },
-  medication: { label:'くすり', icon:'💊' }, weight: { label:'体重', icon:'⚖️' },
-  symptom: { label:'症状', icon:'🩺' }, visit: { label:'病院', icon:'🏥' }, memo: { label:'メモ', icon:'📝' }
+  urine: { label:'おしっこ', icon:iconSvg('urine') }, stool: { label:'うんち', icon:iconSvg('stool') },
+  walk: { label:'お散歩', icon:iconSvg('walk') }, play: { label:'遊び', icon:iconSvg('play') },
+  treat: { label:'おやつ', icon:iconSvg('treat') }, meal: { label:'ごはん', icon:iconSvg('meal') }, water: { label:'飲水', icon:iconSvg('water') },
+  medication: { label:'くすり', icon:iconSvg('medication') }, weight: { label:'体重', icon:iconSvg('weight') },
+  symptom: { label:'症状', icon:iconSvg('symptom') }, visit: { label:'病院', icon:iconSvg('visit') }, memo: { label:'メモ', icon:iconSvg('memo') }
 };
-function eventTypeInfo(type){ return EVENT_TYPES[type] || { label:'記録', icon:'📝' }; }
+function eventTypeInfo(type){ return EVENT_TYPES[type] || { label:'記録', icon:iconSvg('memo') }; }
 // クイック記録の数値項目。入力は<select>だが、eventsへは必ずnumber型で保存する。
 const NUMERIC_EVENT_FIELDS = new Set(['durationMinutes', 'distanceMeters', 'intakePercent', 'kilograms']);
 function coerceEventFieldValue(key, rawValue){
@@ -2970,7 +3041,7 @@ const App = {
     const allRows = mergeTimelineItems(events, scheduledItems).map(item => {
       if(item.kind === 'scheduled'){
         const medication = item.medication;
-        return `<button type="button" class="event-row event-row--scheduled" ${actionAttrs('openScheduledMedication', medication.id)} data-time="${escapeHtml(item.time)}"><span class="event-time">${escapeHtml(item.time)}</span><span class="event-icon">💊</span><span class="event-main"><span class="event-title">${escapeHtml(medLabel(medication))}</span><span class="event-summary">投薬予定・未完了</span></span><span class="event-chevron">＋</span></button>`;
+        return `<button type="button" class="event-row event-row--scheduled" ${actionAttrs('openScheduledMedication', medication.id)} data-time="${escapeHtml(item.time)}"><span class="event-time">${escapeHtml(item.time)}</span><span class="event-icon">${eventTypeInfo('medication').icon}</span><span class="event-main"><span class="event-title">${escapeHtml(medLabel(medication))}</span><span class="event-summary">投薬予定・未完了</span></span><span class="event-chevron">＋</span></button>`;
       }
       const event = item.event;
       const info = eventTypeInfo(event.type);
@@ -3047,7 +3118,7 @@ const App = {
     document.getElementById('eventDate').value = state.selectedRecordDate;
     document.getElementById('eventTime').value = scheduledTime || `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
     document.getElementById('eventNote').value = '';
-    document.getElementById('eventFormFields').innerHTML = `<div class="field"><label>お薬</label><div class="scheduled-lock">💊 ${escapeHtml(label)}</div><p class="hint">この予定の投薬を完了として記録します。時刻は必要に応じて調整できます。</p></div>`;
+    document.getElementById('eventFormFields').innerHTML = `<div class="field"><label>お薬</label><div class="scheduled-lock">${eventTypeInfo('medication').icon} ${escapeHtml(label)}</div><p class="hint">この予定の投薬を完了として記録します。時刻は必要に応じて調整できます。</p></div>`;
     document.getElementById('eventForm').dataset.scheduledTime = scheduledTime || '';
     document.getElementById('eventModalBackdrop').classList.remove('hidden');
   },
@@ -3102,7 +3173,9 @@ const App = {
   },
   openEventDetail(id){
     const event = state.events.find(item => item.id === id); if(!event) return;
-    document.getElementById('eventDetailTitle').textContent = `${eventTypeInfo(event.type).icon} ${eventTypeInfo(event.type).label}`;
+    const detailTypeInfo = eventTypeInfo(event.type);
+    // icon は自前の定数SVG文字列なのでinnerHTMLで挿入する。ラベルは常にエスケープする。
+    document.getElementById('eventDetailTitle').innerHTML = `${detailTypeInfo.icon} ${escapeHtml(detailTypeInfo.label)}`;
     document.getElementById('eventDetailList').innerHTML = this.eventDetailRows(event).map(([label,value]) => `<li><strong>${escapeHtml(label)}</strong><span style="white-space:pre-wrap;">${escapeHtml(value)}</span></li>`).join('');
     // 予定由来で完了した投薬は「未完了に戻す」だけを出し、他剤を選べる編集・削除は隠す。
     const fromSchedule = event.type === 'medication' && event.details?.source === 'scheduled';
@@ -3127,7 +3200,7 @@ const App = {
   },
   renderMenu(){
     const group = (title, items) => `<div class="menu-section">${escapeHtml(title)}</div><div class="card" style="padding:0;">${items.map(([icon,label,description,action]) => `<button class="menu-item" type="button" onclick="${action}"><span class="menu-item-icon">${icon}</span><span class="menu-item-copy">${escapeHtml(label)}${description ? `<small>${escapeHtml(description)}</small>` : ''}</span><span class="menu-item-arrow">›</span></button>`).join('')}</div>`;
-    document.getElementById('mainContent').innerHTML = `${group('記録の設定', [['🍚','ごはんの登録','食事候補の登録・編集・並び替え',"App.renderMealProfiles()"],['💊','くすりの登録','薬・用量・投薬予定・通知',"App.switchTab('meds')"]])}${group('健康管理', [['🛡️','予防','ワクチン・ノミダニ・フィラリア',"App.switchTab('prev')"],['🏥','受診歴','通院の記録',"App.switchTab('visits')"]])}${group('記録を活用', [['📄','レポート出力','主治医への共有レポート・PDF',"App.switchTab('export')"],['🗓️','これまでの記録','新UI以前の日次記録の一覧・編集',"App.switchTab('list')"]])}${group('サービス', [['👪','家族共有','家族や同居の方と記録を共有',"App.openFamilyModal()"],['⭐','アップグレード','有料機能とお支払い',"App.openUpgradeModal()"]])}${group('サポート', [['❔','使い方ガイド','',"window.open('usage-guide.html','_blank','noopener')"],['✉️','お問い合わせ','',"window.location.href='mailto:contact@pet-health-log.com'"]])}${group('プライバシーとアカウント', [['🔒','プライバシーポリシー・利用規約','',"window.open('privacy.html','_blank','noopener')"],['↪️','ログアウト','',"AppAuth.signOut()"],['🗑️','アカウントを削除する','',"App.requestAccountDeletion()"]])}`;
+    document.getElementById('mainContent').innerHTML = `${group('記録の設定', [[iconSvg('meal-setup'),'ごはんの登録','食事候補の登録・編集・並び替え',"App.renderMealProfiles()"],[iconSvg('med-setup'),'くすりの登録','薬・用量・投薬予定・通知',"App.switchTab('meds')"]])}${group('健康管理', [[iconSvg('prevention'),'予防','ワクチン・ノミダニ・フィラリア',"App.switchTab('prev')"],[iconSvg('visits'),'受診歴','通院の記録',"App.switchTab('visits')"]])}${group('記録を活用', [[iconSvg('report'),'レポート出力','主治医への共有レポート・PDF',"App.switchTab('export')"],[iconSvg('history'),'これまでの記録','新UI以前の日次記録の一覧・編集',"App.switchTab('list')"]])}${group('サービス', [[iconSvg('family'),'家族共有','家族や同居の方と記録を共有',"App.openFamilyModal()"],[iconSvg('upgrade'),'アップグレード','有料機能とお支払い',"App.openUpgradeModal()"]])}${group('サポート', [[iconSvg('guide'),'使い方ガイド','',"window.open('usage-guide.html','_blank','noopener')"],[iconSvg('contact'),'お問い合わせ','',"window.location.href='mailto:contact@pet-health-log.com'"]])}${group('プライバシーとアカウント', [[iconSvg('privacy'),'プライバシーポリシー・利用規約','',"window.open('privacy.html','_blank','noopener')"],[iconSvg('logout'),'ログアウト','',"AppAuth.signOut()"],[iconSvg('account-delete','ic--danger'),'アカウントを削除する','',"App.requestAccountDeletion()"]])}`;
   },
   renderMealProfiles(){
     const profiles = petMealProfiles();
@@ -3221,7 +3294,7 @@ const App = {
     main.innerHTML = `
       ${this.weeklyTrendCardHtml()}
       <div class="card">
-        <h3>${pet.species==='犬'?'🐶':(pet.species==='猫'?'🐱':'🐾')} ${escapeHtml(pet.name)} ${pet.breed?('('+escapeHtml(pet.breed)+')'):''}</h3>
+        <h3>${pet.species==='犬'?petTypeIcon('dog','犬'):(pet.species==='猫'?petTypeIcon('cat','猫'):petTypeIcon('paw','ペット'))} ${escapeHtml(pet.name)} ${pet.breed?('('+escapeHtml(pet.breed)+')'):''}</h3>
         <div class="muted">${pet.birthday ? (fmtDate(pet.birthday) + ' 生まれ ・ ' + ageString(pet.birthday)) : '誕生日未登録'}</div>
         <p class="muted mobile-only" style="margin-top:12px;font-size:13px;">
           記録${records.length}日 ・ ${latest && latest.weight ? escapeHtml(latest.weight)+'kg' : '体重未記録'} ・ 最終記録 ${latest ? fmtDate(latest.date) : '-'}${pet.trackCibdai && lastWithCibdai ? ` ・ CIBDAI ${cibdaiTotal(lastWithCibdai.cibdai)}点` : ''}
@@ -4259,6 +4332,7 @@ if (typeof module !== 'undefined') {
     analyzeWeeklySummary, sortEvents, filterEventsByDate, eventSummary,
     recordedMealIntakes, mergeTimelineItems, localDateString, actionAttrs,
     coerceEventFieldValue, scheduledDoseTaken, medScheduledTimes,
+    EVENT_TYPES, eventTypeInfo, iconSvg, petTypeIcon,
   };
 }
 </script>
