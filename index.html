@@ -439,7 +439,7 @@
         <button class="ghost" onclick="App.openFamilyModal()" aria-label="家族共有"><span class="btn-label-full"><img class="ic" src="icons/family.png" alt=""> 家族共有</span><span class="btn-label-compact"><img class="ic" src="icons/family.png" alt=""></span></button>
         <button class="ghost" onclick="App.openUpgradeModal()" aria-label="アップグレード"><span class="btn-label-full"><img class="ic" src="icons/upgrade.png" alt=""> アップグレード</span><span class="btn-label-compact"><img class="ic" src="icons/upgrade.png" alt=""></span></button>
       </div>
-      <button id="usageGuideButton" type="button" class="usage-guide-button hidden"><img class="ic" src="icons/guide.png" alt="">使い方ガイド</button>
+      <button id="usageGuideButton" type="button" class="usage-guide-button hidden"><img class="ic" src="icons/guide.png?v=20260901-2" alt="">使い方ガイド</button>
     </div>
   </header>
   <div id="householdBanner" class="hidden"></div>
@@ -1149,7 +1149,9 @@ function localDateString(date = new Date()){
 // 正本コンセプト画像から直接切り出したPNGを参照する。
 // 絵文字と同じく「装飾」なので空alt、意味は隣の可視ラベルが担う。
 function iconSvg(id, extraClass){
-  return `<img class="ic${extraClass ? ' ' + extraClass : ''}" src="icons/${id}.png" alt="">`;
+  const recut = new Set(['treat','meal','water','weight','guide']);
+  const version = recut.has(id) ? '?v=20260901-2' : '';
+  return `<img class="ic${extraClass ? ' ' + extraClass : ''}" src="icons/${id}.png${version}" alt="">`;
 }
 // ペット種別だけは可視ラベルを持たないため、代替テキストで種別を伝える。
 function petTypeIcon(id, label){
