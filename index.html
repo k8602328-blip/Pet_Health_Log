@@ -281,29 +281,50 @@
     .desktop-only{display:none;}
   }
 
-  /* 統一アイコン。絵文字を置換した軽量インラインSVG(冒頭のスプライトを<use>参照)。
-     コンセプト(docs/design-concepts/, docs/ui-brand-guide-refresh-plan.md §1)の
-     「やわらかいパステル面 ＋ 濃茶の均一アウトライン」を再現する。テーマは単一ライトのみ。
-     線幅・角丸・余白は<symbol>側で統一し、ここでは配色と表示サイズだけを指定する。 */
+  /* 統一アイコン。絵文字を置換したインラインSVG(冒頭のスプライトを<use>参照)。
+     docs/design-concepts/ の正本7枚（利用上限・写真添付を含む）へ、輪郭・内部パーツ・
+     比率・丸み・パステル塗り分けを忠実に合わせてトレースしている。テーマは単一ライトのみ。
+     <symbol>は viewBox 0 0 32 32・濃茶の均一アウトライン。ここでは配色と表示サイズだけを指定する。 */
   .ic{
-    --ic-ink:#7a6453;
-    --ic-blue:#c2e4f2; --ic-brown:#cf9f78; --ic-peach:#f8cebb; --ic-mint:#c1e3d2;
-    --ic-gold:#f1d79f; --ic-coral:#f3b5a5; --ic-coral-deep:#e88b78; --ic-turq:#a9d9d6;
-    --ic-lavender:#dacdef; --ic-cream:#f7edd9; --ic-yellow:#f4e5a6; --ic-tan:#e8d6bf;
+    --ic-ink:#6b5040;
+    --ic-blue:#a9d3e8; --ic-blue-deep:#8bc0dd;
+    --ic-brown:#9a7a5c; --ic-paw:#8a6a4d;
+    --ic-peach:#f1c9a4;
+    --ic-mint:#a9cba0; --ic-mint-deep:#7fae7a;
+    --ic-gold:#edc879; --ic-gold-soft:#f6e4b0;
+    --ic-coral:#e8917a; --ic-coral-deep:#df7a5f;
+    --ic-turq:#7cbdb4; --ic-turq-light:#a9dcd3;
+    --ic-lavender:#c7b6df; --ic-cream:#f6ead0; --ic-yellow:#f2df9f; --ic-tan:#e3c7a6;
     display:inline-block;width:1em;height:1em;flex:0 0 auto;fill:none;stroke:var(--ic-ink);
-    stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;vertical-align:-0.15em;
+    stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:-0.15em;
   }
   /* アカウント削除だけは危険操作と分かる控えめなコーラル系のアウトラインにする。 */
-  .ic--danger{--ic-ink:#cc7c70;}
-  .tab-btn .ic{width:20px;height:20px;vertical-align:-4px;margin-right:3px;}
-  .pet-switch .btn-label-full .ic{width:20px;height:20px;vertical-align:-4px;margin-right:4px;}
-  .btn-label-compact .ic{width:22px;height:22px;vertical-align:-6px;}
+  .ic--danger{--ic-ink:#c9756a;}
+  /* 表示サイズ（正本の細部が読める大きさを優先）:
+     固定バー30〜32 / 主要ナビ・ヘッダー24〜28 / メニュー26〜30 / ペット種別24 */
+  .brand .ic{width:26px;height:26px;vertical-align:-5px;margin-right:4px;}
+  .tab-btn .ic{width:26px;height:26px;vertical-align:-6px;margin-right:4px;}
+  .pet-switch .btn-label-full .ic{width:24px;height:24px;vertical-align:-6px;margin-right:4px;}
+  .btn-label-compact .ic{width:26px;height:26px;vertical-align:-7px;}
+  .btn-label-compact .ic + .ic{margin-left:-4px;}
+  .usage-guide-button .ic{width:24px;height:24px;vertical-align:-6px;margin-right:4px;}
   .quick-event-button{color:var(--text);}
-  .quick-event-button span .ic{width:26px;height:26px;}
-  .event-icon .ic{width:22px;height:22px;vertical-align:middle;}
-  .menu-item-icon .ic{width:22px;height:22px;vertical-align:-5px;}
-  .scheduled-lock .ic{width:20px;height:20px;vertical-align:-4px;margin-right:4px;}
-  .pet-type-ic{width:20px;height:20px;vertical-align:-4px;margin-right:4px;}
+  .quick-event-button span .ic{width:32px;height:32px;}
+  .event-icon .ic{width:26px;height:26px;vertical-align:middle;}
+  .menu-item-icon .ic{width:28px;height:28px;vertical-align:-7px;}
+  .scheduled-lock .ic{width:24px;height:24px;vertical-align:-6px;margin-right:4px;}
+  .pet-type-ic{width:24px;height:24px;vertical-align:-6px;margin-right:4px;}
+  .pet-switch-species{display:inline-flex;align-items:center;}
+  .pet-switch-species .ic{width:24px;height:24px;}
+  /* レコードカード・バナー・アップグレード詳細内の行頭アイコン */
+  .tag .ic{width:15px;height:15px;vertical-align:-3px;margin-right:2px;}
+  td .ic,.memo-row .ic{width:16px;height:16px;vertical-align:-3px;margin-right:3px;}
+  button .ic.inline-ic{width:18px;height:18px;vertical-align:-4px;margin-right:4px;}
+  #householdBanner .ic,#deletionBanner .ic{width:20px;height:20px;vertical-align:-4px;margin-right:6px;}
+  .upgrade-diagram-icon .ic{width:30px;height:30px;vertical-align:-6px;}
+  .upgrade-desc li{list-style:none;}
+  .upgrade-desc ul{padding-left:4px;}
+  .upgrade-desc li .ic{width:20px;height:20px;vertical-align:-5px;margin-right:6px;}
 
   @media print{
     /* Chromeは既定で背景色・背景画像を印刷しない(印刷ダイアログの「背景のグラフィック」
@@ -330,41 +351,52 @@
 </head>
 <body>
 
-<!-- 統一アイコンのスプライト。絵文字を置換した軽量インラインSVG。外部通信・スクリプト・ラスター画像は一切含まない。
-     同じ意味のアイコン(家族共有・アップグレード・くすり等)は1つの<symbol>を<use>で共有し、重複素材を作らない。 -->
+<!-- 統一アイコンのスプライト。docs/design-concepts/ の正本7枚を忠実にトレースしたインラインSVG。
+     外部通信・スクリプト・ラスター画像は一切含まない。viewBoxは全symbol 0 0 32 32。
+     同じ意味のアイコン(家族共有・アップグレード・くすり・くすり登録・写真添付等)は1つの<symbol>を<use>で共有する。 -->
 <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" style="position:absolute;width:0;height:0;overflow:hidden;" data-role="icon-sprite">
   <defs>
-    <symbol id="ic-urine" viewBox="0 0 24 24"><path d="M12 3.6C8.6 7.7 6.8 10.6 6.8 13.2a5.2 5.2 0 0 0 10.4 0C17.2 10.6 15.4 7.7 12 3.6Z" fill="var(--ic-blue)"/><path d="M18.2 4.2v2.4M17 5.4h2.4"/></symbol>
-    <symbol id="ic-stool" viewBox="0 0 24 24"><path d="M7.5 19.5h9a2.5 2.5 0 0 0 .4-4.96 2.5 2.5 0 0 0-1.9-3.9 2.3 2.3 0 0 0-1.7-3.24 1.9 1.9 0 0 0-2.6 0 2.3 2.3 0 0 0-1.7 3.24 2.5 2.5 0 0 0-1.9 3.9A2.5 2.5 0 0 0 7.5 19.5Z" fill="var(--ic-brown)"/></symbol>
-    <symbol id="ic-symptom" viewBox="0 0 24 24"><rect x="4" y="9" width="16" height="6" rx="3" transform="rotate(-45 12 12)" fill="var(--ic-peach)"/><path d="M12 14c-1.4-1.1-2.4-1.9-2.4-3A1.4 1.4 0 0 1 12 10a1.4 1.4 0 0 1 2.4 1c0 1.1-1 1.9-2.4 3Z" fill="var(--ic-coral-deep)" stroke="none"/></symbol>
-    <symbol id="ic-weight" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="14" rx="3.5" fill="var(--ic-mint)"/><path d="M9 9h6"/><circle cx="12" cy="14.6" r="1.5" fill="var(--ic-ink)" stroke="none"/><circle cx="9.4" cy="12.9" r=".9" fill="var(--ic-ink)" stroke="none"/><circle cx="14.6" cy="12.9" r=".9" fill="var(--ic-ink)" stroke="none"/><circle cx="10.4" cy="16.4" r=".7" fill="var(--ic-ink)" stroke="none"/><circle cx="13.6" cy="16.4" r=".7" fill="var(--ic-ink)" stroke="none"/></symbol>
-    <symbol id="ic-treat" viewBox="0 0 24 24"><path d="M8 12h8"/><circle cx="6.5" cy="10.3" r="2.1" fill="var(--ic-gold)"/><circle cx="6.5" cy="13.7" r="2.1" fill="var(--ic-gold)"/><circle cx="17.5" cy="10.3" r="2.1" fill="var(--ic-gold)"/><circle cx="17.5" cy="13.7" r="2.1" fill="var(--ic-gold)"/></symbol>
-    <symbol id="ic-meal" viewBox="0 0 24 24"><path d="M4 11.5h16a8 8 0 0 1-16 0Z" fill="var(--ic-coral)"/><path d="M6.2 11.5c.8-2.4 3-3.7 5.8-3.7s5 1.3 5.8 3.7" fill="var(--ic-gold)"/><circle cx="9.5" cy="9.7" r=".7" fill="var(--ic-ink)" stroke="none"/><circle cx="12" cy="9" r=".7" fill="var(--ic-ink)" stroke="none"/><circle cx="14.5" cy="9.7" r=".7" fill="var(--ic-ink)" stroke="none"/></symbol>
-    <symbol id="ic-water" viewBox="0 0 24 24"><path d="M4 11.5h16a8 8 0 0 1-16 0Z" fill="var(--ic-turq)"/><path d="M3.3 11.5h17.4"/><path d="M9.5 14.6c.8-.8 1.6-.8 2.5 0s1.7.8 2.5 0"/></symbol>
-    <symbol id="ic-walk" viewBox="0 0 24 24"><path d="M5 19.2c1.8-.9 3-2.2 4.3-3" stroke-dasharray="0.1 3"/><g fill="var(--ic-brown)" stroke="none"><ellipse cx="8" cy="16.5" rx="1.7" ry="2"/><circle cx="6.1" cy="14.3" r=".7"/><circle cx="8" cy="13.6" r=".7"/><circle cx="9.9" cy="14.3" r=".7"/></g><g fill="var(--ic-brown)" stroke="none"><ellipse cx="15.5" cy="10.5" rx="1.7" ry="2"/><circle cx="13.6" cy="8.3" r=".7"/><circle cx="15.5" cy="7.6" r=".7"/><circle cx="17.4" cy="8.3" r=".7"/></g></symbol>
-    <symbol id="ic-play" viewBox="0 0 24 24"><circle cx="11" cy="12" r="6.5" fill="var(--ic-mint)"/><path d="M5.2 9.2c3 1 8 1 11.6-1.6M6.5 16.4C8 13 10 8.5 14.6 6" stroke="var(--ic-coral-deep)"/><path d="M18.4 15.4c1 .7 1.8 1.7 2.3 2.9M17.4 18c1.1.2 2.2.1 3.2-.3" stroke-width="1.3"/></symbol>
-    <symbol id="ic-medication" viewBox="0 0 24 24"><path d="M4.8 12.3 12 5.1a3.6 3.6 0 0 1 5.1 5.1l-7.2 7.2A3.6 3.6 0 0 1 4.8 12.3Z" fill="var(--ic-lavender)"/><path d="M8.4 8.7l5.1 5.1"/><circle cx="17" cy="17" r="4" fill="var(--ic-cream)"/><path d="M17 15v2l1.4.9"/></symbol>
-    <symbol id="ic-visit" viewBox="0 0 24 24"><path d="M4 20h16"/><path d="M5 20V9l7-4 7 4v11" fill="var(--ic-cream)"/><path d="M12 6.6v3M10.5 8.1h3" stroke="var(--ic-coral-deep)"/><circle cx="12" cy="14.6" r="1.2" fill="var(--ic-ink)" stroke="none"/><circle cx="10.2" cy="13.3" r=".7" fill="var(--ic-ink)" stroke="none"/><circle cx="13.8" cy="13.3" r=".7" fill="var(--ic-ink)" stroke="none"/></symbol>
-    <symbol id="ic-memo" viewBox="0 0 24 24"><rect x="4" y="4.5" width="11" height="15" rx="2" fill="var(--ic-yellow)"/><path d="M7 3.2v2.6M11 3.2v2.6M7 9.5h5M7 12.5h5M7 15.5h3"/><path d="M17.8 8.5l2.2 2.2-6 6-2.6.4.4-2.6Z" fill="var(--ic-coral)"/><path d="M16.4 9.9l2.2 2.2"/></symbol>
-    <symbol id="ic-paw" viewBox="0 0 24 24"><g fill="var(--ic-brown)" stroke="none"><ellipse cx="12" cy="15" rx="3.4" ry="3"/><circle cx="6.5" cy="11" r="1.8"/><circle cx="10" cy="7.7" r="1.9"/><circle cx="14" cy="7.7" r="1.9"/><circle cx="17.5" cy="11" r="1.8"/></g></symbol>
-    <symbol id="ic-dog" viewBox="0 0 24 24"><path d="M6.3 7.2C4 8.2 3.4 11 4.4 13.6M17.7 7.2c2.3 1 2.9 3.8 1.9 6.4"/><circle cx="12" cy="12.8" r="6.6" fill="var(--ic-cream)"/><circle cx="9.8" cy="11.8" r=".95" fill="var(--ic-ink)" stroke="none"/><circle cx="14.2" cy="11.8" r=".95" fill="var(--ic-ink)" stroke="none"/><circle cx="12" cy="13.5" r=".85" fill="var(--ic-ink)" stroke="none"/><path d="M12 14.3v1.2M10.7 15.4a1.8 1.8 0 0 0 2.6 0"/></symbol>
-    <symbol id="ic-cat" viewBox="0 0 24 24"><path d="M8.6 6.4 6 2.9 5.2 7.4M15.4 6.4 18 2.9l.8 4.5" fill="var(--ic-cream)"/><circle cx="12" cy="12.8" r="6.6" fill="var(--ic-cream)"/><circle cx="9.8" cy="12" r=".95" fill="var(--ic-ink)" stroke="none"/><circle cx="14.2" cy="12" r=".95" fill="var(--ic-ink)" stroke="none"/><circle cx="12" cy="13.4" r=".6" fill="var(--ic-ink)" stroke="none"/><path d="M12 14v.9M10.9 14.9a1.6 1.6 0 0 0 2.2 0M4.6 12.4h2.4M4.6 14.1h2.4M19.4 12.4h-2.4M19.4 14.1h-2.4"/></symbol>
-    <symbol id="ic-daily" viewBox="0 0 24 24"><rect x="5" y="5.5" width="11" height="13" rx="2" fill="var(--ic-cream)"/><path d="M8 4v3M13 4v3"/><circle cx="10" cy="11" r="1.1" fill="var(--ic-ink)" stroke="none"/><circle cx="8.4" cy="9.7" r=".65" fill="var(--ic-ink)" stroke="none"/><circle cx="11.6" cy="9.7" r=".65" fill="var(--ic-ink)" stroke="none"/><circle cx="16.5" cy="16" r="4" fill="var(--ic-blue)"/><path d="M16.5 14v2l1.4.9"/></symbol>
-    <symbol id="ic-chart" viewBox="0 0 24 24"><path d="M4 20h16"/><rect x="5.6" y="14" width="3" height="6" rx=".6" fill="var(--ic-gold)"/><rect x="10.5" y="11" width="3" height="9" rx=".6" fill="var(--ic-coral)"/><rect x="15.4" y="15" width="3" height="5" rx=".6" fill="var(--ic-coral-deep)"/><path d="M5 12l4.5-4 3 2.5L20 4"/><path d="M16.5 4H20v3.5"/></symbol>
-    <symbol id="ic-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h9"/><circle cx="17" cy="18" r="1.1" fill="var(--ic-brown)" stroke="none"/><circle cx="15.4" cy="16.8" r=".6" fill="var(--ic-brown)" stroke="none"/><circle cx="18.6" cy="16.8" r=".6" fill="var(--ic-brown)" stroke="none"/></symbol>
-    <symbol id="ic-family" viewBox="0 0 24 24"><path d="M12 4.6c-.7-.8-2-.8-2.6 0-.6.8-.4 1.7 2.6 3.4 3-1.7 3.2-2.6 2.6-3.4-.6-.8-1.9-.8-2.6 0Z" fill="var(--ic-coral-deep)" stroke="none"/><circle cx="12" cy="12" r="2.3" fill="var(--ic-tan)"/><path d="M8 20.5v-.8a4 4 0 0 1 8 0v.8"/><circle cx="5" cy="13.5" r="1.9" fill="var(--ic-tan)"/><path d="M2.6 20v-.6A3.2 3.2 0 0 1 7 16.4"/><circle cx="19" cy="13.5" r="1.9" fill="var(--ic-tan)"/><path d="M21.4 20v-.6a3.2 3.2 0 0 0-4.4-3"/></symbol>
-    <symbol id="ic-upgrade" viewBox="0 0 24 24"><path d="M4 8l3.5 3L12 5.5 16.5 11 20 8l-1.6 9H5.6L4 8Z" fill="var(--ic-gold)"/><path d="M5.6 17h12.8"/><circle cx="12" cy="12" r="1.15" fill="var(--ic-coral-deep)" stroke="none"/><circle cx="10.3" cy="10.7" r=".62" fill="var(--ic-coral-deep)" stroke="none"/><circle cx="13.7" cy="10.7" r=".62" fill="var(--ic-coral-deep)" stroke="none"/></symbol>
-    <symbol id="ic-meal-setup" viewBox="0 0 24 24"><path d="M3 11.5h12a6 6 0 0 1-12 0Z" fill="var(--ic-coral)"/><path d="M4.8 11.5c.6-2 2.4-3.1 4.2-3.1s3.6 1.1 4.2 3.1" fill="var(--ic-gold)"/><circle cx="17.5" cy="14.6" r="2.4" fill="var(--ic-cream)"/><path d="M17.5 10.8v1.4M17.5 17v1.4M13.7 14.6h1.4M19.9 14.6h1.4M14.8 11.9l1 1M20.2 17.3l-1-1M14.8 17.3l1-1M20.2 11.9l-1 1"/></symbol>
-    <symbol id="ic-med-setup" viewBox="0 0 24 24"><path d="M3.6 11 9 5.6a3.2 3.2 0 0 1 4.5 4.5L8.1 15.5A3.2 3.2 0 0 1 3.6 11Z" fill="var(--ic-lavender)"/><path d="M6.9 7.7l4.5 4.5"/><circle cx="17.5" cy="15.6" r="2.4" fill="var(--ic-cream)"/><path d="M17.5 11.8v1.4M17.5 19.4v-1.4M13.7 15.6h1.4M21.3 15.6h-1.4M14.8 12.9l1 1M20.2 18.3l-1-1M14.8 18.3l1-1M20.2 12.9l-1 1"/></symbol>
-    <symbol id="ic-prevention" viewBox="0 0 24 24"><path d="M12 3.5 5 6v5.5c0 4.2 2.9 7.3 7 8.5 4.1-1.2 7-4.3 7-8.5V6l-7-2.5Z" fill="var(--ic-mint)"/><circle cx="12" cy="12" r="1.3" fill="var(--ic-brown)" stroke="none"/><circle cx="10" cy="10.3" r=".72" fill="var(--ic-brown)" stroke="none"/><circle cx="14" cy="10.3" r=".72" fill="var(--ic-brown)" stroke="none"/><path d="M19.4 3.8v2.2M18.3 4.9h2.2" stroke-width="1.3"/></symbol>
-    <symbol id="ic-visits" viewBox="0 0 24 24"><path d="M4 10.5 10.5 5 17 10.5Z" fill="var(--ic-cream)"/><path d="M5.5 10v8h10v-8" fill="var(--ic-cream)"/><path d="M10.5 7.5v3M9 9h3" stroke="var(--ic-coral-deep)"/><rect x="13" y="12.5" width="8" height="7" rx="1.2" fill="var(--ic-blue)"/><path d="M13 15h8M16 11.6v1.9M18.5 11.6v1.9"/></symbol>
-    <symbol id="ic-report" viewBox="0 0 24 24"><path d="M6 3.5h7L17 7.5V20a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1Z" fill="var(--ic-cream)"/><path d="M13 3.5V8h4"/><path d="M7.5 12h2l1-1.8L12 14l1-2h2.5" stroke="var(--ic-coral-deep)"/><path d="M18.6 21v-5M16.6 18l2-2 2 2" stroke-width="1.4"/></symbol>
-    <symbol id="ic-history" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15" rx="2" fill="var(--ic-cream)"/><path d="M3.5 9.5V7a2 2 0 0 1 2-2h13a2 2 0 0 1 2 2v2.5Z" fill="var(--ic-yellow)"/><path d="M3.5 9.5h17M8 3.5v3M16 3.5v3"/><path d="M9 14.5h5a2.6 2.6 0 1 1-2.6 2.6"/><path d="M9 12.3v2.2h2.2" stroke-width="1.4"/></symbol>
-    <symbol id="ic-guide" viewBox="0 0 24 24"><path d="M12 6.5C10 5 7.5 4.5 4.5 5v12c3-.5 5.5 0 7.5 1.5 2-1.5 4.5-2 7.5-1.5V5c-3-.5-5.5 0-7.5 1.5Z" fill="var(--ic-cream)"/><path d="M12 6.5v12"/><path d="M15 10.1a1.4 1.4 0 1 1 1.9 1.3c-.5.2-.9.6-.9 1.2M16 14.6v.1" stroke="var(--ic-coral-deep)" stroke-width="1.3"/></symbol>
-    <symbol id="ic-contact" viewBox="0 0 24 24"><rect x="3" y="6" width="14" height="11" rx="2" fill="var(--ic-coral)"/><path d="M3.5 7l6.5 5 6.5-5"/><circle cx="18" cy="6" r="3.3" fill="var(--ic-cream)"/><circle cx="16.8" cy="6" r=".5" fill="var(--ic-ink)" stroke="none"/><circle cx="18" cy="6" r=".5" fill="var(--ic-ink)" stroke="none"/><circle cx="19.2" cy="6" r=".5" fill="var(--ic-ink)" stroke="none"/></symbol>
-    <symbol id="ic-privacy" viewBox="0 0 24 24"><path d="M6 3.5h7L17 7.5V15a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1Z" fill="var(--ic-cream)"/><path d="M12 3.5V8h4"/><path d="M8 10.5h4M8 12.8h3"/><path d="M16.5 12 13 13.4v2.3c0 2 1.5 3.4 3.5 4 2-.6 3.5-2 3.5-4v-2.3L16.5 12Z" fill="var(--ic-mint)"/><path d="M15.2 15.6l1 1 1.8-1.9" stroke-width="1.3"/></symbol>
-    <symbol id="ic-logout" viewBox="0 0 24 24"><path d="M13 4.5H6.5a1 1 0 0 0-1 1v13a1 1 0 0 0 1 1H13" fill="var(--ic-cream)"/><path d="M10 12h9M15.5 8.5 19 12l-3.5 3.5" stroke="var(--ic-coral-deep)"/></symbol>
-    <symbol id="ic-account-delete" viewBox="0 0 24 24"><circle cx="9.5" cy="8" r="3.2" fill="var(--ic-coral)"/><path d="M3.8 19v-.8c0-2.7 2.4-4.7 5.7-4.7 1 0 2 .2 2.8.55" fill="var(--ic-coral)"/><path d="M14 14.5h6.5M18.7 14.5v5.2a1 1 0 0 1-1 1h-2.9a1 1 0 0 1-1-1v-5.2M16 14.3v-.8a1 1 0 0 1 1-1h.7a1 1 0 0 1 1 1v.8"/></symbol>
+    <!-- 固定バー前半7項目: quick-record-icons-concept-v2.png -->
+    <symbol id="ic-urine" viewBox="0 0 32 32"><path d="M16 3.5C9.8 11 6.5 16 6.5 20.2a9.5 9.5 0 0 0 19 0C25.5 16 22.2 11 16 3.5Z" fill="var(--ic-blue)"/><path d="M18.3 17.4l1.3 2.6 2.6 1.3-2.6 1.3-1.3 2.6-1.3-2.6-2.6-1.3 2.6-1.3Z" fill="#ffffff" stroke="none"/></symbol>
+    <symbol id="ic-stool" viewBox="0 0 32 32"><path d="M8 26h16a4 4 0 0 0-2.4-3.7 3.5 3.5 0 0 0 .3-6.2 3 3 0 0 0-1.1-5.4c.6-.7.9-1.7.5-2.7-.6-1.5-2.5-2-3.9-1-.9.7-1.3 1.8-1 2.9a3.1 3.1 0 0 0-3.2 4.6 3.6 3.6 0 0 0-1.4 6.4A4 4 0 0 0 8 26Z" fill="var(--ic-brown)"/></symbol>
+    <symbol id="ic-symptom" viewBox="0 0 32 32"><g transform="rotate(-20 16 16)"><rect x="3.5" y="12" width="25" height="8" rx="4" fill="var(--ic-peach)"/><path d="M12 12v8M20 12v8"/><path d="M16 18.6c-1.7-1.2-2.9-2.2-2.9-3.5A1.7 1.7 0 0 1 16 13.8a1.7 1.7 0 0 1 2.9 1.3c0 1.3-1.2 2.3-2.9 3.5Z" fill="var(--ic-coral-deep)" stroke="none"/><g fill="var(--ic-ink)" stroke="none"><circle cx="6.5" cy="14.8" r=".7"/><circle cx="8.6" cy="17" r=".7"/><circle cx="7" cy="18.4" r=".7"/><circle cx="25.5" cy="13.8" r=".7"/><circle cx="23.6" cy="16" r=".7"/><circle cx="25.2" cy="17.6" r=".7"/></g></g></symbol>
+    <symbol id="ic-weight" viewBox="0 0 32 32"><rect x="4" y="4" width="24" height="24" rx="6" fill="var(--ic-mint)"/><path d="M8 15.8A8 8 0 0 1 24 15.8Z" fill="#ffffff"/><path d="M9.7 12.9l1.5 1M12.4 10.2l1.1 1.5M16 9.2v1.9M19.6 10.2l-1.1 1.5M22.3 12.9l-1.5 1" stroke-width="1.2"/><path d="M16 15.8l-3.3-3.4"/><circle cx="16" cy="15.8" r=".95" fill="var(--ic-ink)" stroke="none"/><g fill="var(--ic-paw)" stroke="none"><ellipse cx="16" cy="23" rx="2.7" ry="2.3"/><circle cx="12.5" cy="20.7" r="1.35"/><circle cx="14.9" cy="18.9" r="1.4"/><circle cx="17.1" cy="18.9" r="1.4"/><circle cx="19.5" cy="20.7" r="1.35"/></g></symbol>
+    <symbol id="ic-treat" viewBox="0 0 32 32"><g transform="rotate(-28 16 16)"><path d="M9.5 12a3.2 3.2 0 1 0-3 3.8 3.2 3.2 0 1 0 3 3.8h13a3.2 3.2 0 1 0 3-3.8 3.2 3.2 0 1 0-3-3.8Z" fill="var(--ic-gold)"/><g fill="var(--ic-ink)" stroke="none"><circle cx="12" cy="15" r=".7"/><circle cx="15.4" cy="17" r=".7"/><circle cx="18.6" cy="15.4" r=".7"/><circle cx="21" cy="17.2" r=".7"/></g></g></symbol>
+    <symbol id="ic-meal" viewBox="0 0 32 32"><path d="M4 15.5c0 5 5.2 8.2 12 8.2s12-3.2 12-8.2Z" fill="var(--ic-coral)"/><path d="M2.5 15.5h27"/><path d="M6.5 15.5c1-3.4 4.6-5.6 9.5-5.6s8.5 2.2 9.5 5.6Z" fill="var(--ic-brown)"/><g fill="var(--ic-brown)"><circle cx="11" cy="12" r="2.2"/><circle cx="16" cy="10.4" r="2.4"/><circle cx="21" cy="12" r="2.2"/></g><g fill="#ffffff" stroke="none"><ellipse cx="16" cy="20" rx="2.1" ry="1.8"/><circle cx="13" cy="18" r="1.05"/><circle cx="14.9" cy="16.7" r="1.1"/><circle cx="17.1" cy="16.7" r="1.1"/><circle cx="19" cy="18" r="1.05"/></g></symbol>
+    <symbol id="ic-water" viewBox="0 0 32 32"><path d="M4 15c0 4.4 5.4 7.6 12 7.6s12-3.2 12-7.6c0-1.3-1-2.2-2.2-2.2H6.2C5 12.8 4 13.7 4 15Z" fill="var(--ic-turq)"/><ellipse cx="16" cy="14.2" rx="10" ry="3.3" fill="var(--ic-turq-light)"/><ellipse cx="16" cy="14.2" rx="6.2" ry="2" fill="none"/><ellipse cx="16" cy="14.2" rx="3" ry=".9" fill="none"/></symbol>
+    <!-- 固定バー追加5項目: quick-record-icons-additional-concept.png -->
+    <symbol id="ic-walk" viewBox="0 0 32 32"><path d="M9 25.5c1-5.6 5-8.2 10.5-11.5" stroke-dasharray="0.1 3.8"/><g fill="var(--ic-paw)" stroke="none"><ellipse cx="10.5" cy="12" rx="3.3" ry="3.9"/><circle cx="6.5" cy="7.9" r="1.65"/><circle cx="9.6" cy="6" r="1.75"/><circle cx="13" cy="7.1" r="1.75"/><circle cx="14.5" cy="10.6" r="1.5"/></g><g fill="var(--ic-paw)" stroke="none" transform="rotate(24 21.5 21)"><ellipse cx="21.5" cy="21" rx="3.3" ry="3.9"/><circle cx="17.5" cy="16.9" r="1.65"/><circle cx="20.6" cy="15" r="1.75"/><circle cx="24" cy="16.1" r="1.75"/><circle cx="25.5" cy="19.6" r="1.5"/></g></symbol>
+    <symbol id="ic-play" viewBox="0 0 32 32"><circle cx="14" cy="16" r="9.5" fill="var(--ic-mint)"/><path d="M8.5 8C6 12 6 20 8.5 24" fill="var(--ic-coral)" stroke="none"/><path d="M19.5 8c2.4 4 2.4 12 0 16" fill="var(--ic-coral)" stroke="none"/><circle cx="14" cy="16" r="9.5" fill="none"/><path d="M14 6.5c3.2 3.8 3.2 15.2 0 19M4.8 12c5.6 2.8 12.8 2.8 18.4 0M4.8 20c5.6-2.8 12.8-2.8 18.4 0"/><path d="M25.5 20.5c1.5.9 2.7 2.2 3.4 3.9M24 24.2c1.7.4 3.2.3 4.7-.5" stroke-width="1.7"/></symbol>
+    <symbol id="ic-medication" viewBox="0 0 32 32"><g transform="rotate(-42 15 15)"><rect x="3" y="9.5" width="24" height="11" rx="5.5" fill="var(--ic-lavender)"/><path d="M15 9.5H8.5a5.5 5.5 0 0 0 0 11H15Z" fill="var(--ic-coral)" stroke="none"/><rect x="3" y="9.5" width="24" height="11" rx="5.5" fill="none"/><path d="M15 9.5v11"/></g><circle cx="22" cy="22" r="6.4" fill="var(--ic-cream)"/><path d="M22 18.2V22l2.6 1.7"/><g fill="var(--ic-ink)" stroke="none"><circle cx="22" cy="16.3" r=".6"/><circle cx="27.8" cy="22" r=".6"/></g></symbol>
+    <symbol id="ic-visit" viewBox="0 0 32 32"><path d="M4 26V15l4-1v-2.5h4V8h8v3.5h4V14l4 1v11Z" fill="var(--ic-cream)"/><path d="M3 26h26"/><path d="M16 3v4.5M13.5 5.2h5" stroke="var(--ic-coral-deep)" stroke-width="2.2"/><g fill="var(--ic-paw)" stroke="none"><ellipse cx="16" cy="14.6" rx="1.9" ry="1.6"/><circle cx="13.6" cy="12.5" r=".95"/><circle cx="15.3" cy="11.4" r="1"/><circle cx="16.7" cy="11.4" r="1"/><circle cx="18.4" cy="12.5" r=".95"/></g><rect x="13.8" y="19" width="4.4" height="7" fill="var(--ic-mint-deep)"/><rect x="6.3" y="18" width="3.6" height="3.6" fill="var(--ic-blue)"/><rect x="22.1" y="18" width="3.6" height="3.6" fill="var(--ic-blue)"/></symbol>
+    <symbol id="ic-memo" viewBox="0 0 32 32"><rect x="6.5" y="6" width="16" height="21" rx="2" fill="var(--ic-yellow)"/><path d="M9.5 4.2c0 2.3 0 3.4-1.3 3.6M14 4.2c0 2.3 0 3.4-1.3 3.6M18.5 4.2c0 2.3 0 3.4-1.3 3.6"/><path d="M10 13h9M10 17h9M10 21h6"/><g transform="rotate(42 20 21)"><rect x="17" y="18.5" width="12.5" height="4.5" rx="1" fill="var(--ic-coral)"/><path d="M26.5 18.5h1.6a1.4 1.4 0 0 1 1.4 1.4v1.7a1.4 1.4 0 0 1-1.4 1.4h-1.6Z" fill="var(--ic-lavender)" stroke="none"/><rect x="17" y="18.5" width="12.5" height="4.5" rx="1" fill="none"/><path d="M17 18.5 14.5 20.75 17 23Z" fill="var(--ic-ink)" stroke="none"/><path d="M26.5 18.5v4.5"/></g></symbol>
+    <!-- 犬・猫・主要ナビ: navigation-pet-icons-concept.png -->
+    <symbol id="ic-paw" viewBox="0 0 32 32"><g fill="var(--ic-paw)" stroke="none"><ellipse cx="16" cy="20.5" rx="4.8" ry="4.1"/><ellipse cx="8.6" cy="14.6" rx="2.6" ry="3.1"/><ellipse cx="13.2" cy="9.8" rx="2.7" ry="3.3"/><ellipse cx="18.8" cy="9.8" rx="2.7" ry="3.3"/><ellipse cx="23.4" cy="14.6" rx="2.6" ry="3.1"/></g></symbol>
+    <symbol id="ic-dog" viewBox="0 0 32 32"><g fill="var(--ic-tan)" stroke-width="1.6"><path d="M9.2 6.2C4.5 6.6 1.5 10.4 2.6 16c.7 3.8 3.4 5.8 6.3 4.9 2-.6 2.8-2.6 2.5-5-.3-2.7-.2-6.4-1-8.3-.3-.8-.8-1.3-1.2-1.4Z"/><path d="M22.8 6.2c4.7.4 7.7 4.2 6.6 9.8-.7 3.8-3.4 5.8-6.3 4.9-2-.6-2.8-2.6-2.5-5 .3-2.7.2-6.4 1-8.3.3-.8.8-1.3 1.2-1.4Z"/></g><circle cx="16" cy="16.6" r="9.4" fill="var(--ic-cream)"/><circle cx="16" cy="16" r="13" fill="none" stroke-width="1.3"/><path d="M14.5 6.7a1.6 1.6 0 0 1 3 0" fill="var(--ic-tan)" stroke="none"/><ellipse cx="16" cy="20" rx="5.1" ry="4.1" fill="#ffffff" stroke="none"/><path d="M11 19.9a5 4.1 0 0 0 10 0"/><ellipse cx="12.6" cy="14.8" rx="1.15" ry="1.55" fill="var(--ic-ink)" stroke="none"/><ellipse cx="19.4" cy="14.8" rx="1.15" ry="1.55" fill="var(--ic-ink)" stroke="none"/><path d="M16 16.9c-1.3 0-2.1.8-2.1 1.6s.9 1.5 2.1 1.5 2.1-.7 2.1-1.5-.8-1.6-2.1-1.6Z" fill="var(--ic-ink)" stroke="none"/><path d="M16 20v1.7M14 21.5a3 3 0 0 0 4 0"/></symbol>
+    <symbol id="ic-cat" viewBox="0 0 32 32"><path d="M9.5 9 5.5 2.5 13.5 6.5ZM22.5 9 26.5 2.5 18.5 6.5Z" fill="var(--ic-tan)"/><circle cx="16" cy="16.5" r="10" fill="var(--ic-cream)"/><circle cx="16" cy="16" r="13" fill="none" stroke-width="1.4"/><path d="M9.5 9 5.5 2.5 13.5 6.5M22.5 9 26.5 2.5 18.5 6.5" fill="none"/><path d="M13.3 8.6 12 12.8M16 8v4.6M18.7 8.6 20 12.8" stroke="var(--ic-coral)" stroke-width="1.7"/><ellipse cx="10.6" cy="18.8" rx="1.7" ry="1.15" fill="var(--ic-peach)" stroke="none"/><ellipse cx="21.4" cy="18.8" rx="1.7" ry="1.15" fill="var(--ic-peach)" stroke="none"/><circle cx="12.6" cy="16" r="1.3" fill="var(--ic-ink)" stroke="none"/><circle cx="19.4" cy="16" r="1.3" fill="var(--ic-ink)" stroke="none"/><path d="M16 17.6 14.5 19.4h3Z" fill="var(--ic-coral-deep)" stroke="none"/><path d="M16 19.4v1.3M14.2 20.5a2.7 2 0 0 0 3.6 0"/><path d="M4 15.6h4.8M4 18.6h4.8M4.4 21.6l4.4-1M28 15.6h-4.8M28 18.6h-4.8M27.6 21.6l-4.4-1" stroke-width="1.4"/></symbol>
+    <symbol id="ic-daily" viewBox="0 0 32 32"><g transform="rotate(-7 15 15)"><rect x="6" y="6" width="17.5" height="19.5" rx="2" fill="var(--ic-cream)"/><path d="M9.5 4.3c0 2.2 0 3.3-1.3 3.5M13.7 4.3c0 2.2 0 3.3-1.3 3.5M17.9 4.3c0 2.2 0 3.3-1.3 3.5M22.1 4.3c0 2.2 0 3.3-1.3 3.5"/><path d="M10 12.5h9.5M10 15.5h9.5M10 18.5h6"/><g fill="var(--ic-paw)" stroke="none"><ellipse cx="11" cy="21.6" rx="1.6" ry="1.4"/><circle cx="8.9" cy="19.7" r=".82"/><circle cx="10.4" cy="18.7" r=".86"/><circle cx="11.9" cy="18.8" r=".86"/><circle cx="13.1" cy="20" r=".8"/></g></g><circle cx="22.5" cy="22.5" r="6.2" fill="var(--ic-cream)"/><circle cx="22.5" cy="22.5" r="6.2" fill="none" stroke="var(--ic-coral)"/><path d="M22.5 18.6V22.5l2.7 1.8"/></symbol>
+    <symbol id="ic-chart" viewBox="0 0 32 32"><path d="M6 5v21h21" stroke-width="1.7"/><rect x="8" y="18" width="4.4" height="8" rx="1" fill="var(--ic-gold-soft)"/><rect x="14" y="13.5" width="4.4" height="12.5" rx="1" fill="var(--ic-gold)"/><rect x="20" y="9" width="4.4" height="17" rx="1" fill="var(--ic-coral)"/><path d="M8 15.5l6.2-5.2 6 3L27 5.5"/><path d="M23 5h4.5v4.2"/><g fill="var(--ic-ink)" stroke="none"><circle cx="8" cy="15.5" r="1.1"/><circle cx="14.2" cy="10.3" r="1.1"/><circle cx="20.2" cy="13.3" r="1.1"/></g></symbol>
+    <symbol id="ic-menu" viewBox="0 0 32 32"><path d="M5 9.5h22M5 16h22M5 22.5h12.5" stroke-width="3.6"/><g fill="var(--ic-paw)" stroke="none"><ellipse cx="24" cy="24.5" rx="2.1" ry="1.8"/><circle cx="21.3" cy="22.2" r="1.05"/><circle cx="23.4" cy="21.1" r="1.1"/><circle cx="25.5" cy="21.9" r="1.05"/></g></symbol>
+    <symbol id="ic-family" viewBox="0 0 32 32"><path d="M16 4.4c-1-1.2-2.9-1.2-3.8 0-.9 1.1-.6 2.6 3.8 5 4.4-2.4 4.7-3.9 3.8-5-.9-1.2-2.8-1.2-3.8 0Z" fill="var(--ic-coral-deep)" stroke="none"/><circle cx="10.5" cy="12.5" r="3.2" fill="var(--ic-tan)"/><path d="M4.8 25.5v-2.8a5.7 5.7 0 0 1 11.4 0v2.8Z" fill="var(--ic-mint)"/><circle cx="21.5" cy="12.5" r="3.2" fill="var(--ic-tan)"/><path d="M15.8 25.5v-2.8a5.7 5.7 0 0 1 11.4 0v2.8Z" fill="var(--ic-coral)"/><circle cx="16" cy="17.4" r="2.9" fill="var(--ic-tan)"/><path d="M11 26v-2.2a5 5 0 0 1 10 0V26Z" fill="var(--ic-gold)"/></symbol>
+    <symbol id="ic-upgrade" viewBox="0 0 32 32"><path d="M4 11l5.2 4.6L16 6.5l6.8 9.1L28 11l-2.3 12.5H6.3Z" fill="var(--ic-gold)"/><path d="M6.6 23.5h18.8l-.7 3.8H7.3Z" fill="var(--ic-coral)" stroke="none"/><path d="M6.6 23.5h18.8l-.7 3.8H7.3Z" fill="none"/><g fill="var(--ic-ink)" stroke="none"><circle cx="4" cy="10" r="1.7"/><circle cx="16" cy="5.5" r="1.7"/><circle cx="28" cy="10" r="1.7"/></g><g fill="var(--ic-coral-deep)" stroke="none"><ellipse cx="16" cy="18" rx="1.9" ry="1.6"/><circle cx="13.5" cy="15.8" r="1.05"/><circle cx="15.2" cy="14.5" r="1.1"/><circle cx="16.8" cy="14.5" r="1.1"/><circle cx="18.5" cy="15.8" r="1.05"/></g></symbol>
+    <!-- メニュー(記録の設定・健康管理・記録を活用): menu-icons-health-records-concept.png -->
+    <symbol id="ic-meal-setup" viewBox="0 0 32 32"><path d="M3 14c1.4 3.9 5.2 6.1 10 6.1s8.6-2.2 10-6.1Z" fill="var(--ic-coral)"/><path d="M2 14h22"/><path d="M5 14c.9-2.8 3.8-4.5 8-4.5s7.1 1.7 8 4.5Z" fill="var(--ic-brown)"/><g fill="var(--ic-brown)"><circle cx="9" cy="10.7" r="2"/><circle cx="13" cy="9.3" r="2.1"/><circle cx="17" cy="10.7" r="2"/></g><g fill="#ffffff" stroke="none"><ellipse cx="13" cy="17.3" rx="1.7" ry="1.4"/><circle cx="10.7" cy="15.6" r=".85"/><circle cx="12.2" cy="14.6" r=".9"/><circle cx="13.8" cy="14.6" r=".9"/><circle cx="15.3" cy="15.6" r=".85"/></g><g transform="translate(24 20.5)" stroke="var(--ic-ink)"><circle cx="0" cy="0" r="3.4" fill="var(--ic-cream)"/><path d="M0 -5V-3.2M0 5V3.2M-5 0H-3.2M5 0H3.2M-3.5 -3.5l1.2 1.2M3.5 3.5l-1.2 -1.2M-3.5 3.5l1.2 -1.2M3.5 -3.5l-1.2 1.2" stroke-width="1.8"/><circle cx="0" cy="0" r="1.3" fill="none"/></g></symbol>
+    <symbol id="ic-med-setup" viewBox="0 0 32 32"><g transform="rotate(-40 13 14)"><rect x="2" y="9" width="22" height="10" rx="5" fill="var(--ic-lavender)"/><path d="M13 9H7.5a5 5 0 0 0 0 10H13Z" fill="var(--ic-coral)" stroke="none"/><rect x="2" y="9" width="22" height="10" rx="5" fill="none"/><path d="M13 9v10"/></g><g transform="translate(23.5 21)" stroke="var(--ic-ink)"><circle cx="0" cy="0" r="3.4" fill="var(--ic-cream)"/><path d="M0 -5V-3.2M0 5V3.2M-5 0H-3.2M5 0H3.2M-3.5 -3.5l1.2 1.2M3.5 3.5l-1.2 -1.2M-3.5 3.5l1.2 -1.2M3.5 -3.5l-1.2 1.2" stroke-width="1.8"/><circle cx="0" cy="0" r="1.3" fill="none"/></g></symbol>
+    <symbol id="ic-prevention" viewBox="0 0 32 32"><path d="M16 4 6 7.5v7.2c0 6.2 4.1 10.8 10 12.8 5.9-2 10-6.6 10-12.8V7.5Z" fill="var(--ic-mint)"/><g fill="var(--ic-paw)" stroke="none"><ellipse cx="16" cy="18" rx="2.7" ry="2.3"/><circle cx="12.3" cy="15.2" r="1.35"/><circle cx="14.9" cy="13.2" r="1.4"/><circle cx="17.1" cy="13.2" r="1.4"/><circle cx="19.7" cy="15.2" r="1.35"/></g><path d="M26 4l1 2.7 2.7 1-2.7 1-1 2.7-1-2.7-2.7-1 2.7-1Z" fill="var(--ic-gold)" stroke-width="1.3"/></symbol>
+    <symbol id="ic-visits" viewBox="0 0 32 32"><path d="M4.5 15 15 6l10.5 9Z" fill="var(--ic-coral)"/><path d="M7 14v11h16V14" fill="var(--ic-cream)"/><path d="M22 7v4.4M19.8 9.2h4.4" stroke="var(--ic-coral-deep)" stroke-width="1.9"/><path d="M11.5 25v-6a3.5 3.5 0 0 1 7 0v6Z" fill="var(--ic-brown)"/><rect x="8.2" y="16" width="4" height="4" fill="var(--ic-blue)"/><g transform="translate(18.5 17.5)"><rect x="0" y="1" width="11.5" height="10.5" rx="1.5" fill="var(--ic-cream)"/><path d="M0 4.6h11.5"/><path d="M0 4.2V2.5A1.5 1.5 0 0 1 1.5 1h8.5A1.5 1.5 0 0 1 11.5 2.5V4.2Z" fill="var(--ic-coral)" stroke="none"/><rect x="0" y="1" width="11.5" height="10.5" rx="1.5" fill="none"/><path d="M3 0v2M8.5 0v2"/><g fill="var(--ic-ink)" stroke="none"><circle cx="3" cy="7" r=".72"/><circle cx="5.75" cy="7" r=".72"/><circle cx="8.5" cy="7" r=".72"/><circle cx="3" cy="9.4" r=".72"/><circle cx="5.75" cy="9.4" r=".72"/></g></g></symbol>
+    <symbol id="ic-report" viewBox="0 0 32 32"><path d="M7 3.5h11l5.5 5.5V27a1.5 1.5 0 0 1-1.5 1.5H7A1.5 1.5 0 0 1 5.5 27V5A1.5 1.5 0 0 1 7 3.5Z" fill="var(--ic-cream)"/><path d="M18 3.5v6h5.5"/><path d="M11 12a2.2 2.2 0 0 1 3.7-1.4A2.2 2.2 0 0 1 18.4 12c0 1.8-1.9 3-3.7 4.4C12.9 15 11 13.8 11 12Z" fill="var(--ic-coral-deep)" stroke="none"/><path d="M9 19.5h2.2l1.3-2.8 1.9 5.2 1.5-3 1 1.6h4.6"/><path d="M9.5 24h9"/><g transform="translate(19.5 19.5)"><circle cx="4.2" cy="4.2" r="4.8" fill="var(--ic-cream)"/><path d="M4.2 6.6V2M2 4l2.2-2 2.2 2" stroke="var(--ic-mint-deep)" stroke-width="1.8"/><circle cx="4.2" cy="4.2" r="4.8" fill="none"/></g></symbol>
+    <symbol id="ic-history" viewBox="0 0 32 32"><rect x="4" y="6" width="21.5" height="20" rx="2.5" fill="var(--ic-cream)"/><path d="M4 12.8V8.5A2.5 2.5 0 0 1 6.5 6h16.5A2.5 2.5 0 0 1 25.5 8.5v4.3Z" fill="var(--ic-gold)" stroke="none"/><rect x="4" y="6" width="21.5" height="20" rx="2.5" fill="none"/><path d="M4 12.8h21.5M10 3.8v4.4M19.5 3.8v4.4"/><g fill="var(--ic-tan)" stroke="none"><rect x="7.5" y="15.5" width="3.2" height="3.2" rx=".6"/><rect x="13.2" y="15.5" width="3.2" height="3.2" rx=".6"/><rect x="18.9" y="15.5" width="3.2" height="3.2" rx=".6"/><rect x="7.5" y="20.5" width="3.2" height="3.2" rx=".6"/><rect x="13.2" y="20.5" width="3.2" height="3.2" rx=".6"/></g><g transform="translate(18.5 18)"><circle cx="4.7" cy="4.7" r="5" fill="var(--ic-cream)"/><path d="M4.7 1.3a3.4 3.4 0 1 1-3.2 2.3" fill="none" stroke-width="1.8"/><path d="M2 1 1.4 4l3-.4Z" fill="var(--ic-ink)" stroke="none"/><circle cx="4.7" cy="4.7" r="5" fill="none"/></g></symbol>
+    <!-- メニュー(サービス・サポート・アカウント): menu-icons-support-account-concept.png -->
+    <symbol id="ic-guide" viewBox="0 0 32 32"><path d="M16 8C12.8 5.8 8.5 4.8 4 6v18.5c4.5-1.2 8.8-.2 12 2 3.2-2.2 7.5-3.2 12-2V6c-4.5-1.2-8.8-.2-12 2Z" fill="var(--ic-cream)"/><path d="M16 8v18.5"/><path d="M8 6v8l2-1.7 2 1.7V6" fill="var(--ic-coral)" stroke="none"/><path d="M8 6v8l2-1.7 2 1.7V6" fill="none"/><g fill="var(--ic-paw)" stroke="none"><ellipse cx="10" cy="9.8" rx="1.1" ry=".95"/><circle cx="8.6" cy="8.4" r=".55"/><circle cx="9.6" cy="7.8" r=".6"/><circle cx="10.6" cy="8" r=".55"/></g><path d="M19 13.5a2.2 2.2 0 1 1 2.9 2.1c-.9.3-1.3 1.1-1.3 2M20.6 20.5v.1" stroke-width="2"/></symbol>
+    <symbol id="ic-contact" viewBox="0 0 32 32"><rect x="3" y="8" width="19" height="15" rx="2.5" fill="var(--ic-coral)"/><path d="M3.8 9.5 12.5 16.2 21.2 9.5"/><g transform="translate(17 3)"><path d="M4 0.5h6.5a4 4 0 0 1 0 8H8l-3.2 2.2.4-2.3A4 4 0 0 1 4 .5Z" fill="var(--ic-cream)"/><g fill="var(--ic-ink)" stroke="none"><circle cx="5.5" cy="4.5" r=".85"/><circle cx="8.2" cy="4.5" r=".85"/><circle cx="10.9" cy="4.5" r=".85"/></g></g></symbol>
+    <symbol id="ic-privacy" viewBox="0 0 32 32"><path d="M7 3.5h11l5.5 5.5V24a1.5 1.5 0 0 1-1.5 1.5H8.5A1.5 1.5 0 0 1 7 24V5A1.5 1.5 0 0 1 7 3.5Z" fill="var(--ic-cream)"/><path d="M18 3.5v6h5.5"/><path d="M10 12.5h9M10 16h9M10 19.5h5"/><g transform="translate(15.5 14.5)"><path d="M5.5 0 0 2v4.8C0 10.6 2.4 13.2 5.5 14.4 8.6 13.2 11 10.6 11 6.8V2Z" fill="var(--ic-mint)"/><path d="M2.8 7.2 4.7 9.1 8.3 5.1" stroke="#ffffff" stroke-width="1.9"/></g></symbol>
+    <symbol id="ic-logout" viewBox="0 0 32 32"><path d="M6 27.5V11a7.5 7.5 0 0 1 15 0v16.5Z" fill="var(--ic-cream)"/><path d="M9 27.5V12a4.5 4.5 0 0 1 9 0v15.5Z" fill="var(--ic-brown)"/><circle cx="15" cy="19.5" r="1.1" fill="var(--ic-ink)" stroke="none"/><path d="M16.5 19h11.5M23 13.5l5.5 5.5-5.5 5.5" stroke="var(--ic-coral-deep)"/></symbol>
+    <symbol id="ic-account-delete" viewBox="0 0 32 32"><circle cx="13" cy="10" r="4.6" fill="var(--ic-coral)"/><path d="M4.5 26v-1c0-4.2 3.9-7.2 8.5-7.2 1.7 0 3.3.4 4.6 1.1" fill="var(--ic-coral)"/><path d="M4.5 26v-1c0-4.2 3.9-7.2 8.5-7.2 1.7 0 3.3.4 4.6 1.1" fill="var(--ic-coral)" stroke="var(--ic-ink)"/><g transform="translate(18 16.5)"><path d="M0 3.2h11.5"/><path d="M9 3.2v9.4a1.4 1.4 0 0 1-1.4 1.4H3.9a1.4 1.4 0 0 1-1.4-1.4V3.2M3.9 3.2V1.4A1.4 1.4 0 0 1 5.3 0h1a1.4 1.4 0 0 1 1.4 1.4V3.2" fill="var(--ic-coral)"/><path d="M4.4 5.8v5.4M7.1 5.8v5.4" stroke-width="1.5"/></g></symbol>
+    <!-- アップグレード詳細の不足2項目: upgrade-missing-icons-concept.png -->
+    <symbol id="ic-lock" viewBox="0 0 32 32"><path d="M9 15.5V12a7 7 0 0 1 14 0v3.5h-3.2V12a3.8 3.8 0 0 0-7.6 0v3.5Z" fill="var(--ic-lavender)"/><rect x="6" y="14.5" width="20" height="14" rx="4.5" fill="var(--ic-cream)"/><path d="M16 18.5a2.3 2.3 0 0 0-1.2 4.3L13.8 27h4.4l-1-4.2A2.3 2.3 0 0 0 16 18.5Z" fill="var(--ic-coral-deep)" stroke="none"/></symbol>
+    <symbol id="ic-camera" viewBox="0 0 32 32"><path d="M4 11.5h4l2-3h12l2 3h4a2.2 2.2 0 0 1 2.2 2.2v10.6A2.2 2.2 0 0 1 27.8 26.5H4.2A2.2 2.2 0 0 1 2 24.3V13.7A2.2 2.2 0 0 1 4 11.5Z" fill="var(--ic-blue)"/><rect x="6" y="6.5" width="4.5" height="3" rx="1" fill="var(--ic-coral)"/><rect x="24.5" y="12.5" width="4.5" height="2.8" rx="1.4" fill="var(--ic-cream)"/><circle cx="16" cy="18.8" r="6.6" fill="var(--ic-cream)"/><circle cx="16" cy="18.8" r="4.2" fill="var(--ic-mint)"/><g fill="#ffffff" stroke="none"><ellipse cx="16" cy="20.3" rx="1.55" ry="1.3"/><circle cx="14.1" cy="18.6" r=".85"/><circle cx="15.4" cy="17.6" r=".9"/><circle cx="16.6" cy="17.6" r=".9"/><circle cx="17.9" cy="18.6" r=".85"/></g></symbol>
+    <!-- レコードカード・バナー用の単体ごみ箱（アカウント削除の person+trash とは別用途） -->
+    <symbol id="ic-trash" viewBox="0 0 32 32"><path d="M5.5 9h21"/><path d="M8 9 9.6 26.3A1.8 1.8 0 0 0 11.4 28h9.2a1.8 1.8 0 0 0 1.8-1.7L24 9Z" fill="var(--ic-cream)"/><path d="M12.5 9V6.4A1.8 1.8 0 0 1 14.3 4.5h3.4A1.8 1.8 0 0 1 19.5 6.4V9"/><path d="M13 13.5 13.6 23M19 13.5 18.4 23M16 13.5V23" stroke-width="1.6"/></symbol>
   </defs>
 </svg>
 
@@ -384,7 +416,7 @@
 
 <div id="authScreen" class="modal-backdrop">
   <div class="modal" style="text-align:center;">
-    <div class="brand" style="margin-bottom:6px;">🐾 どうぶつ健康手帳</div>
+    <div class="brand" style="margin-bottom:6px;"><svg class="ic" aria-hidden="true" focusable="false"><use href="#ic-paw"/></svg>どうぶつ健康手帳</div>
     <div id="authNormal">
       <p class="muted">ログインすると記録がクラウドに保存され、別の端末からも同じデータにアクセスできます。</p>
       <div id="gSignInButtonContainer" style="display:flex;justify-content:center;margin:10px 0;"></div>
@@ -410,16 +442,17 @@
 
 <div class="app">
   <header class="topbar">
-    <div class="brand">🐾 どうぶつ健康手帳</div>
+    <div class="brand"><svg class="ic" aria-hidden="true" focusable="false"><use href="#ic-paw"/></svg>どうぶつ健康手帳</div>
     <div id="userBar" class="user-bar"></div>
     <div class="header-tools">
       <div class="pet-switch">
+        <span class="pet-switch-species" id="petSwitchSpecies" aria-hidden="true"></span>
         <select id="petSelect" onchange="App.selectPet(this.value)"></select>
-        <button class="secondary" onclick="App.openPetModal()"><span class="btn-label-full">+ ペット追加</span><span class="btn-label-compact">+🐶🐱</span></button>
+        <button class="secondary" onclick="App.openPetModal()" aria-label="ペット追加"><span class="btn-label-full">+ ペット追加</span><span class="btn-label-compact">+<svg class="ic" aria-hidden="true" focusable="false"><use href="#ic-dog"/></svg><svg class="ic" aria-hidden="true" focusable="false"><use href="#ic-cat"/></svg></span></button>
         <button class="ghost" onclick="App.openFamilyModal()" aria-label="家族共有"><span class="btn-label-full"><svg class="ic" aria-hidden="true" focusable="false"><use href="#ic-family"/></svg> 家族共有</span><span class="btn-label-compact"><svg class="ic" aria-hidden="true" focusable="false"><use href="#ic-family"/></svg></span></button>
         <button class="ghost" onclick="App.openUpgradeModal()" aria-label="アップグレード"><span class="btn-label-full"><svg class="ic" aria-hidden="true" focusable="false"><use href="#ic-upgrade"/></svg> アップグレード</span><span class="btn-label-compact"><svg class="ic" aria-hidden="true" focusable="false"><use href="#ic-upgrade"/></svg></span></button>
       </div>
-      <button id="usageGuideButton" type="button" class="usage-guide-button hidden">📖 使い方ガイド</button>
+      <button id="usageGuideButton" type="button" class="usage-guide-button hidden"><svg class="ic" aria-hidden="true" focusable="false"><use href="#ic-guide"/></svg>使い方ガイド</button>
     </div>
   </header>
   <div id="householdBanner" class="hidden"></div>
@@ -1001,9 +1034,9 @@ const UPGRADE_ITEMS = [
     desc:'無料では1匹まで登録できます。購入すると、2匹目以降のペットも追加登録できるようになります。',
     diagram:`
       <div class="upgrade-diagram">
-        <div class="upgrade-diagram-state"><span class="upgrade-diagram-icon">🐾</span><span class="upgrade-diagram-label">1匹まで(無料)</span></div>
+        <div class="upgrade-diagram-state"><span class="upgrade-diagram-icon">${iconSvg('paw')}</span><span class="upgrade-diagram-label">1匹まで(無料)</span></div>
         <span class="upgrade-diagram-arrow">→</span>
-        <div class="upgrade-diagram-state"><span class="upgrade-diagram-icon">🐾🐾🐾</span><span class="upgrade-diagram-label">2匹目以降も登録可能に</span></div>
+        <div class="upgrade-diagram-state"><span class="upgrade-diagram-icon">${iconSvg('paw')}${iconSvg('paw')}${iconSvg('paw')}</span><span class="upgrade-diagram-label">2匹目以降も登録可能に</span></div>
       </div>`
   },
   {
@@ -1011,9 +1044,9 @@ const UPGRADE_ITEMS = [
     desc:'無料枠(月1回)を使い切った後も、続けてPDFレポートを出力できるようになります。',
     diagram:`
       <div class="upgrade-diagram">
-        <div class="upgrade-diagram-state"><span class="upgrade-diagram-icon">🔒</span><span class="upgrade-diagram-label">今月の出力回数を使い切った状態</span></div>
+        <div class="upgrade-diagram-state"><span class="upgrade-diagram-icon">${iconSvg('lock')}</span><span class="upgrade-diagram-label">今月の出力回数を使い切った状態</span></div>
         <span class="upgrade-diagram-arrow">→</span>
-        <div class="upgrade-diagram-state"><span class="upgrade-diagram-icon">🖨️ +5</span><span class="upgrade-diagram-label">追加5回分をすぐ利用可能に</span></div>
+        <div class="upgrade-diagram-state"><span class="upgrade-diagram-icon">${iconSvg('report')} +5</span><span class="upgrade-diagram-label">追加5回分をすぐ利用可能に</span></div>
       </div>`
   },
   {
@@ -1021,11 +1054,11 @@ const UPGRADE_ITEMS = [
     descHtml:`
       <p style="margin:0;">通院中のペットの体調管理に役立つ機能がまとめて使えるようになります。</p>
       <ul>
-        <li>💊 投薬リマインダー通知(飲ませる時間になったらお知らせ)</li>
-        <li>📷 記録への写真添付(便・尿・患部などを残せる)</li>
-        <li>📊 グラフの拡張(食欲・お散歩の推移、日々の状態・症状のタイムライン、期間指定表示)</li>
-        <li>📝 「今週のようす」(週次の体調傾向を自動でお知らせ)</li>
-        <li>🖨 PDFレポートの拡張(グラフ画像やタイムライン表も出力)</li>
+        <li>${iconSvg('medication')}投薬リマインダー通知(飲ませる時間になったらお知らせ)</li>
+        <li>${iconSvg('camera')}記録への写真添付(便・尿・患部などを残せる)</li>
+        <li>${iconSvg('chart')}グラフの拡張(食欲・お散歩の推移、日々の状態・症状のタイムライン、期間指定表示)</li>
+        <li>${iconSvg('memo')}「今週のようす」(週次の体調傾向を自動でお知らせ)</li>
+        <li>${iconSvg('report')}PDFレポートの拡張(グラフ画像やタイムライン表も出力)</li>
       </ul>`,
     media:[
       { src:'upgrade-images/graph-sample-walk.jpg', alt:'お散歩時間の推移グラフの例', caption:'お散歩時間の推移' },
@@ -2184,17 +2217,27 @@ const App = {
 
   renderPetSelect(){
     const sel = document.getElementById('petSelect');
+    // ネイティブselectのoptionにはSVGを置けないため、絵文字は入れず種別アイコンはselectの外に出す。
+    const speciesBox = document.getElementById('petSwitchSpecies');
     if(state.pets.length === 0){
       sel.innerHTML = `<option value="">ペット未登録</option>`;
+      if(speciesBox) speciesBox.innerHTML = '';
       return;
     }
     sel.replaceChildren(...state.pets.map(p => {
       const option = document.createElement('option');
       option.value = displayText(p.id);
       option.selected = p.id === state.currentPetId;
-      option.textContent = `${p.species==='犬'?'🐶':(p.species==='猫'?'🐱':'🐾')} ${displayText(p.name)}`;
+      option.textContent = displayText(p.name);
       return option;
     }));
+    if(speciesBox){
+      const current = state.pets.find(p => p.id === state.currentPetId) || state.pets[0];
+      const sp = current ? current.species : '';
+      speciesBox.innerHTML = sp === '犬' ? petTypeIcon('dog','犬')
+        : sp === '猫' ? petTypeIcon('cat','猫')
+        : petTypeIcon('paw','ペット');
+    }
   },
 
   selectPet(id){
@@ -2853,8 +2896,14 @@ const App = {
   renderHouseholdBanner(){
     const banner = document.getElementById('householdBanner');
     banner.replaceChildren();
-    const addBanner = (message, buttonText, handler) => {
+    // iconId を渡すと統一SVG(家族共有アイコン等)を行頭に付ける。警告記号はテキストのまま残す。
+    const addBanner = (message, buttonText, handler, iconId) => {
       banner.classList.remove('hidden');
+      if(iconId){
+        const iconWrap = document.createElement('span');
+        iconWrap.innerHTML = iconSvg(iconId);
+        banner.append(iconWrap.firstChild);
+      }
       const messageEl = document.createElement('span');
       messageEl.textContent = message;
       banner.append(messageEl);
@@ -2867,17 +2916,17 @@ const App = {
       }
     };
     if(state.householdStatus === 'loading' || state.householdStatus === 'switching'){
-      addBanner('👪 共有情報を確認しています…');
+      addBanner('共有情報を確認しています…', null, null, 'family');
     } else if(state.householdStatus === 'unavailable'){
       addBanner(`⚠️ ${state.householdError || '共有情報の読み込みに失敗しました。'}`, '再試行', () => App.retryHousehold());
     } else if(state.householdStatus === 'revoked'){
       addBanner(`⚠️ ${state.householdError || '共有情報はありますが権限がありません。'}`, '再試行', () => App.retryHousehold());
     } else if(state.linkedOwnerUid){
-      const prefix = state.householdStatus === 'offline' ? '⚠️ オフライン: ' : '👪 ';
+      const prefix = state.householdStatus === 'offline' ? '⚠️ オフライン: ' : '';
       const mode = state.entitlements?.familyWritesSuspended ? '閲覧中です（編集は一時停止中）' : '閲覧・編集中です';
-      addBanner(`${prefix}家族共有として、他の方のペット記録を${mode}`, '自分のデータに戻る', () => App.leaveHousehold());
+      addBanner(`${prefix}家族共有として、他の方のペット記録を${mode}`, '自分のデータに戻る', () => App.leaveHousehold(), 'family');
     } else if(state.knownHouseholdUid){
-      addBanner('👪 家族共有に参加しています', '共有データを見る', () => App.rejoinHousehold());
+      addBanner('家族共有に参加しています', '共有データを見る', () => App.rejoinHousehold(), 'family');
     } else {
       banner.classList.add('hidden');
     }
@@ -2934,7 +2983,7 @@ const App = {
       const scheduledDate = state.deletionScheduledFor
         ? state.deletionScheduledFor.toDate().toLocaleDateString('ja-JP', {year:'numeric', month:'2-digit', day:'2-digit'})
         : '(日付を読み込み中)';
-      banner.innerHTML = `<span>🗑 アカウント削除を申請中です。${scheduledDate}以降、削除の対象になります。</span><button onclick="App.cancelAccountDeletion()">申請を取り消す</button>`;
+      banner.innerHTML = `<span>${iconSvg('trash')}アカウント削除を申請中です。${scheduledDate}以降、削除の対象になります。</span><button onclick="App.cancelAccountDeletion()">申請を取り消す</button>`;
     } else {
       banner.classList.add('hidden');
       banner.innerHTML = '';
@@ -3227,8 +3276,8 @@ const App = {
           </div>
           <div class="record-card-badges">
             ${symptoms.length > 0 ? `<span class="tag">症状あり</span>` : ''}
-            ${medTags.length > 0 ? `<span class="tag ${medIncomplete ? 'tag-warn' : ''}">💊 ${medIncomplete ? '未完了' : '完了'}</span>` : ''}
-            ${photos.length > 0 ? `<span class="tag">📷 ${photos.length}</span>` : ''}
+            ${medTags.length > 0 ? `<span class="tag ${medIncomplete ? 'tag-warn' : ''}">${iconSvg('medication')}${medIncomplete ? '未完了' : '完了'}</span>` : ''}
+            ${photos.length > 0 ? `<span class="tag">${iconSvg('camera')}${photos.length}</span>` : ''}
           </div>
           <span class="record-card-chevron">▾</span>
         </div>
@@ -3243,11 +3292,11 @@ const App = {
               ${opts.showCibdai ? `<tr><th>CIBDAI</th><td>${r.cibdai ? cibdaiTotal(r.cibdai)+'点('+cibdaiSeverity(cibdaiTotal(r.cibdai))+')' : '-'}</td></tr>` : ''}
             ` : ''}
               <tr><th>症状</th><td>${symptoms.map(s=>`<span class="tag">${escapeHtml(s)}</span>`).join('') || '-'}</td></tr>
-              <tr><th>投薬</th><td>${medTags.map(t => `<span class="tag ${t.complete?'':'tag-warn'}">💊 ${escapeHtml(t.label)}(${t.given}/${t.total})</span>`).join('') || '-'}</td></tr>
+              <tr><th>投薬</th><td>${medTags.map(t => `<span class="tag ${t.complete?'':'tag-warn'}">${iconSvg('medication')}${escapeHtml(t.label)}(${t.given}/${t.total})</span>`).join('') || '-'}</td></tr>
               ${opts.full ? `<tr><th>メモ</th><td>${escapeHtml(r.memo || '-')}</td></tr>` : ''}
           </table>
           ${photos.length > 0 ? `
-            <button type="button" class="secondary" style="margin-top:8px;" onclick="this.nextElementSibling.classList.toggle('hidden')">📷 写真を表示(${photos.length})</button>
+            <button type="button" class="secondary" style="margin-top:8px;" onclick="this.nextElementSibling.classList.toggle('hidden')">${iconSvg('camera','inline-ic')}写真を表示(${photos.length})</button>
             ${recordPhotosHtml(photos, 'record-photos hidden')}
           ` : ''}
           <div class="row" style="margin-top:10px;justify-content:flex-end;">
@@ -3311,7 +3360,7 @@ const App = {
           CIBDAIスコアも記録する(慢性腸疾患・IBDのモニタリング向け)
         </label>
         <div style="margin-top:12px;">
-          <button type="button" class="ghost" style="padding:3px 9px;font-size:11px;color:var(--danger);border-color:var(--danger);" ${actionAttrs('deletePet', pet.id)}>🗑 このペットを削除</button>
+          <button type="button" class="ghost" style="padding:3px 9px;font-size:11px;color:var(--danger);border-color:var(--danger);" ${actionAttrs('deletePet', pet.id)}>${iconSvg('trash','ic--danger inline-ic')}このペットを削除</button>
         </div>
       </div>
       <div class="card">
@@ -3364,8 +3413,8 @@ const App = {
                 <td>${r.weight ? escapeHtml(r.weight)+'kg' : '-'}</td>
                 <td>${escapeHtml(appetiteLabel(r.appetite))}</td>
                 <td>${safeArray(r.symptoms).map(s=>`<span class="tag">${escapeHtml(s)}</span>`).join('') || '-'}</td>
-                <td>${medsGivenTags(r.medsGiven).map(t => `<span class="tag ${t.complete ? '' : 'tag-warn'}">💊 ${escapeHtml(t.label)}(${t.given}/${t.total})</span>`).join('') || '-'}</td>
-              <td>${safeArray(r.photos).length > 0 ? `📷 ${safeArray(r.photos).length}` : '-'}</td>
+                <td>${medsGivenTags(r.medsGiven).map(t => `<span class="tag ${t.complete ? '' : 'tag-warn'}">${iconSvg('medication')}${escapeHtml(t.label)}(${t.given}/${t.total})</span>`).join('') || '-'}</td>
+              <td>${safeArray(r.photos).length > 0 ? `${iconSvg('camera')}${safeArray(r.photos).length}` : '-'}</td>
               <td class="actions-cell"><button class="secondary" ${actionAttrs('openRecord', r.id)}>編集</button></td>
             </tr>
           `).join('')}
@@ -3406,7 +3455,7 @@ const App = {
                 <td>${escapeHtml(walkLabel(r.walkMinutes))}</td>
                 <td>${safeArray(r.symptoms).map(s=>`<span class="tag">${escapeHtml(s)}</span>`).join('') || '-'}</td>
               ${showCibdai ? `<td>${r.cibdai ? cibdaiTotal(r.cibdai) + '点(' + cibdaiSeverity(cibdaiTotal(r.cibdai)) + ')' : '-'}</td>` : ''}
-                <td>${medsGivenTags(r.medsGiven).map(t => `<span class="tag ${t.complete ? '' : 'tag-warn'}">💊 ${escapeHtml(t.label)}(${t.given}/${t.total})</span>`).join('') || '-'}</td>
+                <td>${medsGivenTags(r.medsGiven).map(t => `<span class="tag ${t.complete ? '' : 'tag-warn'}">${iconSvg('medication')}${escapeHtml(t.label)}(${t.given}/${t.total})</span>`).join('') || '-'}</td>
                 <td class="muted">${escapeHtml(r.memo || '-')}</td>
               <td>${recordPhotosHtml(r.photos) || '-'}</td>
               <td class="actions-cell">
@@ -3789,7 +3838,7 @@ const App = {
           <div class="field"><label>終了日</label><input type="date" id="exTo" value="${today}"></div>
         </div>
         <div class="row">
-          <button onclick="App.printReport()">🖨 レポートを印刷 / PDF保存</button>
+          <button onclick="App.printReport()">${iconSvg('report','inline-ic')}レポートを印刷 / PDF保存</button>
         </div>
         <p class="hint">⏳ 出力ボタンを押してから画面が切り替わるまで、数十秒かかることがあります。押した後はそのままこの画面でお待ちください(連打しても大丈夫です)。</p>
         ${isIosDevice() ? `
@@ -3967,7 +4016,7 @@ const App = {
           ${showCibdai ? `<td>${r.cibdai ? cibdaiTotal(r.cibdai) + '点(' + cibdaiSeverity(cibdaiTotal(r.cibdai)) + ')' : '-'}</td>` : ''}
           <td>${medsGivenTags(r.medsGiven).map(t => `${escapeHtml(t.label)}(${t.given}/${t.total})`).join('、') || '-'}</td>
         </tr>
-        ${r.memo ? `<tr class="memo-row"><td colspan="${colCount}">📝 ${escapeHtml(r.memo)}</td></tr>` : ''}
+        ${r.memo ? `<tr class="memo-row"><td colspan="${colCount}">${iconSvg('memo')}${escapeHtml(r.memo)}</td></tr>` : ''}
       </tbody>
     `).join('');
 
