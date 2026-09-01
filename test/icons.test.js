@@ -68,8 +68,9 @@ test('体温グラフは治療サポートプラン対象として実装され�
   assert.match(graph, /temperatureChartCanvas/);
 });
 
-test('家族共有はトップとメニューで同じ素材を使う', () => {
-  assert.ok((HTML.match(/icons\/family\.png/g) || []).length >= 2);
+test('家族共有はトップから外し、メニューで統一素材を使う', () => {
+  const header = HTML.slice(HTML.indexOf('<header class="topbar">'), HTML.indexOf('</header>'));
+  assert.doesNotMatch(header, /family\.png|openFamilyModal/);
   const menu = HTML.slice(HTML.indexOf('renderMenu(){'), HTML.indexOf('renderMealProfiles(){'));
   assert.match(menu, /iconSvg\('family'\)/);
 });
@@ -81,7 +82,7 @@ test('メニューから選択中のペットを既存の安全な削除処理�
   assert.match(menu, /iconSvg\('trash','ic--danger'\)/);
 });
 
-test('ペット登録・編集で性別と敬称を保存でき、全名表示を更新する', () => {
+test('ペット登録・編集で性別と敬称を保存でき、記録見出しを更新する', () => {
   for (const id of ['petGender','petHonorific','currentPetDisplayName','petEditId']) {
     assert.match(HTML, new RegExp(`id="${id}"`));
   }
@@ -91,12 +92,21 @@ test('ペット登録・編集で性別と敬称を保存でき、全名表示�
   assert.equal(app.petDisplayName({ name:'もふ', honorific:'chan' }), 'もふちゃん');
   assert.equal(app.petDisplayName({ name:'もふ', honorific:'kun' }), 'もふくん');
   assert.equal(app.petDisplayName({ name:'もふ' }), 'もふ');
+  assert.match(HTML, /petDisplayName\(current\)\)\}の記録/);
 });
 
-test('モバイルでもペット操作と主要3タブを横一列に保つ', () => {
-  assert.match(HTML, /\.pet-switch\{display:grid;grid-template-columns:auto minmax\(0,1fr\) repeat\(3,auto\)/);
+test('記録切り替えは名前を持たないトップボタンから開き、主要3タブを横一列に保つ', () => {
+  assert.match(HTML, /id="switchRecordButton"[^>]*>記録を切り替える</);
+  assert.match(HTML, /id="petSwitchModalBackdrop"/);
+  assert.doesNotMatch(HTML, /id="petSelect"/);
   assert.match(HTML, /nav\.tabs\{display:grid;grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/);
-  assert.match(HTML, /\.btn-label-compact\{display:inline-flex;align-items:center;white-space:nowrap;/);
+});
+
+test('追加・共有・課金・アカウント・ログアウトはメニューに置く', () => {
+  const header = HTML.slice(HTML.indexOf('<header class="topbar">'), HTML.indexOf('</header>'));
+  assert.doesNotMatch(header, /openPetModal|openFamilyModal|openUpgradeModal|ログアウト|userBar/);
+  const menu = HTML.slice(HTML.indexOf('renderMenu(){'), HTML.indexOf('renderMealProfiles(){'));
+  for (const value of ['新しく登録する','openFamilyModal','openUpgradeModal','accountName','ログアウト']) assert.ok(menu.includes(value), value);
 });
 
 test('主要ナビ・ブランド・使い方ガイドがPNGを参照する', () => {

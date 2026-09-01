@@ -43,31 +43,27 @@
   }
   .app{max-width:920px;margin:0 auto;padding:0 16px 60px;}
   header.topbar{
-    display:grid;grid-template-columns:auto minmax(280px,360px);gap:12px;align-items:center;justify-content:space-between;
+    display:grid;grid-template-columns:1fr;gap:12px;align-items:center;
     padding:18px 4px;
   }
   .brand{font-size:22px;font-weight:700;color:var(--primary-dark);}
   .brand-subtitle{margin:0 0 16px;color:var(--muted);font-size:14px;font-weight:600;}
-  .user-bar{width:100%;}
-  .user-session-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;align-items:stretch;}
-  .user-name{
-    display:flex;align-items:center;min-width:0;padding:8px 14px;border:1px solid var(--border);
-    border-radius:8px;background:var(--card);color:var(--muted);font-size:12px;
-    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-  }
-  button.user-sign-out{min-height:38px;}
   button.usage-guide-button{
     background:#FFF3E6;color:var(--primary-dark);border:1px solid var(--primary);
   }
-  .header-tools{grid-column:1/-1;display:flex;gap:12px;align-items:center;flex-wrap:wrap;}
-  .current-pet-display-name{grid-column:1/-1;text-align:center;font-weight:700;color:var(--text);overflow-wrap:anywhere;}
+  .header-tools{display:flex;gap:10px;align-items:center;justify-content:center;flex-wrap:wrap;}
+  .current-pet-display-name{display:flex;align-items:center;justify-content:center;gap:7px;text-align:center;font-size:20px;font-weight:700;color:var(--text);overflow-wrap:anywhere;}
+  .current-pet-display-name .ic{width:30px;height:30px;}
   .account-footer{text-align:right;margin-top:28px;padding:12px 4px 0;border-top:1px solid var(--border);}
   button.account-delete-link{
     padding:4px 6px;background:transparent;border:none;color:var(--danger);font-size:11px;
     font-weight:500;text-decoration:underline;text-underline-offset:2px;
   }
-  .pet-switch{display:flex;gap:8px;align-items:center;min-width:0;}
-  #petSelect{min-width:0;max-width:190px;text-overflow:ellipsis;}
+  .pet-choice-list{display:flex;flex-direction:column;gap:8px;}
+  .pet-choice-button{display:flex;align-items:center;width:100%;gap:10px;text-align:left;background:var(--card);color:var(--text);border:1px solid var(--border);}
+  .pet-choice-button.active{border-color:var(--primary);background:#FFF3E6;color:var(--primary-dark);}
+  .account-summary{display:flex;flex-direction:column;gap:3px;padding:14px 16px;background:var(--card);border:1px solid var(--border);border-radius:14px;margin-bottom:16px;}
+  .account-summary strong{overflow-wrap:anywhere;}
   select, input[type=text], input[type=number], input[type=date], textarea{
     font-family:inherit;font-size:14px;padding:8px 10px;border:1px solid var(--border);
     border-radius:8px;background:#fff;color:var(--text);
@@ -273,12 +269,8 @@
   .prev-box .sub{font-size:12px;color:var(--muted);margin-top:2px;}
 
   @media (max-width: 640px){
-    header.topbar{grid-template-columns:1fr;}
-    .header-tools{flex-direction:column;align-items:stretch;}
-    .header-tools .usage-guide-button{order:-1;width:100%;}
-    .pet-switch{display:grid;grid-template-columns:auto minmax(0,1fr) repeat(3,auto);width:100%;}
-    #petSelect{width:100%;max-width:150px;}
-    .pet-switch button{padding:8px 9px;}
+    .header-tools{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));}
+    .header-tools button{width:100%;padding:8px 6px;}
     .btn-label-compact{display:inline-flex;align-items:center;white-space:nowrap;}
     nav.tabs{gap:4px;}
     .tab-btn{font-size:12px;padding:9px 3px;}
@@ -440,18 +432,11 @@
 <div class="app">
   <header class="topbar">
     <div class="brand"><img class="ic" src="icons/paw.png" alt="">もふもふカルテ</div>
-    <div id="userBar" class="user-bar"></div>
+    <div id="currentPetDisplayName" class="current-pet-display-name hidden"></div>
     <div class="header-tools">
-      <div class="pet-switch">
-        <span class="pet-switch-species" id="petSwitchSpecies" aria-hidden="true"></span>
-        <select id="petSelect" onchange="App.selectPet(this.value)"></select>
-        <button class="secondary" onclick="App.openPetModal()" aria-label="ペット追加"><span class="btn-label-full">+ ペット追加</span><span class="btn-label-compact">+<img class="ic" src="icons/dog.png" alt=""><img class="ic" src="icons/cat.png" alt=""></span></button>
-        <button class="ghost" onclick="App.openFamilyModal()" aria-label="家族共有"><span class="btn-label-full"><img class="ic" src="icons/family.png" alt=""> 家族共有</span><span class="btn-label-compact"><img class="ic" src="icons/family.png" alt=""></span></button>
-        <button class="ghost" onclick="App.openUpgradeModal()" aria-label="アップグレード"><span class="btn-label-full"><img class="ic" src="icons/upgrade.png" alt=""> アップグレード</span><span class="btn-label-compact"><img class="ic" src="icons/upgrade.png" alt=""></span></button>
-      </div>
+      <button id="switchRecordButton" type="button" class="secondary hidden" onclick="App.openPetSwitchModal()">記録を切り替える</button>
       <button id="usageGuideButton" type="button" class="usage-guide-button hidden"><img class="ic" src="icons/guide.png?v=20260901-2" alt="">使い方ガイド</button>
     </div>
-    <div id="currentPetDisplayName" class="current-pet-display-name hidden"></div>
   </header>
   <div id="householdBanner" class="hidden"></div>
   <div id="billingBanner" class="hidden"></div>
@@ -465,6 +450,14 @@
   </nav>
 
   <main id="mainContent"></main>
+</div>
+
+<div id="petSwitchModalBackdrop" class="modal-backdrop hidden">
+  <div class="modal">
+    <h3>記録を切り替える</h3>
+    <div id="petChoiceList" class="pet-choice-list"></div>
+    <div class="row" style="justify-content:flex-end;margin-top:14px;"><button type="button" class="ghost" onclick="App.closePetSwitchModal()">閉じる</button></div>
+  </div>
 </div>
 
 <div id="eventModalBackdrop" class="modal-backdrop hidden">
@@ -2232,39 +2225,40 @@ const App = {
   },
 
   renderPetSelect(){
-    const sel = document.getElementById('petSelect');
-    // ネイティブselectのoptionにはSVGを置けないため、絵文字は入れず種別アイコンはselectの外に出す。
-    const speciesBox = document.getElementById('petSwitchSpecies');
     const displayName = document.getElementById('currentPetDisplayName');
+    const switchButton = document.getElementById('switchRecordButton');
     if(state.pets.length === 0){
-      sel.innerHTML = `<option value="">ペット未登録</option>`;
-      if(speciesBox) speciesBox.innerHTML = '';
       if(displayName){ displayName.textContent = ''; displayName.classList.add('hidden'); }
+      if(switchButton) switchButton.classList.add('hidden');
       return;
     }
-    sel.replaceChildren(...state.pets.map(p => {
-      const option = document.createElement('option');
-      option.value = displayText(p.id);
-      option.selected = p.id === state.currentPetId;
-      option.textContent = displayText(p.name);
-      return option;
-    }));
     const current = state.pets.find(p => p.id === state.currentPetId) || state.pets[0];
     if(displayName){
-      displayName.textContent = petDisplayName(current);
-      displayName.classList.toggle('hidden', !displayName.textContent);
-    }
-    if(speciesBox){
       const sp = current ? current.species : '';
-      speciesBox.innerHTML = sp === '犬' ? petTypeIcon('dog','犬')
+      displayName.innerHTML = (sp === '犬' ? petTypeIcon('dog','犬')
         : sp === '猫' ? petTypeIcon('cat','猫')
-        : petTypeIcon('paw','ペット');
+        : petTypeIcon('paw','')) + `<span>${escapeHtml(petDisplayName(current))}の記録</span>`;
+      displayName.classList.remove('hidden');
     }
+    if(switchButton) switchButton.classList.remove('hidden');
+  },
+
+  openPetSwitchModal(){
+    const list = document.getElementById('petChoiceList');
+    list.innerHTML = state.pets.map(p => {
+      const icon = p.species === '犬' ? petTypeIcon('dog','犬') : p.species === '猫' ? petTypeIcon('cat','猫') : petTypeIcon('paw','');
+      return `<button type="button" class="pet-choice-button${p.id === state.currentPetId ? ' active' : ''}" ${actionAttrs('selectPet', p.id)}>${icon}<span>${escapeHtml(petDisplayName(p))}</span></button>`;
+    }).join('');
+    document.getElementById('petSwitchModalBackdrop').classList.remove('hidden');
+  },
+  closePetSwitchModal(){
+    document.getElementById('petSwitchModalBackdrop').classList.add('hidden');
   },
 
   selectPet(id){
     state.currentPetId = id;
     userDocRef().set({ currentPetId: id }, { merge: true });
+    this.closePetSwitchModal();
     this.render();
   },
 
@@ -3087,6 +3081,7 @@ const App = {
     this.renderPetSelect();
     const main = document.getElementById('mainContent');
     if(state.pets.length === 0){
+      if(state.activeTab === 'menu') return this.renderMenu();
       main.innerHTML = `<div class="card empty">
         <p>まだペットが登録されていません。</p>
         <button onclick="App.openPetModal()">+ 最初のペットを登録する</button>
@@ -3307,10 +3302,15 @@ const App = {
   },
   renderMenu(){
     const group = (title, items) => `<div class="menu-section">${escapeHtml(title)}</div><div class="card" style="padding:0;">${items.map(([icon,label,description,action]) => `<button class="menu-item" type="button" onclick="${action}"><span class="menu-item-icon">${icon}</span><span class="menu-item-copy">${escapeHtml(label)}${description ? `<small>${escapeHtml(description)}</small>` : ''}</span><span class="menu-item-arrow">›</span></button>`).join('')}</div>`;
-    const petManagement = group('ペットの管理', [
+    const petItems = [[petTypeIcon('dog','') + petTypeIcon('cat',''),'新しく登録する','家族の記録を追加',"App.openPetModal()"]];
+    if(currentPet()) petItems.push(
       [petTypeIcon('paw',''),'ペット情報を編集','名前・種類・性別・敬称',"App.openPetEditModal()"],
       [iconSvg('trash','ic--danger'),'選択中のペットを削除','記録・投薬・予防・受診歴もすべて削除',"App.deletePet(state.currentPetId)"]
-    ]);
+    );
+    let petManagement = group('ペットの管理', petItems);
+    const accountName = currentUser ? displayText(currentUser.displayName || currentUser.email) : '';
+    const accountEmail = currentUser ? displayText(currentUser.email) : '';
+    petManagement += `<div class="menu-section">アカウント</div><div class="account-summary"><strong>${escapeHtml(accountName)}</strong>${accountEmail && accountEmail !== accountName ? `<span class="muted">${escapeHtml(accountEmail)}</span>` : ''}</div>`;
     document.getElementById('mainContent').innerHTML = `${petManagement}${group('記録の設定', [[iconSvg('meal-setup'),'ごはんの登録','食事候補の登録・編集・並び替え',"App.renderMealProfiles()"],[iconSvg('med-setup'),'くすりの登録','薬・用量・投薬予定・通知',"App.switchTab('meds')"]])}${group('健康管理', [[iconSvg('prevention'),'予防','ワクチン・ノミダニ・フィラリア',"App.switchTab('prev')"],[iconSvg('visits'),'受診歴','通院の記録',"App.switchTab('visits')"]])}${group('記録を活用', [[iconSvg('report'),'レポート出力','主治医への共有レポート・PDF',"App.switchTab('export')"],[iconSvg('history'),'これまでの記録','新UI以前の日次記録の一覧・編集',"App.switchTab('list')"]])}${group('サービス', [[iconSvg('family'),'家族共有','家族や同居の方と記録を共有',"App.openFamilyModal()"],[iconSvg('upgrade'),'アップグレード','有料機能とお支払い',"App.openUpgradeModal()"]])}${group('サポート', [[iconSvg('guide'),'使い方ガイド','',"window.open('usage-guide.html','_blank','noopener')"],[iconSvg('contact'),'お問い合わせ','',"window.location.href='mailto:contact@pet-health-log.com'"]])}${group('プライバシーとアカウント', [[iconSvg('privacy'),'プライバシーポリシー・利用規約','',"window.open('privacy.html','_blank','noopener')"],[iconSvg('logout'),'ログアウト','',"AppAuth.signOut()"],[iconSvg('account-delete','ic--danger'),'アカウントを削除する','',"App.requestAccountDeletion()"]])}`;
   },
   renderMealProfiles(){
@@ -4313,7 +4313,8 @@ document.addEventListener('click', event => {
     openEventDetail: () => App.openEventDetail(id),
     openScheduledMedication: () => App.openScheduledMedication(id, control.dataset.time),
     editMealProfile: () => App.editMealProfile(id),
-    deleteMealProfile: () => App.deleteMealProfile(id)
+    deleteMealProfile: () => App.deleteMealProfile(id),
+    selectPet: () => App.selectPet(id)
   };
   if(actions[control.dataset.appAction]) actions[control.dataset.appAction]();
 });
@@ -4424,20 +4425,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if(user){
       currentUser = user;
       document.getElementById('authScreen').classList.add('hidden');
-      const userBar = document.getElementById('userBar');
-      userBar.replaceChildren();
-      const sessionRow = document.createElement('div');
-      sessionRow.className = 'user-session-row';
-      const userName = document.createElement('span');
-      userName.className = 'user-name';
-      userName.textContent = displayText(user.displayName || user.email);
-      userName.title = userName.textContent;
-      const signOutButton = document.createElement('button');
-      signOutButton.className = 'ghost user-sign-out';
-      signOutButton.textContent = 'ログアウト';
-      signOutButton.addEventListener('click', () => AppAuth.signOut());
-      sessionRow.append(userName, signOutButton);
-      userBar.append(sessionRow);
       const usageGuideButton = document.getElementById('usageGuideButton');
       usageGuideButton.onclick = () => window.open('usage-guide.html', '_blank', 'noopener');
       usageGuideButton.classList.remove('hidden');
@@ -4452,7 +4439,8 @@ document.addEventListener('DOMContentLoaded', () => {
       state.householdStatus = 'loading';
       state.householdError = null;
       document.getElementById('authScreen').classList.remove('hidden');
-      document.getElementById('userBar').replaceChildren();
+      document.getElementById('switchRecordButton').classList.add('hidden');
+      document.getElementById('currentPetDisplayName').classList.add('hidden');
       document.getElementById('usageGuideButton').classList.add('hidden');
     }
   });

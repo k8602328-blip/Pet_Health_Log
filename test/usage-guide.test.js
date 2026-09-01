@@ -156,8 +156,8 @@ test('index.html に usage-guide.html を開く常設導線がある', () => {
 });
 
 test('アカウント削除はメニュー内だけに置き、常設フッターは持たない', () => {
-  assert.ok(indexHtml.includes("sessionRow.append(userName, signOutButton)"));
-  assert.ok(indexHtml.includes('grid-template-columns:repeat(2,minmax(0,1fr))'));
+  assert.ok(indexHtml.includes('const accountName = currentUser'));
+  assert.ok(indexHtml.includes("'ログアウト','',\"AppAuth.signOut()\""));
   // 常設のaccountFooter/削除リンクは廃止。日常操作の導線から誤操作しないようメニュー内に集約する。
   assert.ok(!indexHtml.includes('id="accountFooter"'), '常設accountFooterが残っている');
   assert.ok(!indexHtml.includes('id="deleteAccountButton"'), '常設の削除ボタンが残っている');
