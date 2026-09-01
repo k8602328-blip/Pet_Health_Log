@@ -760,9 +760,21 @@
   <div class="modal">
     <h3>家族共有</h3>
 
+    <div id="familyJoinSection">
+      <label style="font-size:13px;font-weight:600;">招待コードで参加</label>
+      <p class="hint">共有した方から受け取った16文字のコードを入力してください。</p>
+      <div class="row" style="margin-top:8px;">
+        <input type="text" id="familyJoinCode" inputmode="text" autocomplete="one-time-code" maxlength="19" placeholder="XXXX-XXXX-XXXX-XXXX" style="text-transform:uppercase;">
+        <button type="button" class="secondary" id="familyJoinButton" onclick="App.acceptFamilyInviteCode()">参加する</button>
+      </div>
+      <p class="muted" id="familyJoinError" style="color:var(--danger);min-height:18px;"></p>
+      <hr style="border:0;border-top:1px solid var(--border);margin:14px 0;">
+    </div>
+
     <div id="familyOwnerSection">
       <p class="hint">家族や同居している方のメールアドレスを入力すると、招待メールが自動で送信されます。ご本人(あなた)は無料で、招待するメンバー1人ごとにメンバー枠が必要です。</p>
       <p class="hint">※ログインはGoogleアカウントのみ対応のため、招待できるのはGoogleアカウントのメールアドレスに限られます。</p>
+      <p class="hint">※招待メールが見つからない場合は、迷惑メールフォルダも確認してください。届かない場合でも、下の招待リンクを本人へ直接共有できます。</p>
       <p id="familySeatStatus" class="hint" style="font-weight:600;"></p>
       <div id="familySeatSelection" class="hidden" style="background:#FFF3E0;padding:10px;border-radius:8px;margin:8px 0;"></div>
       <label style="font-size:13px;font-weight:600;">メンバー</label>
@@ -773,12 +785,19 @@
       </div>
       <p class="muted" id="familyError" style="color:var(--danger);"></p>
       <div class="field" style="margin-top:14px;">
-        <label>招待リンク(メールが届かない場合は、こちらを直接共有してください)</label>
+        <label>メールを使わず招待する(7日間有効・1人が参加すると使用済み)</label>
+        <div class="row">
+          <input type="text" id="familyInviteCode" readonly style="flex:1;">
+          <button type="button" class="secondary" id="familyCreateCodeButton" onclick="App.createFamilyInviteCode()">コードを発行</button>
+        </div>
+      </div>
+      <div class="field">
+        <label>招待リンク</label>
         <div class="row">
           <input type="text" id="familyInviteUrl" readonly style="flex:1;">
           <button type="button" class="secondary" onclick="App.copyInviteLink()">コピー</button>
         </div>
-        <p class="muted" id="familyCopyMsg" style="min-height:18px;"></p>
+        <p class="muted" id="familyCopyMsg" style="min-height:18px;">コードを発行すると共有できます。</p>
       </div>
     </div>
 
@@ -1744,6 +1763,7 @@ const App = {
     state.householdError = null;
     const params = new URLSearchParams(location.search);
     const inviteUid = params.get('invite');
+    const familyInviteCode = params.get('familyInvite');
 
     let ownSnap;
     try{
@@ -1770,7 +1790,26 @@ const App = {
     state.linkedOwnerUid = ownData.linkedOwnerUid || null;
     state.knownHouseholdUid = ownData.knownHouseholdUid || null;
 
-    if(inviteUid && inviteUid !== currentUser.uid){
+    if(familyInviteCode){
+      try{
+        const acceptInvite = functions.httpsCallable('acceptFamilyInviteCode');
+        const result = await acceptInvite({ code: familyInviteCode });
+        const ownerUid = result.data.ownerUid;
+        state.linkedOwnerUid = ownerUid;
+        state.knownHouseholdUid = ownerUid;
+        state.householdStatus = 'shared';
+        alert(result.data.alreadyAccepted ? 'この招待コードでは参加済みです。' : 'もふもふカルテのメンバーに参加しました。');
+        params.delete('familyInvite');
+        const newSearch = params.toString();
+        history.replaceState(null, '', location.pathname + (newSearch ? `?${newSearch}` : ''));
+      } catch(err){
+        console.error('招待コードの受け入れに失敗', err);
+        state.householdError = this.familyInviteErrorMessage(err);
+        alert(state.householdError);
+      }
+    }
+
+    if(!familyInviteCode && inviteUid && inviteUid !== currentUser.uid){
       try{
         // 読めれば(=招待元のfamilyEmailsに自分のメールが載っていれば)成功する
         const ownerSnap = await db.collection('users').doc(inviteUid).get({ source: 'server' });
@@ -1914,6 +1953,7 @@ const App = {
 
   openFamilyModal(){
     document.getElementById('familyError').textContent = '';
+    document.getElementById('familyJoinError').textContent = '';
     document.getElementById('familyEmailInput').value = '';
     this.renderFamilyModal();
     document.getElementById('familyModalBackdrop').classList.remove('hidden');
@@ -1923,6 +1963,7 @@ const App = {
   },
   async renderFamilyModal(){
     const isMember = !!state.linkedOwnerUid;
+    document.getElementById('familyJoinSection').classList.toggle('hidden', isMember);
     document.getElementById('familyOwnerSection').classList.toggle('hidden', isMember);
     document.getElementById('familyMemberSection').classList.toggle('hidden', !isMember);
     if(isMember) return;
@@ -1959,9 +2000,6 @@ const App = {
       save.addEventListener('click', () => this.saveActiveFamilyMembers());
       selection.append(save);
     }
-
-    const inviteUrl = `${location.origin}${location.pathname}?invite=${currentUser.uid}`;
-    document.getElementById('familyInviteUrl').value = inviteUrl;
 
     const list = document.getElementById('familyEmailList');
     if(state.familyEmails.length === 0){
@@ -2035,9 +2073,16 @@ const App = {
       if(!state.entitlements?.familyWritesSuspended && !state.activeFamilyEmails.includes(email)){
         state.activeFamilyEmails = [...state.activeFamilyEmails, email];
       }
+      // メール招待は指定したGoogleアカウントだけが使える従来リンクも残す。
+      // コード招待は未指定の1人向けなので、移行期間中は両者を混同しない。
+      document.getElementById('familyInviteCode').value = '';
+      document.getElementById('familyInviteUrl').value = `${location.origin}${location.pathname}?invite=${currentUser.uid}`;
+      document.getElementById('familyCopyMsg').textContent = `${email} のGoogleアカウント専用リンクです。`;
       this.renderFamilyModal();
       if(result.data && result.data.emailSent === false){
         errorEl.textContent = '共有枠への登録は完了しましたが、招待メールを送信できませんでした。下の招待リンクを本人に共有してください。';
+      } else {
+        errorEl.textContent = '招待メールを送信しました。見つからない場合は迷惑メールフォルダを確認してください。';
       }
     } catch(err){
       console.error('addFamilyEmail failed', err);
@@ -2051,6 +2096,67 @@ const App = {
       }
     } finally {
       if(btn){ btn.disabled = false; btn.textContent = '招待メールを送信'; }
+    }
+  },
+  familyInviteErrorMessage(err){
+    const code = String(err?.code || '');
+    if(code.endsWith('/not-found')) return '招待コードが見つかりません。入力内容を確認してください。';
+    if(code.endsWith('/deadline-exceeded')) return 'この招待コードは期限切れです。新しいコードを発行してもらってください。';
+    if(code.endsWith('/resource-exhausted')) return '共有メンバー枠が上限に達しています。';
+    if(code.endsWith('/failed-precondition')) return err.message || 'この招待コードは使用できません。';
+    if(code.endsWith('/invalid-argument')) return '招待コードの形式が正しくありません。';
+    return '招待処理に失敗しました。通信を確認して再試行してください。';
+  },
+  async createFamilyInviteCode(){
+    const button = document.getElementById('familyCreateCodeButton');
+    const errorEl = document.getElementById('familyError');
+    errorEl.textContent = '';
+    button.disabled = true;
+    button.textContent = '発行中...';
+    try{
+      const createInvite = functions.httpsCallable('createFamilyInviteCode');
+      const result = await createInvite();
+      const code = result.data.code;
+      document.getElementById('familyInviteCode').value = code;
+      document.getElementById('familyInviteUrl').value = `${location.origin}${location.pathname}?familyInvite=${encodeURIComponent(code)}`;
+      document.getElementById('familyCopyMsg').textContent = `有効期限: ${new Date(result.data.expiresAt).toLocaleString('ja-JP')}`;
+      button.textContent = '再発行';
+    } catch(err){
+      console.error('createFamilyInviteCode failed', err);
+      if(String(err?.code || '').endsWith('/resource-exhausted')){
+        this.closeFamilyModal();
+        this.openUpgradeModal('メンバー枠が上限に達しています。追加すると、もっとメンバーを招待できます。');
+      } else {
+        errorEl.textContent = this.familyInviteErrorMessage(err);
+      }
+      button.textContent = 'コードを発行';
+    } finally {
+      button.disabled = false;
+    }
+  },
+  async acceptFamilyInviteCode(){
+    const input = document.getElementById('familyJoinCode');
+    const button = document.getElementById('familyJoinButton');
+    const errorEl = document.getElementById('familyJoinError');
+    const code = input.value.trim();
+    errorEl.textContent = '';
+    button.disabled = true;
+    button.textContent = '参加中...';
+    try{
+      const acceptInvite = functions.httpsCallable('acceptFamilyInviteCode');
+      await acceptInvite({ code });
+      this.closeFamilyModal();
+      detachFirestoreListeners();
+      await this.resolveHousehold();
+      attachFirestoreListeners();
+      this.render();
+      alert('もふもふカルテのメンバーに参加しました。');
+    } catch(err){
+      console.error('acceptFamilyInviteCode failed', err);
+      errorEl.textContent = this.familyInviteErrorMessage(err);
+    } finally {
+      button.disabled = false;
+      button.textContent = '参加する';
     }
   },
   async removeFamilyEmail(email){
@@ -2078,6 +2184,10 @@ const App = {
   },
   copyInviteLink(){
     const input = document.getElementById('familyInviteUrl');
+    if(!input.value){
+      document.getElementById('familyCopyMsg').textContent = '先に招待コードを発行してください。';
+      return;
+    }
     input.select();
     const done = () => { document.getElementById('familyCopyMsg').textContent = 'コピーしました。'; };
     if(navigator.clipboard && navigator.clipboard.writeText){
