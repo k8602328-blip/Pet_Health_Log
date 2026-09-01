@@ -60,12 +60,14 @@
     background:#FFF3E6;color:var(--primary-dark);border:1px solid var(--primary);
   }
   .header-tools{grid-column:1/-1;display:flex;gap:12px;align-items:center;flex-wrap:wrap;}
+  .current-pet-display-name{grid-column:1/-1;text-align:center;font-weight:700;color:var(--text);overflow-wrap:anywhere;}
   .account-footer{text-align:right;margin-top:28px;padding:12px 4px 0;border-top:1px solid var(--border);}
   button.account-delete-link{
     padding:4px 6px;background:transparent;border:none;color:var(--danger);font-size:11px;
     font-weight:500;text-decoration:underline;text-underline-offset:2px;
   }
-  .pet-switch{display:flex;gap:8px;align-items:center;}
+  .pet-switch{display:flex;gap:8px;align-items:center;min-width:0;}
+  #petSelect{min-width:0;max-width:190px;text-overflow:ellipsis;}
   select, input[type=text], input[type=number], input[type=date], textarea{
     font-family:inherit;font-size:14px;padding:8px 10px;border:1px solid var(--border);
     border-radius:8px;background:#fff;color:var(--text);
@@ -79,10 +81,10 @@
   button.ghost{background:transparent;color:var(--muted);border:1px solid var(--border);}
   button.danger{background:var(--danger);}
   button:hover{filter:brightness(0.95);}
-  nav.tabs{display:flex;gap:6px;border-bottom:2px solid var(--border);margin-bottom:20px;flex-wrap:wrap;}
+  nav.tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;border-bottom:2px solid var(--border);margin-bottom:20px;}
   .tab-btn{
-    background:transparent;color:var(--muted);font-weight:600;border-radius:8px 8px 0 0;
-    padding:10px 16px;border:none;
+    min-width:0;background:#FFF3E6;color:var(--muted);font-weight:600;border-radius:8px 8px 0 0;
+    padding:10px 8px;border:1px solid var(--border);border-bottom:none;white-space:nowrap;
   }
   .tab-btn.active{color:var(--primary-dark);background:var(--card);border:2px solid var(--border);border-bottom:2px solid var(--card);margin-bottom:-2px;}
   .card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px;margin-bottom:16px;}
@@ -274,10 +276,16 @@
     header.topbar{grid-template-columns:1fr;}
     .header-tools{flex-direction:column;align-items:stretch;}
     .header-tools .usage-guide-button{order:-1;width:100%;}
+    .pet-switch{display:grid;grid-template-columns:auto minmax(0,1fr) repeat(3,auto);width:100%;}
+    #petSelect{width:100%;max-width:150px;}
+    .pet-switch button{padding:8px 9px;}
+    .btn-label-compact{display:inline-flex;align-items:center;white-space:nowrap;}
+    nav.tabs{gap:4px;}
+    .tab-btn{font-size:12px;padding:9px 3px;}
+    .tab-btn .ic{width:22px;height:22px;margin-right:2px;}
     .records-table-view{display:none;}
     .records-card-view{display:block;}
     .btn-label-full{display:none;}
-    .btn-label-compact{display:inline;}
     .mobile-only{display:block;}
     .desktop-only{display:none;}
   }
@@ -443,6 +451,7 @@
       </div>
       <button id="usageGuideButton" type="button" class="usage-guide-button hidden"><img class="ic" src="icons/guide.png?v=20260901-2" alt="">使い方ガイド</button>
     </div>
+    <div id="currentPetDisplayName" class="current-pet-display-name hidden"></div>
   </header>
   <div id="householdBanner" class="hidden"></div>
   <div id="billingBanner" class="hidden"></div>
@@ -477,8 +486,9 @@
 
 <div id="petModalBackdrop" class="modal-backdrop hidden">
   <div class="modal">
-    <h3>ペットを登録</h3>
+    <h3 id="petModalTitle">ペットを登録</h3>
     <form id="petForm">
+      <input type="hidden" id="petEditId">
       <div class="field"><label>名前</label><input type="text" id="petName" required></div>
       <div class="row">
         <div class="field"><label>種類</label>
@@ -486,10 +496,18 @@
         </div>
         <div class="field"><label>品種(任意)</label><input type="text" id="petBreed"></div>
       </div>
+      <div class="row">
+        <div class="field"><label>性別</label>
+          <select id="petGender"><option value="male">オス</option><option value="female">メス</option><option value="neutered_male">去勢オス</option><option value="spayed_female">避妊メス</option></select>
+        </div>
+        <div class="field"><label>名前の敬称</label>
+          <select id="petHonorific"><option value="chan">ちゃん</option><option value="kun">くん</option><option value="none">敬称なし</option></select>
+        </div>
+      </div>
       <div class="field"><label>誕生日(任意)</label><input type="date" id="petBirthday"></div>
       <div class="row" style="justify-content:flex-end;margin-top:8px;">
         <button type="button" class="ghost" onclick="App.closePetModal()">キャンセル</button>
-        <button type="submit">登録する</button>
+        <button type="submit" id="petSubmitButton">登録する</button>
       </div>
     </form>
   </div>
@@ -1609,6 +1627,11 @@ function medLabel(m){
 function currentPet(){
   return state.pets.find(p => p.id === state.currentPetId) || null;
 }
+function petDisplayName(pet){
+  if(!pet) return '';
+  const suffix = pet.honorific === 'chan' ? 'ちゃん' : pet.honorific === 'kun' ? 'くん' : '';
+  return displayText(pet.name) + suffix;
+}
 // medsGiven({ [medId]: boolean[] })を、表示・出力用の要約(投薬名・何回中何回済みか)に変換する
 function medsGivenTags(medsGiven){
   if(!medsGiven) return [];
@@ -2212,9 +2235,11 @@ const App = {
     const sel = document.getElementById('petSelect');
     // ネイティブselectのoptionにはSVGを置けないため、絵文字は入れず種別アイコンはselectの外に出す。
     const speciesBox = document.getElementById('petSwitchSpecies');
+    const displayName = document.getElementById('currentPetDisplayName');
     if(state.pets.length === 0){
       sel.innerHTML = `<option value="">ペット未登録</option>`;
       if(speciesBox) speciesBox.innerHTML = '';
+      if(displayName){ displayName.textContent = ''; displayName.classList.add('hidden'); }
       return;
     }
     sel.replaceChildren(...state.pets.map(p => {
@@ -2224,8 +2249,12 @@ const App = {
       option.textContent = displayText(p.name);
       return option;
     }));
+    const current = state.pets.find(p => p.id === state.currentPetId) || state.pets[0];
+    if(displayName){
+      displayName.textContent = petDisplayName(current);
+      displayName.classList.toggle('hidden', !displayName.textContent);
+    }
     if(speciesBox){
-      const current = state.pets.find(p => p.id === state.currentPetId) || state.pets[0];
       const sp = current ? current.species : '';
       speciesBox.innerHTML = sp === '犬' ? petTypeIcon('dog','犬')
         : sp === '猫' ? petTypeIcon('cat','猫')
@@ -2246,6 +2275,24 @@ const App = {
       this.openUpgradeModal('無料枠(1匹)を超えています。追加ペットスロットを購入すると、もっと多くのペットを登録できます。');
       return;
     }
+    document.getElementById('petEditId').value = '';
+    document.getElementById('petModalTitle').textContent = 'ペットを登録';
+    document.getElementById('petSubmitButton').textContent = '登録する';
+    document.getElementById('petHonorific').value = 'chan';
+    document.getElementById('petModalBackdrop').classList.remove('hidden');
+  },
+  openPetEditModal(){
+    const pet = currentPet();
+    if(!pet) return;
+    document.getElementById('petEditId').value = pet.id;
+    document.getElementById('petName').value = displayText(pet.name);
+    document.getElementById('petSpecies').value = pet.species || 'その他';
+    document.getElementById('petBreed').value = pet.breed || '';
+    document.getElementById('petGender').value = pet.gender || 'male';
+    document.getElementById('petHonorific').value = pet.honorific || 'none';
+    document.getElementById('petBirthday').value = pet.birthday || '';
+    document.getElementById('petModalTitle').textContent = 'ペット情報を編集';
+    document.getElementById('petSubmitButton').textContent = '保存する';
     document.getElementById('petModalBackdrop').classList.remove('hidden');
   },
   closePetModal(){
@@ -2393,17 +2440,30 @@ const App = {
   async submitPet(e){
     e.preventDefault();
     const btn = document.querySelector('#petForm button[type="submit"]');
-    const id = uid();
+    const editId = document.getElementById('petEditId').value;
+    const id = editId || uid();
     const payload = {
       ownerUid: dataUid(),
       petId: id,
       name: document.getElementById('petName').value.trim(),
       species: document.getElementById('petSpecies').value,
       breed: document.getElementById('petBreed').value.trim(),
-      birthday: document.getElementById('petBirthday').value || ''
+      birthday: document.getElementById('petBirthday').value || '',
+      gender: document.getElementById('petGender').value,
+      honorific: document.getElementById('petHonorific').value
     };
-    if(btn){ btn.disabled = true; btn.textContent = '登録中...'; }
+    if(btn){ btn.disabled = true; btn.textContent = editId ? '保存中...' : '登録中...'; }
     try{
+      if(editId){
+        await colRef('pets').doc(editId).update({
+          name: payload.name, species: payload.species, breed: payload.breed,
+          birthday: payload.birthday, gender: payload.gender, honorific: payload.honorific
+        });
+        if(btn){ btn.disabled = false; btn.textContent = '保存する'; }
+        this.closePetModal();
+        this.render();
+        return;
+      }
       // 上限チェックとpetCount加算をトランザクションで一体化しているcreatePet
       // (Cloud Functions)経由で作成する。複数タブ・複数端末・家族共有メンバーからの
       // ほぼ同時登録で購入枠を超過するレースコンディションを防ぐため。
@@ -2411,12 +2471,12 @@ const App = {
       await createPet(payload);
     } catch(err){
       console.error('createPet failed', err);
-      if(btn){ btn.disabled = false; btn.textContent = '登録する'; }
+      if(btn){ btn.disabled = false; btn.textContent = editId ? '保存する' : '登録する'; }
       if(err.code === 'functions/resource-exhausted'){
         this.closePetModal();
         this.openUpgradeModal('無料枠(1匹)を超えています。追加ペットスロットを購入すると、もっと多くのペットを登録できます。');
       } else {
-        alert('ペットの登録に失敗しました。時間をおいて再度お試しください。');
+        alert(editId ? 'ペット情報の保存に失敗しました。時間をおいて再度お試しください。' : 'ペットの登録に失敗しました。時間をおいて再度お試しください。');
       }
       return;
     }
@@ -3247,7 +3307,11 @@ const App = {
   },
   renderMenu(){
     const group = (title, items) => `<div class="menu-section">${escapeHtml(title)}</div><div class="card" style="padding:0;">${items.map(([icon,label,description,action]) => `<button class="menu-item" type="button" onclick="${action}"><span class="menu-item-icon">${icon}</span><span class="menu-item-copy">${escapeHtml(label)}${description ? `<small>${escapeHtml(description)}</small>` : ''}</span><span class="menu-item-arrow">›</span></button>`).join('')}</div>`;
-    document.getElementById('mainContent').innerHTML = `${group('ペットの管理', [[iconSvg('trash','ic--danger'),'選択中のペットを削除','記録・投薬・予防・受診歴もすべて削除',"App.deletePet(state.currentPetId)"]])}${group('記録の設定', [[iconSvg('meal-setup'),'ごはんの登録','食事候補の登録・編集・並び替え',"App.renderMealProfiles()"],[iconSvg('med-setup'),'くすりの登録','薬・用量・投薬予定・通知',"App.switchTab('meds')"]])}${group('健康管理', [[iconSvg('prevention'),'予防','ワクチン・ノミダニ・フィラリア',"App.switchTab('prev')"],[iconSvg('visits'),'受診歴','通院の記録',"App.switchTab('visits')"]])}${group('記録を活用', [[iconSvg('report'),'レポート出力','主治医への共有レポート・PDF',"App.switchTab('export')"],[iconSvg('history'),'これまでの記録','新UI以前の日次記録の一覧・編集',"App.switchTab('list')"]])}${group('サービス', [[iconSvg('family'),'家族共有','家族や同居の方と記録を共有',"App.openFamilyModal()"],[iconSvg('upgrade'),'アップグレード','有料機能とお支払い',"App.openUpgradeModal()"]])}${group('サポート', [[iconSvg('guide'),'使い方ガイド','',"window.open('usage-guide.html','_blank','noopener')"],[iconSvg('contact'),'お問い合わせ','',"window.location.href='mailto:contact@pet-health-log.com'"]])}${group('プライバシーとアカウント', [[iconSvg('privacy'),'プライバシーポリシー・利用規約','',"window.open('privacy.html','_blank','noopener')"],[iconSvg('logout'),'ログアウト','',"AppAuth.signOut()"],[iconSvg('account-delete','ic--danger'),'アカウントを削除する','',"App.requestAccountDeletion()"]])}`;
+    const petManagement = group('ペットの管理', [
+      [petTypeIcon('paw',''),'ペット情報を編集','名前・種類・性別・敬称',"App.openPetEditModal()"],
+      [iconSvg('trash','ic--danger'),'選択中のペットを削除','記録・投薬・予防・受診歴もすべて削除',"App.deletePet(state.currentPetId)"]
+    ]);
+    document.getElementById('mainContent').innerHTML = `${petManagement}${group('記録の設定', [[iconSvg('meal-setup'),'ごはんの登録','食事候補の登録・編集・並び替え',"App.renderMealProfiles()"],[iconSvg('med-setup'),'くすりの登録','薬・用量・投薬予定・通知',"App.switchTab('meds')"]])}${group('健康管理', [[iconSvg('prevention'),'予防','ワクチン・ノミダニ・フィラリア',"App.switchTab('prev')"],[iconSvg('visits'),'受診歴','通院の記録',"App.switchTab('visits')"]])}${group('記録を活用', [[iconSvg('report'),'レポート出力','主治医への共有レポート・PDF',"App.switchTab('export')"],[iconSvg('history'),'これまでの記録','新UI以前の日次記録の一覧・編集',"App.switchTab('list')"]])}${group('サービス', [[iconSvg('family'),'家族共有','家族や同居の方と記録を共有',"App.openFamilyModal()"],[iconSvg('upgrade'),'アップグレード','有料機能とお支払い',"App.openUpgradeModal()"]])}${group('サポート', [[iconSvg('guide'),'使い方ガイド','',"window.open('usage-guide.html','_blank','noopener')"],[iconSvg('contact'),'お問い合わせ','',"window.location.href='mailto:contact@pet-health-log.com'"]])}${group('プライバシーとアカウント', [[iconSvg('privacy'),'プライバシーポリシー・利用規約','',"window.open('privacy.html','_blank','noopener')"],[iconSvg('logout'),'ログアウト','',"AppAuth.signOut()"],[iconSvg('account-delete','ic--danger'),'アカウントを削除する','',"App.requestAccountDeletion()"]])}`;
   },
   renderMealProfiles(){
     const profiles = petMealProfiles();
@@ -4403,7 +4467,7 @@ if (typeof module !== 'undefined') {
     analyzeWeeklySummary, sortEvents, filterEventsByDate, eventSummary,
     recordedMealIntakes, mergeTimelineItems, localDateString, actionAttrs,
     coerceEventFieldValue, scheduledDoseTaken, medScheduledTimes,
-    EVENT_TYPES, eventTypeInfo, iconSvg, petTypeIcon,
+    EVENT_TYPES, eventTypeInfo, iconSvg, petTypeIcon, petDisplayName,
   };
 }
 </script>

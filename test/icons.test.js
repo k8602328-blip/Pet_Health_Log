@@ -81,6 +81,24 @@ test('メニューから選択中のペットを既存の安全な削除処理�
   assert.match(menu, /iconSvg\('trash','ic--danger'\)/);
 });
 
+test('ペット登録・編集で性別と敬称を保存でき、全名表示を更新する', () => {
+  for (const id of ['petGender','petHonorific','currentPetDisplayName','petEditId']) {
+    assert.match(HTML, new RegExp(`id="${id}"`));
+  }
+  assert.match(HTML, /openPetEditModal\(\)/);
+  assert.match(HTML, /gender: document\.getElementById\('petGender'\)\.value/);
+  assert.match(HTML, /honorific: document\.getElementById\('petHonorific'\)\.value/);
+  assert.equal(app.petDisplayName({ name:'もふ', honorific:'chan' }), 'もふちゃん');
+  assert.equal(app.petDisplayName({ name:'もふ', honorific:'kun' }), 'もふくん');
+  assert.equal(app.petDisplayName({ name:'もふ' }), 'もふ');
+});
+
+test('モバイルでもペット操作と主要3タブを横一列に保つ', () => {
+  assert.match(HTML, /\.pet-switch\{display:grid;grid-template-columns:auto minmax\(0,1fr\) repeat\(3,auto\)/);
+  assert.match(HTML, /nav\.tabs\{display:grid;grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/);
+  assert.match(HTML, /\.btn-label-compact\{display:inline-flex;align-items:center;white-space:nowrap;/);
+});
+
 test('主要ナビ・ブランド・使い方ガイドがPNGを参照する', () => {
   for (const id of ['daily','chart','menu','paw','guide']) assert.match(HTML, new RegExp(`icons/${id}\\.png`));
 });
