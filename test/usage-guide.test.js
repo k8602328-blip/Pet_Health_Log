@@ -78,7 +78,7 @@ test('10セクションの見出し文言が含まれている', () => {
 
 test('家族共有ガイドはメールやURLではなく招待コードの手順を案内する', () => {
   assert.match(guideHtml, /16文字の招待コード/);
-  assert.match(guideHtml, /受け取った招待コードを入力して「参加する」/);
+  assert.match(guideHtml, /受け取ったコードを入力して「参加する」/);
   assert.match(guideHtml, /使用済みまたは期限切れの招待コードでは参加できません/);
   assert.doesNotMatch(guideHtml, /招待メールを送信|招待リンク/);
 });

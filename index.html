@@ -760,35 +760,38 @@
   <div class="modal">
     <h3>家族共有</h3>
 
-    <div id="familyJoinSection">
-      <label style="font-size:13px;font-weight:600;">招待コードで参加</label>
-      <p class="hint">共有した方から受け取った16文字のコードを入力してください。</p>
-      <div class="row" style="margin-top:8px;">
+    <p class="hint">他のひとをこの記録に招待しましょう。一緒に記録をつけることができるようになります。<a href="usage-guide.html#s10" target="_blank" rel="noopener">使い方ガイドを見る</a></p>
+
+    <div id="familyOwnerSection">
+      <label style="font-size:13px;font-weight:600;">現在の共有メンバー</label>
+      <div id="familyEmailList" class="chip-list"></div>
+      <div style="margin-top:14px;">
+        <p id="familySeatStatus" class="hint" style="font-weight:600;margin-bottom:4px;"></p>
+        <p class="muted">※記録を共有するためには、共有枠の購入が必要です。</p>
+      </div>
+      <div id="familySeatSelection" class="hidden" style="background:#FFF3E0;padding:10px;border-radius:8px;margin:8px 0;"></div>
+      <p class="muted" id="familyError" style="color:var(--danger);"></p>
+      <div class="field" style="margin-top:14px;">
+        <label>招待するひと：招待コードの発行</label>
+        <div class="row">
+          <input type="text" id="familyInviteCode" readonly style="flex:1;">
+          <button type="button" class="secondary" id="familyCreateCodeButton" onclick="App.createFamilyInviteCode()">発行</button>
+        </div>
+        <button type="button" class="secondary" id="familyCopyCodeButton" onclick="App.copyInviteCode()" style="margin-top:8px;" disabled>コードをコピー</button>
+        <p class="hint">発行したコードを、記録へ招待したい人のコード入力欄に入力してください。</p>
+        <p class="muted">招待コードは7日間有効で、1人が参加すると使用済みになります。再発行すると、以前の未使用コードも使えなくなります。</p>
+        <p class="muted" id="familyCopyMsg" style="min-height:18px;"></p>
+      </div>
+    </div>
+
+    <div id="familyJoinSection" class="field">
+      <label>招待されたひと：招待コードの入力</label>
+      <div class="row">
         <input type="text" id="familyJoinCode" inputmode="text" autocomplete="one-time-code" maxlength="19" placeholder="XXXX-XXXX-XXXX-XXXX" style="text-transform:uppercase;">
         <button type="button" class="secondary" id="familyJoinButton" onclick="App.acceptFamilyInviteCode()">参加する</button>
       </div>
       <p class="muted" id="familyJoinError" style="color:var(--danger);min-height:18px;"></p>
-      <hr style="border:0;border-top:1px solid var(--border);margin:14px 0;">
-    </div>
-
-    <div id="familyOwnerSection">
-      <p class="hint">家族や同居している方に招待コードを伝えると、同じペットの記録を一緒に確認・編集できます。ご本人(あなた)は無料で、参加するメンバー1人ごとにメンバー枠が必要です。</p>
-      <p class="hint">招待コードは7日間有効で、1人が参加すると使用済みになります。再発行すると、以前の未使用コードも使えなくなります。</p>
-      <p class="hint">※参加する方もGoogleアカウントでのログインが必要です。</p>
-      <p id="familySeatStatus" class="hint" style="font-weight:600;"></p>
-      <div id="familySeatSelection" class="hidden" style="background:#FFF3E0;padding:10px;border-radius:8px;margin:8px 0;"></div>
-      <label style="font-size:13px;font-weight:600;">共有メンバー</label>
-      <div id="familyEmailList" class="chip-list"></div>
-      <p class="muted" id="familyError" style="color:var(--danger);"></p>
-      <div class="field" style="margin-top:14px;">
-        <label>招待コード</label>
-        <div class="row">
-          <input type="text" id="familyInviteCode" readonly style="flex:1;">
-          <button type="button" class="secondary" id="familyCreateCodeButton" onclick="App.createFamilyInviteCode()">コードを発行</button>
-        </div>
-        <button type="button" class="secondary" id="familyCopyCodeButton" onclick="App.copyInviteCode()" style="margin-top:8px;" disabled>コードをコピー</button>
-        <p class="muted" id="familyCopyMsg" style="min-height:18px;">コードを発行し、参加する方へ伝えてください。</p>
-      </div>
+      <p class="hint">招待するひとが発行したコードを入力して、共有された記録へ参加します。</p>
     </div>
 
     <div id="familyMemberSection" class="hidden">
@@ -1958,10 +1961,8 @@ const App = {
     if(isMember) return;
 
     const seats = (state.entitlements && state.entitlements.familySeatsPurchased) || 0;
-    const used = state.familyEmails.length;
-    const remaining = Math.max(0, seats - used);
     document.getElementById('familySeatStatus').textContent =
-      `共有メンバー: ${used}人(あと${remaining}人 参加できます)`;
+      `記録を共有できる人数：${seats}人`;
 
     const selection = document.getElementById('familySeatSelection');
     const selectionRequired = !!state.entitlements?.familySeatSelectionRequired;
@@ -2074,7 +2075,7 @@ const App = {
       } else {
         errorEl.textContent = this.familyInviteErrorMessage(err);
       }
-      button.textContent = 'コードを発行';
+      button.textContent = '発行';
     } finally {
       button.disabled = false;
     }
@@ -2105,6 +2106,7 @@ const App = {
     }
   },
   async removeFamilyEmail(email){
+    if(!confirm(`${displayText(email)}との共有を解除しますか？解除すると、この記録を閲覧・編集できなくなります。`)) return;
     try{
       // 古いローカル配列の全体書き戻しで別メンバーを巻き戻さないよう、
       // 対象メールだけを原子的に削除する。この更新成功時点でアクセス権は失効する。
