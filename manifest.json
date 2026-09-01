@@ -1,7 +1,7 @@
 {
-  "name": "どうぶつ健康手帳",
-  "short_name": "健康手帳",
-  "description": "ペットの体調・お薬・受診歴を記録するアプリ",
+  "name": "もふもふカルテ",
+  "short_name": "もふもふカルテ",
+  "description": "家族でつくる、ペットの健康記録",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",

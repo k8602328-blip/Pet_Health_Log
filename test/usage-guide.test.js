@@ -15,10 +15,31 @@ const guidePath = path.join(CLIENT_DIR, 'usage-guide.html');
 const guideHtml = fs.readFileSync(guidePath, 'utf8');
 const indexHtml = fs.readFileSync(path.join(CLIENT_DIR, 'index.html'), 'utf8');
 
+test('ユーザー向けブランド名とサブタイトルが新名称に統一されている', () => {
+  const publicFiles = [
+    'index.html',
+    'usage-guide.html',
+    'guide.html',
+    'pdf-guide.html',
+    'privacy.html',
+    'terms.html',
+    'tokushoho.html',
+  ];
+  for (const file of publicFiles) {
+    const html = fs.readFileSync(path.join(CLIENT_DIR, file), 'utf8');
+    assert.doesNotMatch(html, /どうぶつ健康手帳|健康手帳/, `${file} に旧名称が残っています`);
+  }
+
+  const manifest = JSON.parse(fs.readFileSync(path.join(CLIENT_DIR, 'manifest.json'), 'utf8'));
+  assert.equal(manifest.name, 'もふもふカルテ');
+  assert.equal(manifest.short_name, 'もふもふカルテ');
+  assert.match(indexHtml, /家族でつくる、ペットの健康記録/);
+});
+
 test('usage-guide.html が存在し、title と h1 が仕様どおり', () => {
   assert.ok(fs.existsSync(guidePath));
-  assert.match(guideHtml, /<title>どうぶつ健康手帳 使い方ガイド<\/title>/);
-  assert.match(guideHtml, /<h1>どうぶつ健康手帳 使い方ガイド<\/h1>/);
+  assert.match(guideHtml, /<title>もふもふカルテ 使い方ガイド<\/title>/);
+  assert.match(guideHtml, /<h1>もふもふカルテ 使い方ガイド<\/h1>/);
   assert.match(guideHtml, /lang="ja"/);
 });
 
@@ -39,7 +60,7 @@ test('10セクションのアンカー(#s1..#s10)と目次リンクが揃って�
 
 test('10セクションの見出し文言が含まれている', () => {
   const titles = [
-    'どうぶつ健康手帳でできること',
+    'もふもふカルテでできること',
     'ログインして、すぐ開けるようにする',
     'ペットを登録する',
     '毎日の様子を記録する',
