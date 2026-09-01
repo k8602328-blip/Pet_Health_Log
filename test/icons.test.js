@@ -118,6 +118,25 @@ test('記録詳細は右上に閉じる、右下に編集・削除の順で表�
   assert.match(HTML, /\.event-detail-actions\{display:flex;justify-content:flex-end/);
 });
 
+test('固定記録バーはトップレベル専用領域に描画し、実測高ぶん最終行を空ける', () => {
+  assert.match(HTML, /<\/div>\s*<div id="quickDockHost"><\/div>\s*<div id="petSwitchModalBackdrop"/);
+  const daily = HTML.slice(HTML.indexOf('renderDaily(){'), HTML.indexOf('eventFieldsHtml(type'));
+  assert.match(daily, /document\.getElementById\('quickDockHost'\)\.innerHTML/);
+  assert.match(daily, /getBoundingClientRect\(\)\.height\) \+ 20/);
+  assert.match(daily, /new ResizeObserver\(update\)/);
+  assert.match(HTML, /\.daily-screen\{padding-bottom:var\(--quick-dock-space,132px\)/);
+  assert.match(HTML, /transform:translate3d\(0,0,0\);will-change:transform/);
+});
+
+test('入力モーダルを閉じるとフォーカスを解除して固定バーを再計測する', () => {
+  assert.match(HTML, /restoreQuickDockAfterInput\(\)[^]*active\.blur\(\)[^]*setTimeout\(\(\) => this\.syncQuickDockSpacing\(\), 300\)/);
+  for (const method of ['closeRecordModal','closeMedModal','closeEventModal']) {
+    const start = HTML.indexOf(`${method}(){`);
+    assert.ok(start >= 0, method);
+    assert.match(HTML.slice(start, start + 350), /this\.restoreQuickDockAfterInput\(\)/);
+  }
+});
+
 test('主要ナビ・ブランド・使い方ガイドがPNGを参照する', () => {
   for (const id of ['daily','chart','menu','paw','guide']) assert.match(HTML, new RegExp(`icons/${id}\\.png`));
 });
