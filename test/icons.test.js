@@ -50,8 +50,28 @@ test('iconSvgとpetTypeIconはSVGを描かずPNGを参照する', () => {
 
 test('全PNG素材がindex.htmlから参照され、参照切れがない', () => {
   const refs = new Set(referencedPngs());
-  for (const id of EXPECTED) assert.ok(refs.has(id), `${id}.png is not referenced`);
+  // historyは旧「これまでの記録」メニュー撤去後も素材として保管する。
+  for (const id of EXPECTED.filter(id => id !== 'history')) assert.ok(refs.has(id), `${id}.png is not referenced`);
   for (const id of refs) assert.ok(EXPECTED.includes(id), `unexpected icon reference: ${id}`);
+});
+
+test('共有記録の閲覧中は制限対象メニューと削除操作を表示しない', () => {
+  const menu = HTML.slice(HTML.indexOf('renderMenu(){'), HTML.indexOf('renderMealProfiles(){'));
+  assert.match(menu, /共有された記録を閲覧中は一部メニューが使用できません/);
+  assert.match(menu, /state\.linkedOwnerUid \? '' : group\('ペットの管理'/);
+  assert.match(menu, /state\.linkedOwnerUid \? '' : group\('記録を活用'/);
+  assert.match(menu, /state\.linkedOwnerUid \? '' : group\('サービス'/);
+  assert.doesNotMatch(menu, /'これまでの記録'/);
+  for (const method of ['deleteRecord','deleteMed','deletePrev','deleteVisit','deleteMealProfile']) {
+    assert.match(HTML, new RegExp(`${method}\\(id\\)\\{\\s*if\\(state\\.linkedOwnerUid\\)`));
+  }
+});
+
+test('家族共有バナーは説明と操作ボタンを二段にする', () => {
+  assert.match(HTML, /household-banner--stacked/);
+  assert.match(HTML, /共有された記録を閲覧・編集中/);
+  assert.match(HTML, /'自分のデータに戻る'/);
+  assert.match(HTML, /'家族共有に参加しています', '共有データを見る'/);
 });
 
 test('固定クイック記録13項目が指定順で対応PNGを使う', () => {

@@ -208,6 +208,9 @@
   .med-dose-boxes{display:flex;flex-wrap:wrap;gap:12px;}
   .tag-warn{background:#FCE8D8;color:#B5540A;}
   #householdBanner{background:var(--accent);color:#fff;padding:8px 24px;font-size:13px;display:flex;justify-content:space-between;align-items:center;gap:12px;}
+  #householdBanner.household-banner--stacked{display:grid;grid-template-columns:1fr;justify-items:stretch;gap:8px;padding:12px 24px;}
+  #householdBanner .household-banner-message{display:flex;align-items:center;justify-content:center;gap:8px;text-align:center;}
+  #householdBanner.household-banner--stacked button{width:100%;min-height:36px;white-space:nowrap;}
   #householdBanner button{background:transparent;color:#fff;border:1px solid rgba(255,255,255,0.6);padding:4px 10px;}
   #billingBanner{background:#FFF3E0;border-bottom:1px solid #F0C36D;color:#6D4C00;padding:8px 24px;font-size:13px;}
   #homeScreenBanner{background:#FFF3E0;border-bottom:1px solid #FDE0B8;color:var(--text);padding:8px 24px;font-size:13px;display:flex;justify-content:space-between;align-items:center;gap:12px;}
@@ -2189,6 +2192,7 @@ const App = {
   // 写真はFirebase Storageではなく圧縮したdata URLとしてFirestore文書に直接
   // 埋め込まれているため、これらの文書を消せば写真データも一緒に消える。
   async deletePet(petId){
+    if(state.linkedOwnerUid){ alert('共有された記録は削除できません。'); return; }
     const pet = state.pets.find(p => p.id === petId);
     if(!pet) return;
     if(!confirm(`「${pet.name}」を削除しますか?\n体重・症状などの記録、投薬、予防接種、受診歴もすべて削除され、元に戻せません。`)) return;
@@ -2663,6 +2667,7 @@ const App = {
     this.closeRecordModal();
   },
   deleteRecord(id){
+    if(state.linkedOwnerUid){ alert('共有された記録は削除できません。'); return; }
     if(!confirm('この記録を削除しますか?')) return;
     colRef('records').doc(id).delete();
   },
@@ -2899,6 +2904,7 @@ const App = {
     this.closeMedModal();
   },
   deleteMed(id){
+    if(state.linkedOwnerUid){ alert('共有された設定は削除できません。'); return; }
     if(!confirm('この薬の記録を削除しますか?')) return;
     colRef('medications').doc(id).delete();
   },
@@ -2958,6 +2964,7 @@ const App = {
     this.closePrevModal();
   },
   deletePrev(id){
+    if(state.linkedOwnerUid){ alert('共有された記録は削除できません。'); return; }
     if(!confirm('この記録を削除しますか?')) return;
     colRef('preventions').doc(id).delete();
   },
@@ -3008,6 +3015,7 @@ const App = {
     this.closeVisitModal();
   },
   deleteVisit(id){
+    if(state.linkedOwnerUid){ alert('共有された記録は削除できません。'); return; }
     if(!confirm('この受診記録を削除しますか?')) return;
     colRef('visits').doc(id).delete();
   },
@@ -3023,18 +3031,23 @@ const App = {
   renderHouseholdBanner(){
     const banner = document.getElementById('householdBanner');
     banner.replaceChildren();
+    banner.classList.remove('household-banner--stacked');
     // iconId を渡すと統一SVG(家族共有アイコン等)を行頭に付ける。警告記号はテキストのまま残す。
     const addBanner = (message, buttonText, handler, iconId) => {
       banner.classList.remove('hidden');
+      const messageRow = document.createElement('div');
+      messageRow.className = 'household-banner-message';
       if(iconId){
         const iconWrap = document.createElement('span');
         iconWrap.innerHTML = iconSvg(iconId);
-        banner.append(iconWrap.firstChild);
+        messageRow.append(iconWrap.firstChild);
       }
       const messageEl = document.createElement('span');
       messageEl.textContent = message;
-      banner.append(messageEl);
+      messageRow.append(messageEl);
+      banner.append(messageRow);
       if(buttonText){
+        banner.classList.add('household-banner--stacked');
         const button = document.createElement('button');
         button.textContent = buttonText;
         button.disabled = state.householdStatus === 'switching';
@@ -3050,8 +3063,8 @@ const App = {
       addBanner(`⚠️ ${state.householdError || '共有情報はありますが権限がありません。'}`, '再試行', () => App.retryHousehold());
     } else if(state.linkedOwnerUid){
       const prefix = state.householdStatus === 'offline' ? '⚠️ オフライン: ' : '';
-      const mode = state.entitlements?.familyWritesSuspended ? '閲覧中です（編集は一時停止中）' : '閲覧・編集中です';
-      addBanner(`${prefix}家族共有として、他の方のペット記録を${mode}`, '自分のデータに戻る', () => App.leaveHousehold(), 'family');
+      const mode = state.entitlements?.familyWritesSuspended ? '共有された記録を閲覧中（編集は一時停止中）' : '共有された記録を閲覧・編集中';
+      addBanner(`${prefix}${mode}`, '自分のデータに戻る', () => App.leaveHousehold(), 'family');
     } else if(state.knownHouseholdUid){
       addBanner('家族共有に参加しています', '共有データを見る', () => App.rejoinHousehold(), 'family');
     } else {
@@ -3387,17 +3400,18 @@ const App = {
     const deleteBtn = document.getElementById('eventDeleteButton');
     const undoBtn = document.getElementById('eventUndoScheduledButton');
     editBtn.style.display = fromSchedule ? 'none' : '';
-    deleteBtn.style.display = fromSchedule ? 'none' : '';
-    undoBtn.style.display = fromSchedule ? '' : 'none';
+    deleteBtn.style.display = (fromSchedule || state.linkedOwnerUid) ? 'none' : '';
+    undoBtn.style.display = (fromSchedule && !state.linkedOwnerUid) ? '' : 'none';
     editBtn.onclick = () => { this.closeEventDetail(); this.openEventModal(event.type, event.id); };
     deleteBtn.onclick = () => this.deleteEvent(event.id);
     undoBtn.onclick = () => this.undoScheduledMedication(event.id);
     document.getElementById('eventDetailBackdrop').classList.remove('hidden');
   },
   closeEventDetail(){ document.getElementById('eventDetailBackdrop').classList.add('hidden'); },
-  deleteEvent(id){ if(!confirm('この記録を削除しますか？')) return; colRef('events').doc(id).delete(); this.closeEventDetail(); },
+  deleteEvent(id){ if(state.linkedOwnerUid){ alert('共有された記録は削除できません。'); return; } if(!confirm('この記録を削除しますか？')) return; colRef('events').doc(id).delete(); this.closeEventDetail(); },
   // 予定由来の完了を取り消す。完了イベントを削除すると、その予定行が本日の記録へ復帰する。
   undoScheduledMedication(id){
+    if(state.linkedOwnerUid){ alert('共有された記録は削除できません。'); return; }
     if(!confirm('この投薬を未完了に戻しますか？予定として本日の記録に再表示されます。')) return;
     colRef('events').doc(id).delete();
     this.closeEventDetail();
@@ -3409,19 +3423,24 @@ const App = {
       [petTypeIcon('paw',''),'ペット情報を編集','名前・種類・性別・敬称',"App.openPetEditModal()"],
       [iconSvg('trash','ic--danger'),'選択中の記録を削除する','記録・投薬・予防・受診歴もすべて削除',"App.deletePet(state.currentPetId)"]
     );
-    let petManagement = group('ペットの管理', petItems);
+    let petManagement = state.linkedOwnerUid ? '' : group('ペットの管理', petItems);
     const accountName = currentUser ? displayText(currentUser.displayName || currentUser.email) : '';
     const accountEmail = currentUser ? displayText(currentUser.email) : '';
     petManagement += `<div class="menu-section">アカウント</div><div class="account-summary"><strong>${escapeHtml(accountName)}</strong>${accountEmail && accountEmail !== accountName ? `<span class="muted">${escapeHtml(accountEmail)}</span>` : ''}</div>`;
-    document.getElementById('mainContent').innerHTML = `${petManagement}${group('記録の設定', [[iconSvg('meal-setup'),'ごはんの登録','食事候補の登録・編集・並び替え',"App.renderMealProfiles()"],[iconSvg('med-setup'),'くすりの登録','薬・用量・投薬予定・通知',"App.switchTab('meds')"]])}${group('健康管理', [[iconSvg('prevention'),'予防','ワクチン・ノミダニ・フィラリア',"App.switchTab('prev')"],[iconSvg('visits'),'受診歴','通院の記録',"App.switchTab('visits')"]])}${group('記録を活用', [[iconSvg('report'),'レポート出力','主治医への共有レポート・PDF',"App.switchTab('export')"],[iconSvg('history'),'これまでの記録','新UI以前の日次記録の一覧・編集',"App.switchTab('list')"]])}${group('サービス', [[iconSvg('family'),'家族共有','家族や同居の方と記録を共有',"App.openFamilyModal()"],[iconSvg('upgrade'),'アップグレード','有料機能とお支払い',"App.openUpgradeModal()"]])}${group('サポート', [[iconSvg('guide'),'使い方ガイド','',"window.open('usage-guide.html','_blank','noopener')"],[iconSvg('contact'),'お問い合わせ','',"window.location.href='mailto:contact@pet-health-log.com'"]])}${group('プライバシーとアカウント', [[iconSvg('privacy'),'プライバシーポリシー・利用規約','',"window.open('privacy.html','_blank','noopener')"],[iconSvg('logout'),'ログアウト','',"AppAuth.signOut()"],[iconSvg('account-delete','ic--danger'),'アカウントを削除する','',"App.requestAccountDeletion()"]])}`;
+    const sharedNotice = state.linkedOwnerUid ? '<div class="notice">共有された記録を閲覧中は一部メニューが使用できません。</div>' : '';
+    const recordTools = state.linkedOwnerUid ? '' : group('記録を活用', [[iconSvg('report'),'レポート出力','主治医への共有レポート・PDF',"App.switchTab('export')"]]);
+    const services = state.linkedOwnerUid ? '' : group('サービス', [[iconSvg('family'),'家族共有','家族や同居の方と記録を共有',"App.openFamilyModal()"],[iconSvg('upgrade'),'アップグレード','有料機能とお支払い',"App.openUpgradeModal()"]]);
+    const accountItems = [[iconSvg('privacy'),'プライバシーポリシー・利用規約','',"window.open('privacy.html','_blank','noopener')"],[iconSvg('logout'),'ログアウト','',"AppAuth.signOut()"]];
+    if(!state.linkedOwnerUid) accountItems.push([iconSvg('account-delete','ic--danger'),'アカウントを削除する','',"App.requestAccountDeletion()"]);
+    document.getElementById('mainContent').innerHTML = `${sharedNotice}${petManagement}${group('記録の設定', [[iconSvg('meal-setup'),'ごはんの登録','食事候補の登録・編集・並び替え',"App.renderMealProfiles()"],[iconSvg('med-setup'),'くすりの登録','薬・用量・投薬予定・通知',"App.switchTab('meds')"]])}${group('健康管理', [[iconSvg('prevention'),'予防','ワクチン・ノミダニ・フィラリア',"App.switchTab('prev')"],[iconSvg('visits'),'受診歴','通院の記録',"App.switchTab('visits')"]])}${recordTools}${services}${group('サポート', [[iconSvg('guide'),'使い方ガイド','',"window.open('usage-guide.html','_blank','noopener')"],[iconSvg('contact'),'お問い合わせ','',"window.location.href='mailto:contact@pet-health-log.com'"]])}${group('プライバシーとアカウント', accountItems)}`;
   },
   renderMealProfiles(){
     const profiles = petMealProfiles();
-    document.getElementById('mainContent').innerHTML = `<div class="card"><div class="row" style="justify-content:space-between;"><h3 style="margin:0;">ごはんの設定</h3><button type="button" onclick="App.addMealProfile()">+ 追加</button></div><p class="hint">朝・昼・夜に限らず、普段食べるごはんを候補として登録できます。記録時に複数選択できます。</p>${profiles.length ? profiles.map(profile => `<div class="med-card"><strong>${escapeHtml(profile.label || '名称未設定')}</strong>${profile.description ? `<div class="muted">${escapeHtml(profile.description)}</div>` : ''}${profile.suggestedTime ? `<div class="hint">目安時刻 ${escapeHtml(profile.suggestedTime)}</div>` : ''}<div class="row" style="justify-content:flex-end;"><button class="secondary" ${actionAttrs('editMealProfile', profile.id)}>編集</button><button class="danger" ${actionAttrs('deleteMealProfile', profile.id)}>削除</button></div></div>`).join('') : '<div class="empty">まだ食事候補がありません</div>'}<div class="row" style="justify-content:flex-end;margin-top:10px;"><button class="ghost" onclick="App.switchTab(\'menu\')">メニューへ戻る</button></div></div>`;
+    document.getElementById('mainContent').innerHTML = `<div class="card"><div class="row" style="justify-content:space-between;"><h3 style="margin:0;">ごはんの設定</h3><button type="button" onclick="App.addMealProfile()">+ 追加</button></div><p class="hint">朝・昼・夜に限らず、普段食べるごはんを候補として登録できます。記録時に複数選択できます。</p>${profiles.length ? profiles.map(profile => `<div class="med-card"><strong>${escapeHtml(profile.label || '名称未設定')}</strong>${profile.description ? `<div class="muted">${escapeHtml(profile.description)}</div>` : ''}${profile.suggestedTime ? `<div class="hint">目安時刻 ${escapeHtml(profile.suggestedTime)}</div>` : ''}<div class="row" style="justify-content:flex-end;"><button class="secondary" ${actionAttrs('editMealProfile', profile.id)}>編集</button>${state.linkedOwnerUid ? '' : `<button class="danger" ${actionAttrs('deleteMealProfile', profile.id)}>削除</button>`}</div></div>`).join('') : '<div class="empty">まだ食事候補がありません</div>'}<div class="row" style="justify-content:flex-end;margin-top:10px;"><button class="ghost" onclick="App.switchTab(\'menu\')">メニューへ戻る</button></div></div>`;
   },
   addMealProfile(){ this.editMealProfile(); },
   editMealProfile(id){ const item = id ? state.mealProfiles.find(profile => profile.id === id) : null; const label = prompt('食事候補の名前を入力してください', item?.label || ''); if(label === null) return; if(!label.trim()){ alert('名前を入力してください。'); return; } const description = prompt('内容（任意）', item?.description || ''); if(description === null) return; const suggestedTime = prompt('目安時刻（任意、例: 07:00）', item?.suggestedTime || ''); if(suggestedTime === null) return; const docId = id || uid(); colRef('mealProfiles').doc(docId).set({petId:state.currentPetId,label:label.trim(),description:description.trim(),suggestedTime:suggestedTime.trim(),sortOrder:item?.sortOrder || state.mealProfiles.length,active:true,updatedAt:firebase.firestore.FieldValue.serverTimestamp(),...(item ? {} : {createdAt:firebase.firestore.FieldValue.serverTimestamp()})},{merge:true}); },
-  deleteMealProfile(id){ if(!confirm('この食事候補を削除しますか？過去の記録は変更されません。')) return; colRef('mealProfiles').doc(id).delete(); },
+  deleteMealProfile(id){ if(state.linkedOwnerUid){ alert('共有された設定は削除できません。'); return; } if(!confirm('この食事候補を削除しますか？過去の記録は変更されません。')) return; colRef('mealProfiles').doc(id).delete(); },
 
   // モバイル向けの折りたたみ記録カード。ホーム(概要のみ)と記録一覧(全項目)の
   // どちらからも使う。opts.full=trueで飲水・便・尿・CIBDAI・メモも詳細に含める。
@@ -3465,7 +3484,7 @@ const App = {
           ` : ''}
           <div class="row" style="margin-top:10px;justify-content:flex-end;">
             <button class="secondary" ${actionAttrs('openRecord', r.id)}>編集</button>
-            ${opts.showDelete ? `<button class="danger" ${actionAttrs('deleteRecord', r.id)}>削除</button>` : ''}
+            ${opts.showDelete && !state.linkedOwnerUid ? `<button class="danger" ${actionAttrs('deleteRecord', r.id)}>削除</button>` : ''}
           </div>
         </div>
       </div>
@@ -3656,7 +3675,7 @@ const App = {
           <div class="actions-cell">
             ${!isMedActiveOn(m, today) && !m.paused ? '' : `<button class="secondary" ${actionAttrs('toggleMedPause', m.id)}>${m.paused ? '▶ 服用を再開する' : '⏸ 休薬にする'}</button>`}
             <button class="secondary" ${actionAttrs('openMed', m.id)}>編集</button>
-            <button class="danger" ${actionAttrs('deleteMed', m.id)}>削除</button>
+            ${state.linkedOwnerUid ? '' : `<button class="danger" ${actionAttrs('deleteMed', m.id)}>削除</button>`}
           </div>
         </div>
         ${(!m.name || !m.dosage) ? `<div class="hint">${!m.name ? '薬品名' : ''}${(!m.name && !m.dosage) ? '・' : ''}${!m.dosage ? '用量' : ''}が未記入です。次回の受診時に「このお薬の名前と用量を教えてください」と聞いて記録しておくと安心です。</div>` : ''}
@@ -3712,7 +3731,7 @@ const App = {
           <div class="prevention-detail prevention-detail--clinic"><dt>病院</dt><dd>${escapeHtml(p.clinic || '未登録')}</dd></div>
         </dl>
         ${p.memo ? `<div class="prevention-card-memo"><span class="muted">メモ</span><br>${escapeHtml(p.memo)}</div>` : ''}
-        <div class="prevention-actions"><button class="secondary" ${actionAttrs('openPrev', p.id)}>編集</button><button class="danger" ${actionAttrs('deletePrev', p.id)}>削除</button></div>
+        <div class="prevention-actions"><button class="secondary" ${actionAttrs('openPrev', p.id)}>編集</button>${state.linkedOwnerUid ? '' : `<button class="danger" ${actionAttrs('deletePrev', p.id)}>削除</button>`}</div>
       </article>
     `;
     main.innerHTML = `
@@ -3738,7 +3757,7 @@ const App = {
           </div>
           <div class="actions-cell">
             <button class="secondary" ${actionAttrs('openVisit', v.id)}>編集</button>
-            <button class="danger" ${actionAttrs('deleteVisit', v.id)}>削除</button>
+            ${state.linkedOwnerUid ? '' : `<button class="danger" ${actionAttrs('deleteVisit', v.id)}>削除</button>`}
           </div>
         </div>
         <table style="margin-top:6px;">
