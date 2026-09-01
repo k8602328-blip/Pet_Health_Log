@@ -137,6 +137,17 @@ test('入力モーダルを閉じるとフォーカスを解除して固定バ�
   }
 });
 
+test('予防記録は狭い表ではなく操作ボタンを内包したカードで表示する', () => {
+  const prev = HTML.slice(HTML.indexOf('renderPrevTab(){'), HTML.indexOf('renderVisitsTab(){'));
+  assert.match(prev, /<article class="prevention-card">/);
+  assert.match(prev, /class="prevention-details"/);
+  assert.match(prev, /実施日[^]*次回予定[^]*病院/);
+  assert.match(prev, /class="prevention-actions"[^]*>編集<\/button>[^]*>削除<\/button>/);
+  assert.doesNotMatch(prev, /<table>|<tr><th>種類/);
+  assert.match(HTML, /\.prevention-details\{display:grid;grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/);
+  assert.match(HTML, /\.prevention-actions\{display:flex;justify-content:flex-end/);
+});
+
 test('主要ナビ・ブランド・使い方ガイドがPNGを参照する', () => {
   for (const id of ['daily','chart','menu','paw','guide']) assert.match(HTML, new RegExp(`icons/${id}\\.png`));
 });

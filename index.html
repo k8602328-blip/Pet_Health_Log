@@ -249,6 +249,17 @@
   .event-detail-modal h3{padding-right:76px;}
   .event-detail-close{position:absolute;top:12px;right:12px;padding:6px 10px;font-size:12px;}
   .event-detail-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:14px;}
+  .prevention-list{display:grid;gap:12px;margin-top:16px;}
+  .prevention-card{border:1px solid var(--border);border-radius:12px;background:#fff;padding:14px;min-width:0;}
+  .prevention-card-title{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:12px;}
+  .prevention-card-category{font-weight:700;color:var(--primary-dark);}
+  .prevention-card-name{font-weight:700;overflow-wrap:anywhere;}
+  .prevention-details{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px 14px;margin:0;}
+  .prevention-detail{min-width:0;}
+  .prevention-detail dt{font-size:12px;font-weight:600;color:var(--muted);margin-bottom:3px;}
+  .prevention-detail dd{margin:0;overflow-wrap:anywhere;}
+  .prevention-card-memo{margin-top:10px;padding-top:10px;border-top:1px solid var(--border);white-space:pre-wrap;overflow-wrap:anywhere;}
+  .prevention-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:14px;}
   .scheduled-lock{font-weight:700;font-size:15px;padding:8px 10px;background:var(--bg);border:1px solid var(--border);border-radius:8px;}
   .graph-tabs{display:flex;gap:6px;overflow-x:auto;margin:0 0 12px;padding-bottom:2px;}.graph-tab{white-space:nowrap;flex:0 0 auto;}.menu-section{margin:18px 0 6px;color:var(--muted);font-size:12px;font-weight:700;}.menu-item{display:flex;width:100%;align-items:center;gap:10px;text-align:left;padding:13px 8px;border:0;border-bottom:1px solid var(--border);background:#fff;color:var(--text);font:inherit;cursor:pointer;}.menu-item-icon{font-size:21px;width:28px;text-align:center;}.menu-item-copy{flex:1;}.menu-item-copy small{display:block;color:var(--muted);font-size:12px;margin-top:2px;}.menu-item-arrow{color:var(--muted);}
   .record-card{border:1px solid var(--border);border-radius:10px;margin-bottom:8px;overflow:hidden;}
@@ -280,6 +291,8 @@
     nav.tabs{gap:4px;}
     .tab-btn{font-size:12px;padding:9px 3px;}
     .tab-btn .ic{width:22px;height:22px;margin-right:2px;}
+    .prevention-details{grid-template-columns:repeat(2,minmax(0,1fr));}
+    .prevention-detail--clinic{grid-column:1/-1;}
     .records-table-view{display:none;}
     .records-card-view{display:block;}
     .btn-label-full{display:none;}
@@ -3632,18 +3645,17 @@ const App = {
     const items = petPreventions();
     const today = new Date().toISOString().slice(0,10);
     const main = document.getElementById('mainContent');
-    const rowHtml = p => `
-      <tr>
-        <td>${escapeHtml(p.category)}</td>
-        <td>${escapeHtml(p.name || '-')}</td>
-        <td>${fmtDate(p.date)}</td>
-        <td>${p.nextDate ? (fmtDate(p.nextDate) + (p.nextDate < today ? ' <span class="status-ended" style="color:var(--danger);">(期限切れ)</span>' : '')) : '-'}</td>
-        <td>${escapeHtml(p.clinic || '-')}</td>
-        <td class="actions-cell">
-          <button class="secondary" ${actionAttrs('openPrev', p.id)}>編集</button>
-          <button class="danger" ${actionAttrs('deletePrev', p.id)}>削除</button>
-        </td>
-      </tr>
+    const cardHtml = p => `
+      <article class="prevention-card">
+        <div class="prevention-card-title"><span class="prevention-card-category">${escapeHtml(p.category)}</span><span class="prevention-card-name">${escapeHtml(p.name || '名称未登録')}</span></div>
+        <dl class="prevention-details">
+          <div class="prevention-detail"><dt>実施日</dt><dd>${fmtDate(p.date)}</dd></div>
+          <div class="prevention-detail"><dt>次回予定</dt><dd>${p.nextDate ? (fmtDate(p.nextDate) + (p.nextDate < today ? ' <span class="status-ended" style="color:var(--danger);">期限切れ</span>' : '')) : '未定'}</dd></div>
+          <div class="prevention-detail prevention-detail--clinic"><dt>病院</dt><dd>${escapeHtml(p.clinic || '未登録')}</dd></div>
+        </dl>
+        ${p.memo ? `<div class="prevention-card-memo"><span class="muted">メモ</span><br>${escapeHtml(p.memo)}</div>` : ''}
+        <div class="prevention-actions"><button class="secondary" ${actionAttrs('openPrev', p.id)}>編集</button><button class="danger" ${actionAttrs('deletePrev', p.id)}>削除</button></div>
+      </article>
     `;
     main.innerHTML = `
       <div class="card">
@@ -3651,11 +3663,7 @@ const App = {
           <h3 style="margin:0;">予防接種・ノミダニ/フィラリア予防</h3>
           <button onclick="App.openPrevModal()">+ 記録を追加</button>
         </div>
-        ${items.length === 0 ? '<div class="empty">まだ記録がありません</div>' : `
-        <table>
-          <tr><th>種類</th><th>名称</th><th>実施日</th><th>次回予定</th><th>病院</th><th></th></tr>
-          ${items.map(rowHtml).join('')}
-        </table>`}
+        ${items.length === 0 ? '<div class="empty">まだ記録がありません</div>' : `<div class="prevention-list">${items.map(cardHtml).join('')}</div>`}
       </div>
     `;
   },
