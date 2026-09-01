@@ -5,18 +5,17 @@ const path = require('node:path');
 
 const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 
-test('家族共有画面で迷惑メール確認と招待リンクの代替手段を案内する', () => {
-  assert.match(html, /迷惑メールフォルダも確認してください/);
-  assert.match(html, /下の招待リンクを本人へ直接共有できます/);
-});
-
-test('招待メール送信成功後にも迷惑メール確認を案内する', () => {
-  assert.match(html, /招待メールを送信しました。見つからない場合は迷惑メールフォルダを確認してください。/);
-});
-
-test('一度限りの招待コードを発行・受諾できる', () => {
+test('家族共有は一度限りの招待コードだけを発行・受諾する', () => {
   assert.match(html, /httpsCallable\('createFamilyInviteCode'\)/);
   assert.match(html, /httpsCallable\('acceptFamilyInviteCode'\)/);
-  assert.match(html, /\?familyInvite=/);
   assert.match(html, /招待コードで参加/);
+  assert.match(html, /コードをコピー/);
+  assert.doesNotMatch(html, /httpsCallable\('inviteFamilyMember'\)/);
+  assert.doesNotMatch(html, /id="familyEmailInput"|id="familyInviteUrl"/);
+});
+
+test('招待コードの有効期限・一度限り・再発行時の失効を説明する', () => {
+  assert.match(html, /招待コードは7日間有効/);
+  assert.match(html, /1人が参加すると使用済み/);
+  assert.match(html, /再発行すると、以前の未使用コードも使えなくなります/);
 });
