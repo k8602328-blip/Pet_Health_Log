@@ -66,6 +66,13 @@ test('家族共有はトップとメニューで同じ素材を使う', () => {
   assert.match(menu, /iconSvg\('family'\)/);
 });
 
+test('メニューから選択中のペットを既存の安全な削除処理へ渡せる', () => {
+  const menu = HTML.slice(HTML.indexOf('renderMenu(){'), HTML.indexOf('renderMealProfiles(){'));
+  assert.match(menu, /'選択中のペットを削除'/);
+  assert.match(menu, /App\.deletePet\(state\.currentPetId\)/);
+  assert.match(menu, /iconSvg\('trash','ic--danger'\)/);
+});
+
 test('主要ナビ・ブランド・使い方ガイドがPNGを参照する', () => {
   for (const id of ['daily','chart','menu','paw','guide']) assert.match(HTML, new RegExp(`icons/${id}\\.png`));
 });
