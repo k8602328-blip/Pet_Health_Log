@@ -12,7 +12,7 @@ const ROOT = path.join(__dirname, '..');
 const HTML = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
 const app = loadApp();
 const EXPECTED = [
-  'urine','stool','symptom','weight','treat','meal','water','walk','play','medication','visit','memo',
+  'urine','stool','symptom','weight','temperature','treat','meal','water','walk','play','medication','visit','memo',
   'paw','dog','cat','daily','chart','menu','family','upgrade','meal-setup','med-setup','prevention',
   'visits','report','history','guide','contact','privacy','logout','account-delete','lock','camera','trash',
 ];
@@ -29,7 +29,7 @@ function referencedPngs() {
   return ids;
 }
 
-test('正本から切り出した34個のPNG素材が揃っている', () => {
+test('正本から切り出したPNG素材が揃っている', () => {
   const actual = fs.readdirSync(path.join(ROOT, 'icons')).filter(f => f.endsWith('.png')).map(f => f.slice(0,-4));
   assert.deepEqual(actual.sort(), [...EXPECTED].sort());
 });
@@ -48,16 +48,24 @@ test('iconSvgとpetTypeIconはSVGを描かずPNGを参照する', () => {
   assert.equal(app.petTypeIcon('dog', '犬'), '<img class="ic pet-type-ic" src="icons/dog.png" alt="犬">');
 });
 
-test('全34素材がindex.htmlから参照され、参照切れがない', () => {
+test('全PNG素材がindex.htmlから参照され、参照切れがない', () => {
   const refs = new Set(referencedPngs());
   for (const id of EXPECTED) assert.ok(refs.has(id), `${id}.png is not referenced`);
   for (const id of refs) assert.ok(EXPECTED.includes(id), `unexpected icon reference: ${id}`);
 });
 
-test('固定クイック記録12項目が対応PNGを使う', () => {
-  const keys = ['urine','stool','walk','play','treat','meal','water','medication','weight','symptom','visit','memo'];
-  assert.deepEqual(Object.keys(app.EVENT_TYPES).sort(), [...keys].sort());
+test('固定クイック記録13項目が指定順で対応PNGを使う', () => {
+  const keys = ['meal','water','treat','urine','stool','walk','play','medication','weight','temperature','symptom','visit','memo'];
+  assert.deepEqual(Object.keys(app.EVENT_TYPES), keys);
   for (const key of keys) assert.match(app.EVENT_TYPES[key].icon, new RegExp(`icons/${key}\\.png`));
+});
+
+test('体温グラフは治療サポートプラン対象として実装されている', () => {
+  const graph = HTML.slice(HTML.indexOf('renderChartTab(){'), HTML.indexOf('renderExportTab(){'));
+  assert.match(graph, /\['temperature','体温'\]/);
+  assert.match(graph, /premiumGraphs = \['temperature'/);
+  assert.match(graph, /event\.type === 'temperature'/);
+  assert.match(graph, /temperatureChartCanvas/);
 });
 
 test('家族共有はトップとメニューで同じ素材を使う', () => {

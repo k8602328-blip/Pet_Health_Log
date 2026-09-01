@@ -87,6 +87,7 @@ test('eventSummary produces a compact type-specific timeline label', () => {
   assert.equal(app.eventSummary({ type: 'meal', details: { intakePercent: 75, mealProfileLabels: ['朝のドライフード'] } }), '75% 朝のドライフード');
   assert.equal(app.eventSummary({ type: 'symptom', details: { symptoms: ['嘔吐', '下痢', '咳'] } }), '嘔吐・下痢');
   assert.equal(app.eventSummary({ type: 'water', details: { amount: 'more' } }), '量：多い');
+  assert.equal(app.eventSummary({ type: 'temperature', details: { celsius: 38.6 } }), '38.6℃');
 });
 
 test('recordedMealIntakes excludes days and meals without a recorded intake instead of treating them as 0%', () => {
@@ -127,6 +128,7 @@ test('coerceEventFieldValue stores select-backed numeric fields as numbers, not 
   assert.strictEqual(app.coerceEventFieldValue('distanceMeters', '1200'), 1200);
   assert.strictEqual(app.coerceEventFieldValue('intakePercent', '75'), 75);
   assert.strictEqual(app.coerceEventFieldValue('kilograms', '3.5'), 3.5);
+  assert.strictEqual(app.coerceEventFieldValue('celsius', '38.6'), 38.6);
   assert.strictEqual(app.coerceEventFieldValue('kilograms', ''), null);
 });
 

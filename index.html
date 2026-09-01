@@ -1045,7 +1045,7 @@ const UPGRADE_ITEMS = [
       <ul>
         <li>${iconSvg('medication')}投薬リマインダー通知(飲ませる時間になったらお知らせ)</li>
         <li>${iconSvg('camera')}記録への写真添付(便・尿・患部などを残せる)</li>
-        <li>${iconSvg('chart')}グラフの拡張(食欲・お散歩の推移、日々の状態・症状のタイムライン、期間指定表示)</li>
+        <li>${iconSvg('chart')}グラフの拡張(体温・食欲・お散歩の推移、日々の状態・症状のタイムライン、期間指定表示)</li>
         <li>${iconSvg('memo')}「今週のようす」(週次の体調傾向を自動でお知らせ)</li>
         <li>${iconSvg('report')}PDFレポートの拡張(グラフ画像やタイムライン表も出力)</li>
       </ul>`,
@@ -1121,6 +1121,7 @@ let state = {
   weightChart: null,
   appetiteChart: null,
   walkChart: null,
+  temperatureChart: null,
   symptomChart: null,
   entitlements: null,
   linkedOwnerUid: null,
@@ -1160,15 +1161,15 @@ function petTypeIcon(id, label){
   return `<img class="ic pet-type-ic" src="icons/${id}.png" alt="${label}">`;
 }
 const EVENT_TYPES = {
+  meal: { label:'ごはん', icon:iconSvg('meal') }, water: { label:'飲水', icon:iconSvg('water') }, treat: { label:'おやつ', icon:iconSvg('treat') },
   urine: { label:'おしっこ', icon:iconSvg('urine') }, stool: { label:'うんち', icon:iconSvg('stool') },
-  walk: { label:'お散歩', icon:iconSvg('walk') }, play: { label:'遊び', icon:iconSvg('play') },
-  treat: { label:'おやつ', icon:iconSvg('treat') }, meal: { label:'ごはん', icon:iconSvg('meal') }, water: { label:'飲水', icon:iconSvg('water') },
-  medication: { label:'くすり', icon:iconSvg('medication') }, weight: { label:'体重', icon:iconSvg('weight') },
+  walk: { label:'お散歩', icon:iconSvg('walk') }, play: { label:'遊び', icon:iconSvg('play') }, medication: { label:'くすり', icon:iconSvg('medication') },
+  weight: { label:'体重', icon:iconSvg('weight') }, temperature: { label:'体温', icon:iconSvg('temperature') },
   symptom: { label:'症状', icon:iconSvg('symptom') }, visit: { label:'病院', icon:iconSvg('visit') }, memo: { label:'メモ', icon:iconSvg('memo') }
 };
 function eventTypeInfo(type){ return EVENT_TYPES[type] || { label:'記録', icon:iconSvg('memo') }; }
 // クイック記録の数値項目。入力は<select>だが、eventsへは必ずnumber型で保存する。
-const NUMERIC_EVENT_FIELDS = new Set(['durationMinutes', 'distanceMeters', 'intakePercent', 'kilograms']);
+const NUMERIC_EVENT_FIELDS = new Set(['durationMinutes', 'distanceMeters', 'intakePercent', 'kilograms', 'celsius']);
 function coerceEventFieldValue(key, rawValue){
   if(!NUMERIC_EVENT_FIELDS.has(key)) return rawValue;
   return rawValue === '' || rawValue == null ? null : Number(rawValue);
@@ -1187,6 +1188,7 @@ function eventSummary(event){
     case 'water': return ({normal:'量：ふつう',more:'量：多い',less:'量：少ない'})[d.amount] || '';
     case 'medication': return d.medicationLabel || '';
     case 'weight': return d.kilograms != null ? `${d.kilograms}kg` : '';
+    case 'temperature': return d.celsius != null ? `${Number(d.celsius).toFixed(1)}℃` : '';
     case 'symptom': return safeArray(d.symptoms).slice(0,2).join('・');
     case 'visit': return d.clinic || d.diagnosis || '';
     case 'memo': return d.text || event.note || '';
@@ -3123,6 +3125,10 @@ const App = {
       return `<div class="field"><label>投薬したお薬</label><div class="checks">${petMedications().length ? petMedications().map(m => `<label class="dose-check"><input type="checkbox" data-medication-id="${escapeHtml(m.id)}" data-medication-label="${escapeHtml(medLabel(m))}" ${checked.has(m.id) ? 'checked' : ''}> ${escapeHtml(medLabel(m))}</label>`).join('') : '<p class="hint">お薬の設定がありません。メニューから登録してください。</p>'}</div></div>`;
     }
     if(type === 'weight') return `<div class="field"><label>体重</label><select data-event-field="kilograms" required>${Array.from({length:1001},(_,i)=>i/10).map(v => `<option value="${v}" ${selected(v,details.kilograms)}>${v.toFixed(1)}kg</option>`).join('')}</select></div>`;
+    if(type === 'temperature'){
+      const currentTemperature = details.celsius ?? 38.5;
+      return `<div class="field"><label>体温</label><select data-event-field="celsius" required>${Array.from({length:151},(_,i)=>30+i/10).map(v => `<option value="${v.toFixed(1)}" ${selected(v.toFixed(1),currentTemperature)}>${v.toFixed(1)}℃</option>`).join('')}</select></div>`;
+    }
     if(type === 'symptom') { const checked = new Set(safeArray(details.symptoms)); return `<div class="field"><label>気になる症状（複数選択可）</label><div class="checks">${SYMPTOM_OPTIONS.map(s => `<label class="dose-check"><input type="checkbox" data-symptom="${escapeHtml(s)}" ${checked.has(s) ? 'checked' : ''}> ${escapeHtml(s)}</label>`).join('')}</div></div>`; }
     if(type === 'visit') return ['clinic|病院名','reason|相談内容','diagnosis|診断名','treatment|治療内容'].map(pair => { const [key,label] = pair.split('|'); return `<div class="field"><label>${label}</label><input data-event-field="${key}" value="${escapeHtml(details[key] || '')}"></div>`; }).join('') + `<div class="field"><label>次回の予定</label><input data-event-field="followUpDate" type="date" value="${escapeHtml(details.followUpDate || '')}"></div>`;
     if(type === 'memo') return `<div class="field"><label>メモ</label><textarea data-event-field="text" rows="4" required>${escapeHtml(details.text || '')}</textarea></div>`;
@@ -3206,6 +3212,7 @@ const App = {
     if(event.type === 'water') add('量', ({normal:'ふつう',more:'多い',less:'少ない'})[d.amount]);
     if(event.type === 'medication') add('お薬', d.medicationLabels || d.medicationLabel);
     if(event.type === 'weight') add('体重', d.kilograms != null ? `${d.kilograms}kg` : '');
+    if(event.type === 'temperature') add('体温', d.celsius != null ? `${Number(d.celsius).toFixed(1)}℃` : '');
     if(event.type === 'symptom') add('症状', d.symptoms);
     if(event.type === 'visit'){ [['病院名','clinic'],['相談内容','reason'],['診断名','diagnosis'],['治療内容','treatment'],['次回の予定','followUpDate']].forEach(([label,key]) => add(label,d[key])); }
     if(event.type === 'memo') add('メモ', d.text);
@@ -3612,13 +3619,14 @@ const App = {
         <option value="7">直近7日</option>
         <option value="30">直近30日</option>
       `;
-    const graphs = [['weight','体重'],['appetite','食欲'],['walk','お散歩'],['status','日々の状態'],['symptom','症状']];
-    if(!subscribed && ['appetite','walk','status'].includes(state.activeGraph)) state.activeGraph = 'weight';
+    const graphs = [['weight','体重'],['temperature','体温'],['appetite','食欲'],['walk','お散歩'],['status','日々の状態'],['symptom','症状']];
+    const premiumGraphs = ['temperature','appetite','walk','status'];
     const graphTabs = graphs.map(([key,label]) => `<button type="button" class="graph-tab ${state.activeGraph === key ? 'active' : ''}" onclick="App.setActiveGraph('${key}')">${escapeHtml(label)}</button>`).join('');
     const graphTitle = Object.fromEntries(graphs)[state.activeGraph] || '体重';
     let graphBody = '';
-    if(!subscribed && ['appetite','walk','status'].includes(state.activeGraph)) graphBody = `<p class="hint">このグラフは治療サポートプランで利用できます。 <button type="button" class="ghost" onclick="App.openUpgradeModal()">アップグレードを見る</button></p>`;
+    if(!subscribed && premiumGraphs.includes(state.activeGraph)) graphBody = `<p class="hint">このグラフは治療サポートプランで利用できます。 <button type="button" class="ghost" onclick="App.openUpgradeModal()">アップグレードを見る</button></p>`;
     else if(state.activeGraph === 'weight') graphBody = '<div class="chart-wrap"><canvas id="weightChartCanvas"></canvas></div>';
+    else if(state.activeGraph === 'temperature') graphBody = '<div class="chart-wrap"><canvas id="temperatureChartCanvas"></canvas></div>';
     else if(state.activeGraph === 'appetite') graphBody = '<div class="chart-wrap"><canvas id="appetiteChartCanvas"></canvas></div>';
     else if(state.activeGraph === 'walk') graphBody = '<div class="chart-wrap"><canvas id="walkChartCanvas"></canvas></div>';
     else if(state.activeGraph === 'status') graphBody = `<div id="dailyStatusTimelineWrap"></div>${buildStatusLegendHtml()}`;
@@ -3711,6 +3719,29 @@ const App = {
     }); }
 
     if(subscribed){
+      const temperatureData = this.filterByRange(petEvents())
+        .filter(event => event.type === 'temperature' && Number.isFinite(Number(event.details?.celsius)));
+      const tCtx = document.getElementById('temperatureChartCanvas');
+      if(tCtx){ if(state.temperatureChart) state.temperatureChart.destroy(); state.temperatureChart = new Chart(tCtx, {
+        type: 'line',
+        data: {
+          labels: temperatureData.map(event => `${fmtDate(event.date)} ${event.time || ''}`.trim()),
+          datasets: [{
+            label: '体温 (℃)',
+            data: temperatureData.map(event => Number(event.details.celsius)),
+            borderColor: '#E87967',
+            backgroundColor: 'rgba(232,121,103,0.15)',
+            tension: 0.25,
+            fill: true,
+            pointRadius: 3
+          }]
+        },
+        options: {
+          responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}},
+          scales:{ y:{ ticks:{ callback:v => v+'℃' } } }
+        }
+      }); }
+
       // 食欲は過去の質的ラベル(良好/普通/不良/絶食)のままの記録もあるため、
       // 表示と同じくappetiteValue()で数値ラベルへ変換してからグラフ化する。
       const appetiteData = records.filter(r => r.appetite != null && r.appetite !== '');
