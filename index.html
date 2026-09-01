@@ -244,6 +244,10 @@
   .quick-event-bar{display:flex;gap:8px;overflow-x:auto;padding:8px 2px 12px;scroll-snap-type:x proximity;}
   .quick-event-button{flex:0 0 74px;min-height:72px;padding:8px 5px;display:flex;flex-direction:column;gap:4px;align-items:center;justify-content:center;border:1px solid var(--border);background:#fff;border-radius:12px;scroll-snap-align:start;font-size:12px;}.quick-event-button span{font-size:24px;}
   .event-detail-list{margin:0;padding:0;list-style:none;}.event-detail-list li{display:grid;grid-template-columns:96px minmax(0,1fr);gap:8px;padding:9px 0;border-bottom:1px solid var(--border);}.event-detail-list strong{color:var(--muted);font-size:13px;}.event-form-fields .field{margin-bottom:12px;}
+  .event-detail-modal{position:relative;padding-top:24px;}
+  .event-detail-modal h3{padding-right:76px;}
+  .event-detail-close{position:absolute;top:12px;right:12px;padding:6px 10px;font-size:12px;}
+  .event-detail-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:14px;}
   .scheduled-lock{font-weight:700;font-size:15px;padding:8px 10px;background:var(--bg);border:1px solid var(--border);border-radius:8px;}
   .graph-tabs{display:flex;gap:6px;overflow-x:auto;margin:0 0 12px;padding-bottom:2px;}.graph-tab{white-space:nowrap;flex:0 0 auto;}.menu-section{margin:18px 0 6px;color:var(--muted);font-size:12px;font-weight:700;}.menu-item{display:flex;width:100%;align-items:center;gap:10px;text-align:left;padding:13px 8px;border:0;border-bottom:1px solid var(--border);background:#fff;color:var(--text);font:inherit;cursor:pointer;}.menu-item-icon{font-size:21px;width:28px;text-align:center;}.menu-item-copy{flex:1;}.menu-item-copy small{display:block;color:var(--muted);font-size:12px;margin-top:2px;}.menu-item-arrow{color:var(--muted);}
   .record-card{border:1px solid var(--border);border-radius:10px;margin-bottom:8px;overflow:hidden;}
@@ -474,7 +478,7 @@
 </div>
 
 <div id="eventDetailBackdrop" class="modal-backdrop hidden">
-  <div class="modal"><h3 id="eventDetailTitle">記録の詳細</h3><ul id="eventDetailList" class="event-detail-list"></ul><div class="row" style="justify-content:space-between;margin-top:14px;"><div><button type="button" class="danger" id="eventDeleteButton">削除する</button><button type="button" class="secondary" id="eventUndoScheduledButton" style="display:none;">未完了に戻す</button></div><div><button type="button" class="ghost" onclick="App.closeEventDetail()">閉じる</button><button type="button" id="eventEditButton">編集</button></div></div></div>
+  <div class="modal event-detail-modal"><button type="button" class="ghost event-detail-close" onclick="App.closeEventDetail()">閉じる</button><h3 id="eventDetailTitle">記録の詳細</h3><ul id="eventDetailList" class="event-detail-list"></ul><div class="event-detail-actions"><button type="button" id="eventEditButton">編集</button><button type="button" class="danger" id="eventDeleteButton">削除</button><button type="button" class="secondary" id="eventUndoScheduledButton" style="display:none;">未完了に戻す</button></div></div>
 </div>
 
 <div id="petModalBackdrop" class="modal-backdrop hidden">

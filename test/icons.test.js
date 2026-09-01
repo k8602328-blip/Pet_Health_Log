@@ -109,6 +109,15 @@ test('追加・共有・課金・アカウント・ログアウトはメニュ�
   for (const value of ['新しく登録する','openFamilyModal','openUpgradeModal','accountName','ログアウト']) assert.ok(menu.includes(value), value);
 });
 
+test('記録詳細は右上に閉じる、右下に編集・削除の順で表示する', () => {
+  const detail = HTML.slice(HTML.indexOf('id="eventDetailBackdrop"'), HTML.indexOf('id="petModalBackdrop"'));
+  assert.match(detail, /event-detail-close[^>]*>閉じる</);
+  assert.match(detail, /event-detail-actions[^]*id="eventEditButton"[^]*>編集<\/button>[^]*id="eventDeleteButton"[^]*>削除<\/button>/);
+  assert.doesNotMatch(detail, />削除する<\/button>/);
+  assert.match(HTML, /\.event-detail-close\{position:absolute;top:12px;right:12px/);
+  assert.match(HTML, /\.event-detail-actions\{display:flex;justify-content:flex-end/);
+});
+
 test('主要ナビ・ブランド・使い方ガイドがPNGを参照する', () => {
   for (const id of ['daily','chart','menu','paw','guide']) assert.match(HTML, new RegExp(`icons/${id}\\.png`));
 });
