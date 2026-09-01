@@ -75,11 +75,12 @@ test('家族共有はトップから外し、メニューで統一素材を使�
   assert.match(menu, /iconSvg\('family'\)/);
 });
 
-test('メニューから選択中のペットを既存の安全な削除処理へ渡せる', () => {
+test('メニューから選択中の記録を既存の安全な削除処理へ渡せる', () => {
   const menu = HTML.slice(HTML.indexOf('renderMenu(){'), HTML.indexOf('renderMealProfiles(){'));
-  assert.match(menu, /'選択中のペットを削除'/);
+  assert.match(menu, /'選択中の記録を削除する'/);
   assert.match(menu, /App\.deletePet\(state\.currentPetId\)/);
   assert.match(menu, /iconSvg\('trash','ic--danger'\)/);
+  assert.match(HTML, /\.menu-item-icon img\[src="icons\/trash\.png"\]\{padding:2px;/);
 });
 
 test('ペット登録・編集で性別と敬称を保存でき、記録見出しを更新する', () => {
@@ -106,7 +107,7 @@ test('追加・共有・課金・アカウント・ログアウトはメニュ�
   const header = HTML.slice(HTML.indexOf('<header class="topbar">'), HTML.indexOf('</header>'));
   assert.doesNotMatch(header, /openPetModal|openFamilyModal|openUpgradeModal|ログアウト|userBar/);
   const menu = HTML.slice(HTML.indexOf('renderMenu(){'), HTML.indexOf('renderMealProfiles(){'));
-  for (const value of ['新しく登録する','openFamilyModal','openUpgradeModal','accountName','ログアウト']) assert.ok(menu.includes(value), value);
+  for (const value of ['新しい記録を登録する','openFamilyModal','openUpgradeModal','accountName','ログアウト']) assert.ok(menu.includes(value), value);
 });
 
 test('記録詳細は右上に閉じる、右下に編集・削除の順で表示する', () => {

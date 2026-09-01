@@ -318,6 +318,7 @@
   .quick-event-button span .ic{width:32px;height:32px;}
   .event-icon .ic{width:26px;height:26px;vertical-align:middle;}
   .menu-item-icon .ic{width:28px;height:28px;vertical-align:-7px;}
+  .menu-item-icon img[src="icons/trash.png"]{padding:2px;}
   .scheduled-lock .ic{width:24px;height:24px;vertical-align:-6px;margin-right:4px;}
   .pet-type-ic{width:24px;height:24px;vertical-align:-6px;margin-right:4px;}
   .pet-switch-species{display:inline-flex;align-items:center;}
@@ -3346,10 +3347,10 @@ const App = {
   },
   renderMenu(){
     const group = (title, items) => `<div class="menu-section">${escapeHtml(title)}</div><div class="card" style="padding:0;">${items.map(([icon,label,description,action]) => `<button class="menu-item" type="button" onclick="${action}"><span class="menu-item-icon">${icon}</span><span class="menu-item-copy">${escapeHtml(label)}${description ? `<small>${escapeHtml(description)}</small>` : ''}</span><span class="menu-item-arrow">›</span></button>`).join('')}</div>`;
-    const petItems = [[petTypeIcon('dog','') + petTypeIcon('cat',''),'新しく登録する','家族の記録を追加',"App.openPetModal()"]];
+    const petItems = [[petTypeIcon('dog','') + petTypeIcon('cat',''),'新しい記録を登録する','家族の記録を追加',"App.openPetModal()"]];
     if(currentPet()) petItems.push(
       [petTypeIcon('paw',''),'ペット情報を編集','名前・種類・性別・敬称',"App.openPetEditModal()"],
-      [iconSvg('trash','ic--danger'),'選択中のペットを削除','記録・投薬・予防・受診歴もすべて削除',"App.deletePet(state.currentPetId)"]
+      [iconSvg('trash','ic--danger'),'選択中の記録を削除する','記録・投薬・予防・受診歴もすべて削除',"App.deletePet(state.currentPetId)"]
     );
     let petManagement = group('ペットの管理', petItems);
     const accountName = currentUser ? displayText(currentUser.displayName || currentUser.email) : '';
