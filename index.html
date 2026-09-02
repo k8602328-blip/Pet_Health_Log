@@ -369,6 +369,20 @@
       page-break-inside:avoid;
     }
     #printArea .report-chart-block img{display:block;width:100%;max-width:600px;}
+    #printArea .report-daily-section{margin-top:18px;}
+    #printArea .report-day-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;align-items:start;}
+    #printArea .report-day-card{
+      border:1px solid #d9cec2;border-radius:10px;padding:9px 10px;background:#fff;
+      break-inside:avoid-page;page-break-inside:avoid;min-width:0;
+    }
+    #printArea .report-day-card--dense{grid-column:1 / -1;}
+    #printArea .report-day-title{font-size:13px;font-weight:700;margin:0 0 6px;padding-bottom:5px;border-bottom:1px solid #eee4da;}
+    #printArea .report-day-event{display:grid;grid-template-columns:18px 34px minmax(0,1fr);gap:4px;align-items:start;margin:4px 0;font-size:10px;line-height:1.35;}
+    #printArea .report-day-event .ic{width:16px;height:16px;object-fit:contain;}
+    #printArea .report-day-time{color:#6f655d;white-space:nowrap;}
+    #printArea .report-day-text{min-width:0;overflow-wrap:anywhere;white-space:pre-wrap;}
+    #printArea .report-day-legacy{margin-top:6px;padding-top:5px;border-top:1px dashed #ddd;font-size:9.5px;line-height:1.4;color:#5c5148;}
+    #printArea .report-day-empty{font-size:10px;color:#91877e;padding:8px 0;text-align:center;}
   }
 </style>
 </head>
@@ -4241,27 +4255,7 @@ const App = {
         </section>
       `;
 
-      const showCibdai = pet.trackCibdai;
-    // メモは同じ行の1列に詰めると長文で列が崩れるため、書かれている日だけ2段目に
-    // 全幅で表示する(仕様はユーザー提供のレイアウト案に準拠)。tbodyで1レコード分を
-    // まとめてbreak-inside:avoidを付け、ページまたぎで記録が分断されるのをできるだけ防ぐ。
-    const colCount = showCibdai ? 9 : 8;
-    const rowsHtml = records.map(r => `
-      <tbody style="break-inside:avoid;page-break-inside:avoid;">
-        <tr>
-          <td>${fmtDate(r.date)}</td>
-          <td>${r.weight ? escapeHtml(r.weight)+'kg' : '-'}</td>
-          <td>${escapeHtml(appetiteLabel(r.appetite))}</td>
-          <td>${escapeHtml(waterLabel(r.water))}</td>
-          <td>${escapeHtml(stoolLabel(r.stool))}</td>
-          <td>${escapeHtml(urineLabel(r.urine))}</td>
-          <td>${escapeHtml(safeArray(r.symptoms).join('、') || '-')}</td>
-          ${showCibdai ? `<td>${r.cibdai ? cibdaiTotal(r.cibdai) + '点(' + cibdaiSeverity(cibdaiTotal(r.cibdai)) + ')' : '-'}</td>` : ''}
-          <td>${medsGivenTags(r.medsGiven).map(t => `${escapeHtml(t.label)}(${t.given}/${t.total})`).join('、') || '-'}</td>
-        </tr>
-        ${r.memo ? `<tr class="memo-row"><td colspan="${colCount}">${iconSvg('memo')}${escapeHtml(r.memo)}</td></tr>` : ''}
-      </tbody>
-    `).join('');
+    const showCibdai = pet.trackCibdai;
 
     const meds = petMedications();
     const medsHtml = meds.length === 0 ? '' : `
@@ -4279,23 +4273,49 @@ const App = {
       </table>
     `;
 
-    // 現UIの正本は時刻つきevents。旧「現在の食事」属性は編集導線がなく、
-    // 古い値だけが残り続けるためレポートには出さない。ごはん候補と摂取量は
-    // mealイベント保存時のラベルをそのまま使い、候補を後で編集・削除しても履歴を保つ。
-    const eventsHtml = events.length === 0 ? '' : `
-      <h2 style="font-size:15px;margin-top:18px;">時刻つき記録</h2>
-      <table>
-        <tr><th>日時</th><th>種類</th><th>内容</th><th>メモ</th></tr>
-        ${events.map(event => `
-          <tr>
-            <td style="white-space:nowrap;">${fmtDate(event.date)} ${escapeHtml(event.time || '')}</td>
-            <td>${escapeHtml(eventTypeInfo(event.type).label)}</td>
-            <td>${escapeHtml(eventSummary(event) || '-')}</td>
-            <td style="white-space:pre-wrap;">${escapeHtml(event.type === 'memo' ? '' : (event.note || ''))}</td>
-          </tr>
-        `).join('')}
-      </table>
-    `;
+    // 指定期間の全日付を記録帳カードとして出す。通常日は2列、記録件数または文章量が
+    // 多い日だけ全幅にして、カード内の可読性と総ページ数を両立する。
+    const recordByDate = new Map(records.map(record => [record.date, record]));
+    const eventsByDate = new Map();
+    events.forEach(event => {
+      if(!eventsByDate.has(event.date)) eventsByDate.set(event.date, []);
+      eventsByDate.get(event.date).push(event);
+    });
+    const exportDates = [];
+    for(let date = new Date(`${from}T00:00:00`), end = new Date(`${to}T00:00:00`); date <= end; date.setDate(date.getDate() + 1)){
+      exportDates.push(localDateString(date));
+    }
+    const dayCardsHtml = exportDates.map(date => {
+      const dayEvents = sortEvents(eventsByDate.get(date) || []);
+      const legacy = recordByDate.get(date);
+      const eventRows = dayEvents.map(event => {
+        const info = eventTypeInfo(event.type);
+        const note = event.type === 'memo' ? '' : (event.note || '');
+        const text = [eventSummary(event) || info.label, note].filter(Boolean).join('\n');
+        return `<div class="report-day-event">${info.icon}<span class="report-day-time">${escapeHtml(event.time || '--:--')}</span><span class="report-day-text">${escapeHtml(text)}</span></div>`;
+      }).join('');
+      const legacyParts = !legacy ? [] : [
+        legacy.weight ? `体重 ${legacy.weight}kg` : '',
+        legacy.appetite !== '' && legacy.appetite != null ? `食欲 ${appetiteLabel(legacy.appetite)}` : '',
+        legacy.water ? `飲水 ${waterLabel(legacy.water)}` : '',
+        legacy.stool !== '' && legacy.stool != null ? `便 ${stoolLabel(legacy.stool)}` : '',
+        legacy.urine ? `尿 ${urineLabel(legacy.urine)}` : '',
+        safeArray(legacy.symptoms).length ? `症状 ${safeArray(legacy.symptoms).join('、')}` : '',
+        showCibdai && legacy.cibdai ? `CIBDAI ${cibdaiTotal(legacy.cibdai)}点 (${cibdaiSeverity(cibdaiTotal(legacy.cibdai))})` : '',
+        medsGivenTags(legacy.medsGiven).length ? `投薬 ${medsGivenTags(legacy.medsGiven).map(t => `${t.label}(${t.given}/${t.total})`).join('、')}` : '',
+        legacy.memo ? `メモ ${legacy.memo}` : ''
+      ].filter(Boolean);
+      const contentLength = dayEvents.reduce((sum, event) => sum + String(eventSummary(event) || '').length + String(event.note || '').length, 0) + legacyParts.join(' ').length;
+      const dense = dayEvents.length >= 7 || contentLength >= 260 || legacyParts.length >= 7;
+      return `
+        <article class="report-day-card${dense ? ' report-day-card--dense' : ''}">
+          <h3 class="report-day-title">${fmtDate(date)}</h3>
+          ${eventRows || (!legacyParts.length ? '<div class="report-day-empty">記録なし</div>' : '')}
+          ${legacyParts.length ? `<div class="report-day-legacy">${legacyParts.map(escapeHtml).join(' ／ ')}</div>` : ''}
+        </article>
+      `;
+    }).join('');
+    const dailyCardsHtml = `<section class="report-daily-section"><h2 style="font-size:15px;">毎日の記録</h2><div class="report-day-grid">${dayCardsHtml}</div></section>`;
     const mealProfiles = petMealProfiles();
     const mealProfilesHtml = mealProfiles.length === 0 ? '' : `
       <h2 style="font-size:15px;margin-top:18px;">登録しているごはん</h2>
@@ -4359,22 +4379,15 @@ const App = {
       <h1>体調記録レポート</h1>
       <p>${escapeHtml(pet.name)}(${escapeHtml(pet.species)}${pet.breed ? '・'+escapeHtml(pet.breed) : ''}) ${pet.birthday ? '/ ' + ageString(pet.birthday) : ''}</p>
       <p>期間: ${from ? fmtDate(from) : '-'} 〜 ${to ? fmtDate(to) : '-'} (作成日: ${fmtDate(new Date().toISOString().slice(0,10))})</p>
+      ${dailyCardsHtml}
       ${chartsHtml}
       ${symptomCountHtml}
       ${dailyStatusHtml}
       ${symptomTimelineHtml}
-      ${eventsHtml}
       ${mealProfilesHtml}
       ${visitsHtml}
       ${medsHtml}
       ${prevsHtml}
-      ${records.length ? '<h2 style="font-size:15px;margin-top:18px;">日ごとの記録（旧形式を含む）</h2>' : ''}
-      ${records.length ? `
-      <table>
-        <tr><th>日付</th><th>体重</th><th>食欲</th><th>飲水</th><th>便(スコア)</th><th>尿</th><th>症状</th>${showCibdai ? '<th>CIBDAI</th>' : ''}<th>投薬</th></tr>
-        ${rowsHtml}
-      </table>
-      ` : ''}
     `;
       // base64画像自体はすでに出来上がっていても、<img>要素がその中身を実際に
       // デコードし終える前にwindow.print()を呼ぶと、セッションで最初の印刷時だけ

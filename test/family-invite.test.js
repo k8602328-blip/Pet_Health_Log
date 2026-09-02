@@ -60,10 +60,13 @@ test('レポート作成中は犬と猫の作業イラストを表示する', ()
   assert.doesNotMatch(html, /class="report-loading-spinner"/);
 });
 
-test('レポートは現UIの時刻つき記録を出し、編集不能な旧食事項目は出さない', () => {
+test('レポートは現UIの時刻つき記録を日付カードへ統合し、編集不能な旧食事項目は出さない', () => {
   const block = html.slice(html.indexOf('async printReport(){'), html.indexOf('async openCheckout'));
-  assert.match(block, /時刻つき記録/);
-  assert.match(block, /events\.map/);
+  assert.match(block, /毎日の記録/);
+  assert.match(block, /eventsByDate/);
+  assert.match(block, /eventTypeInfo\(event\.type\)\.icon|const info = eventTypeInfo\(event\.type\)/);
+  assert.match(block, /report-day-card--dense/);
+  assert.match(block, /dayEvents\.length >= 7 \|\| contentLength >= 260/);
   assert.match(block, /登録しているごはん/);
   assert.match(block, /petMealProfiles\(\)/);
   assert.doesNotMatch(block, /pet\.dietMain|pet\.dietTopping|pet\.dietTreats/);
@@ -78,6 +81,14 @@ test('レポートのグラフとタイムライン表は現行スタイルの�
   assert.match(reportBlock, /index === 0 \? '<h2[^']+>グラフ<\/h2>'/);
   assert.match(reportBlock, /buildDailyStatusTimelineHtml\(records, \{ chunkSize: PRINT_TIMELINE_CHUNK_DAYS \}\)/);
   assert.match(reportBlock, /buildSymptomTimelineHtml\(records, \{ chunkSize: PRINT_TIMELINE_CHUNK_DAYS \}\)/);
+});
+
+test('レポートの日付カードは通常2列で、多い日は全幅かつページを跨がない', () => {
+  const printCss = html.slice(html.indexOf('@media print'), html.indexOf('</style>'));
+  assert.match(printCss, /\.report-day-grid\{display:grid;grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
+  assert.match(printCss, /\.report-day-card[\s\S]*break-inside:avoid-page/);
+  assert.match(printCss, /\.report-day-card--dense\{grid-column:1 \/ -1;/);
+  assert.match(printCss, /\.report-day-event \.ic\{width:16px;height:16px/);
 });
 
 test('実機確認で見つかった文言・メモ・猫の狂犬病選択を修正する', () => {
