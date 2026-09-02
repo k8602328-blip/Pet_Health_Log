@@ -377,19 +377,26 @@
     }
     #printArea .report-chart-block img{display:block;width:100%;max-width:600px;}
     #printArea .report-daily-section{margin-top:18px;}
-    #printArea .report-day-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;align-items:start;}
-    #printArea .report-day-card{
-      border:1px solid #d9cec2;border-radius:10px;padding:9px 10px;background:#fff;
-      break-inside:avoid-page;page-break-inside:avoid;min-width:0;
+    #printArea .report-record-page{break-after:page;page-break-after:always;}
+    #printArea .report-record-page:last-child{break-after:auto;page-break-after:auto;}
+    #printArea .report-day-pair{
+      height:405px;margin:0 0 12px;border:1px solid #d9cec2;border-radius:10px;background:#fff;
+      break-inside:avoid-page;page-break-inside:avoid;overflow:hidden;
     }
-    #printArea .report-day-card--dense{grid-column:1 / -1;}
-    #printArea .report-day-title{font-size:13px;font-weight:700;margin:0 0 6px;padding-bottom:5px;border-bottom:1px solid #eee4da;}
-    #printArea .report-day-event{display:grid;grid-template-columns:18px 34px minmax(0,1fr);gap:4px;align-items:start;margin:4px 0;font-size:10px;line-height:1.35;}
-    #printArea .report-day-event .ic{width:16px;height:16px;object-fit:contain;}
-    #printArea .report-day-time{color:#6f655d;white-space:nowrap;}
-    #printArea .report-day-text{min-width:0;overflow-wrap:anywhere;white-space:pre-wrap;}
-    #printArea .report-day-legacy{margin-top:6px;padding-top:5px;border-top:1px dashed #ddd;font-size:9.5px;line-height:1.4;color:#5c5148;}
-    #printArea .report-day-empty{font-size:10px;color:#91877e;padding:8px 0;text-align:center;}
+    #printArea .report-pair-head{display:grid;grid-template-columns:42px 1fr 1fr;border-bottom:1px solid #ddd;}
+    #printArea .report-pair-date{font-size:12px;font-weight:700;text-align:center;padding:6px;border-left:1px solid #eee4da;}
+    #printArea .report-pair-body{display:grid;grid-template-columns:42px 1fr 1fr;height:330px;}
+    #printArea .report-time-axis{position:relative;background:#d7ccc2;color:#fff;}
+    #printArea .report-hour{position:absolute;left:0;right:0;height:1px;border-top:1px solid rgba(255,255,255,.65);font-size:7px;padding-left:4px;box-sizing:border-box;}
+    #printArea .report-day-lane{position:relative;border-left:1px solid #ddd;min-width:0;overflow:hidden;}
+    #printArea .report-day-lane + .report-day-lane{border-left:1px dashed #cdbfb2;}
+    #printArea .report-timed-event{position:absolute;left:4px;right:4px;display:grid;grid-template-columns:30px 15px minmax(0,1fr);gap:3px;align-items:start;font-size:8px;line-height:1.2;}
+    #printArea .report-timed-event .ic{width:13px;height:13px;object-fit:contain;}
+    #printArea .report-event-time{color:#6f655d;white-space:nowrap;}
+    #printArea .report-event-text{min-width:0;overflow-wrap:anywhere;}
+    #printArea .report-pair-summary{display:grid;grid-template-columns:42px 1fr 1fr;height:38px;border-top:1px solid #eee4da;}
+    #printArea .report-day-summary{padding:3px 5px;border-left:1px solid #ddd;font-size:7px;line-height:1.25;color:#5c5148;overflow:hidden;}
+    #printArea .report-day-empty{position:absolute;top:46%;left:0;right:0;text-align:center;font-size:9px;color:#91877e;}
   }
 </style>
 </head>
@@ -4349,8 +4356,8 @@ const App = {
       </table>
     `;
 
-    // 指定期間の全日付を記録帳カードとして出す。通常日は2列、記録件数または文章量が
-    // 多い日だけ全幅にして、カード内の可読性と総ページ数を両立する。
+    // 4日ごとに1ページ、上下それぞれで2日が共通の24時間軸を使う記録帳形式。
+    // 自由入力のメモ本文は印刷せず、時刻・アイコン・構造化された記録内容だけを出す。
     const recordByDate = new Map(records.map(record => [record.date, record]));
     const eventsByDate = new Map();
     events.forEach(event => {
@@ -4361,15 +4368,22 @@ const App = {
     for(let date = new Date(`${from}T00:00:00`), end = new Date(`${to}T00:00:00`); date <= end; date.setDate(date.getDate() + 1)){
       exportDates.push(localDateString(date));
     }
-    const dayCardsHtml = exportDates.map(date => {
+    const dayLaneHtml = date => {
       const dayEvents = sortEvents(eventsByDate.get(date) || []);
-      const legacy = recordByDate.get(date);
-      const eventRows = dayEvents.map(event => {
+      const printableEvents = dayEvents.filter(event => event.type !== 'memo');
+      let previousTop = -10;
+      const eventRows = printableEvents.map(event => {
         const info = eventTypeInfo(event.type);
-        const note = event.type === 'memo' ? '' : (event.note || '');
-        const text = [eventSummary(event) || info.label, note].filter(Boolean).join('\n');
-        return `<div class="report-day-event">${info.icon}<span class="report-day-time">${escapeHtml(event.time || '--:--')}</span><span class="report-day-text">${escapeHtml(text)}</span></div>`;
+        const [hour, minute] = String(event.time || '12:00').split(':').map(Number);
+        const actualTop = Math.max(0, Math.min(95, ((hour * 60 + minute) / 1440) * 100));
+        const top = Math.min(95, Math.max(actualTop, previousTop + 3.7));
+        previousTop = top;
+        return `<div class="report-timed-event" style="top:${top.toFixed(2)}%;"><span class="report-event-time">${escapeHtml(event.time || '--:--')}</span>${info.icon}<span class="report-event-text">${escapeHtml(eventSummary(event) || info.label)}</span></div>`;
       }).join('');
+      return `<div class="report-day-lane">${eventRows || '<div class="report-day-empty">記録なし</div>'}</div>`;
+    };
+    const daySummaryHtml = date => {
+      const legacy = recordByDate.get(date);
       const legacyParts = !legacy ? [] : [
         legacy.weight ? `体重 ${legacy.weight}kg` : '',
         legacy.appetite !== '' && legacy.appetite != null ? `食欲 ${appetiteLabel(legacy.appetite)}` : '',
@@ -4378,20 +4392,20 @@ const App = {
         legacy.urine ? `尿 ${urineLabel(legacy.urine)}` : '',
         safeArray(legacy.symptoms).length ? `症状 ${safeArray(legacy.symptoms).join('、')}` : '',
         showCibdai && legacy.cibdai ? `CIBDAI ${cibdaiTotal(legacy.cibdai)}点 (${cibdaiSeverity(cibdaiTotal(legacy.cibdai))})` : '',
-        medsGivenTags(legacy.medsGiven).length ? `投薬 ${medsGivenTags(legacy.medsGiven).map(t => `${t.label}(${t.given}/${t.total})`).join('、')}` : '',
-        legacy.memo ? `メモ ${legacy.memo}` : ''
+        medsGivenTags(legacy.medsGiven).length ? `投薬 ${medsGivenTags(legacy.medsGiven).map(t => `${t.label}(${t.given}/${t.total})`).join('、')}` : ''
       ].filter(Boolean);
-      const contentLength = dayEvents.reduce((sum, event) => sum + String(eventSummary(event) || '').length + String(event.note || '').length, 0) + legacyParts.join(' ').length;
-      const dense = dayEvents.length >= 7 || contentLength >= 260 || legacyParts.length >= 7;
-      return `
-        <article class="report-day-card${dense ? ' report-day-card--dense' : ''}">
-          <h3 class="report-day-title">${fmtDate(date)}</h3>
-          ${eventRows || (!legacyParts.length ? '<div class="report-day-empty">記録なし</div>' : '')}
-          ${legacyParts.length ? `<div class="report-day-legacy">${legacyParts.map(escapeHtml).join(' ／ ')}</div>` : ''}
-        </article>
-      `;
-    }).join('');
-    const dailyCardsHtml = `<section class="report-daily-section"><h2 style="font-size:15px;">毎日の記録</h2><div class="report-day-grid">${dayCardsHtml}</div></section>`;
+      return `<div class="report-day-summary">${legacyParts.length ? legacyParts.map(escapeHtml).join(' ／ ') : ''}</div>`;
+    };
+    const hourAxisHtml = Array.from({length:24}, (_, hour) => `<span class="report-hour" style="top:${(hour / 24 * 100).toFixed(3)}%;">${hour}</span>`).join('');
+    const pairHtml = dates => {
+      const [leftDate, rightDate] = dates;
+      return `<section class="report-day-pair"><div class="report-pair-head"><span></span><div class="report-pair-date">${leftDate ? fmtDate(leftDate) : ''}</div><div class="report-pair-date">${rightDate ? fmtDate(rightDate) : ''}</div></div><div class="report-pair-body"><div class="report-time-axis">${hourAxisHtml}</div>${leftDate ? dayLaneHtml(leftDate) : '<div class="report-day-lane"></div>'}${rightDate ? dayLaneHtml(rightDate) : '<div class="report-day-lane"></div>'}</div><div class="report-pair-summary"><span></span>${leftDate ? daySummaryHtml(leftDate) : '<div></div>'}${rightDate ? daySummaryHtml(rightDate) : '<div></div>'}</div></section>`;
+    };
+    const recordPages = [];
+    for(let index = 0; index < exportDates.length; index += 4){
+      recordPages.push(`<div class="report-record-page">${pairHtml(exportDates.slice(index, index + 2))}${pairHtml(exportDates.slice(index + 2, index + 4))}</div>`);
+    }
+    const dailyCardsHtml = `<section class="report-daily-section"><h2 style="font-size:15px;">毎日の記録</h2>${recordPages.join('')}</section>`;
     const mealProfiles = petMealProfiles();
     const mealProfilesHtml = mealProfiles.length === 0 ? '' : `
       <h2 style="font-size:15px;margin-top:18px;">登録しているごはん</h2>

@@ -65,8 +65,8 @@ test('レポートは現UIの時刻つき記録を日付カードへ統合し、
   assert.match(block, /毎日の記録/);
   assert.match(block, /eventsByDate/);
   assert.match(block, /eventTypeInfo\(event\.type\)\.icon|const info = eventTypeInfo\(event\.type\)/);
-  assert.match(block, /report-day-card--dense/);
-  assert.match(block, /dayEvents\.length >= 7 \|\| contentLength >= 260/);
+  assert.match(block, /printableEvents = dayEvents\.filter\(event => event\.type !== 'memo'\)/);
+  assert.doesNotMatch(block, /event\.note \|\|/);
   assert.match(block, /登録しているごはん/);
   assert.match(block, /petMealProfiles\(\)/);
   assert.doesNotMatch(block, /pet\.dietMain|pet\.dietTopping|pet\.dietTreats/);
@@ -83,12 +83,17 @@ test('レポートのグラフとタイムライン表は現行スタイルの�
   assert.match(reportBlock, /buildSymptomTimelineHtml\(records, \{ chunkSize: PRINT_TIMELINE_CHUNK_DAYS \}\)/);
 });
 
-test('レポートの日付カードは通常2列で、多い日は全幅かつページを跨がない', () => {
+test('レポートの日付カードは共通24時間軸で2日を比較し、4日ごとに改ページする', () => {
   const printCss = html.slice(html.indexOf('@media print'), html.indexOf('</style>'));
-  assert.match(printCss, /\.report-day-grid\{display:grid;grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
-  assert.match(printCss, /\.report-day-card[\s\S]*break-inside:avoid-page/);
-  assert.match(printCss, /\.report-day-card--dense\{grid-column:1 \/ -1;/);
-  assert.match(printCss, /\.report-day-event \.ic\{width:16px;height:16px/);
+  const reportBlock = html.slice(html.indexOf('async printReport(){'), html.indexOf('async openCheckout'));
+  assert.match(printCss, /\.report-pair-body\{display:grid;grid-template-columns:42px 1fr 1fr/);
+  assert.match(printCss, /\.report-day-pair[\s\S]*break-inside:avoid-page/);
+  assert.match(printCss, /\.report-timed-event[^}]*grid-template-columns:30px 15px minmax\(0,1fr\)/);
+  assert.match(reportBlock, /Array\.from\(\{length:24\}/);
+  assert.match(reportBlock, /index \+= 4/);
+  const eventTemplate = reportBlock.slice(reportBlock.indexOf('report-timed-event'), reportBlock.indexOf('</div>`;', reportBlock.indexOf('report-timed-event')));
+  assert.ok(eventTemplate.indexOf('report-event-time') < eventTemplate.indexOf('${info.icon}'));
+  assert.ok(eventTemplate.indexOf('${info.icon}') < eventTemplate.indexOf('report-event-text'));
 });
 
 test('実機確認で見つかった文言・メモ・猫の狂犬病選択を修正する', () => {
