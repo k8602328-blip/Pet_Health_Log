@@ -88,6 +88,7 @@ test('eventSummary produces a compact type-specific timeline label', () => {
   assert.equal(app.eventSummary({ type: 'symptom', details: { symptoms: ['嘔吐', '下痢', '咳'] } }), '嘔吐・下痢');
   assert.equal(app.eventSummary({ type: 'water', details: { amount: 'more' } }), '量：多い');
   assert.equal(app.eventSummary({ type: 'temperature', details: { celsius: 38.6 } }), '38.6℃');
+  assert.equal(app.eventSummary({ type: 'medication', details: { medicationLabel: 'テスト薬' } }), 'テスト薬・投薬済み');
 });
 
 test('recordedMealIntakes excludes days and meals without a recorded intake instead of treating them as 0%', () => {

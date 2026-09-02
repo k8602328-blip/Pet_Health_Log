@@ -110,12 +110,15 @@
     display:flex;flex-direction:column;align-items:center;justify-content:center;
     gap:18px;text-align:center;padding:24px;z-index:200;
   }
-  .report-loading-spinner{
-    width:64px;height:64px;border-radius:50%;
-    border:7px solid #F0DCC5;border-top-color:var(--primary);
-    animation:report-spin 0.9s linear infinite;
+  .report-loading-pets{display:flex;align-items:flex-end;justify-content:center;gap:12px;height:108px;}
+  .report-loading-pets img{width:72px;height:96px;object-fit:contain;animation:report-working 2.4s ease-in-out infinite;}
+  .report-loading-pets img:nth-child(2){width:58px;height:78px;animation-delay:.3s;}
+  .report-loading-pets img:nth-child(3){animation-delay:.6s;}
+  @keyframes report-working{
+    0%,100%{opacity:.58;transform:translateY(4px)}
+    45%,60%{opacity:1;transform:translateY(-5px)}
   }
-  @keyframes report-spin{ to { transform:rotate(360deg); } }
+  @media (prefers-reduced-motion:reduce){.report-loading-pets img{animation:none;opacity:1;}}
   .report-loading-text{font-size:19px;font-weight:700;color:var(--text);}
   .report-loading-subtext{font-size:14px;color:var(--muted);line-height:1.6;}
   .report-loading-dismiss{margin-top:6px;font-size:13px;padding:8px 16px;}
@@ -490,7 +493,7 @@
       <input type="hidden" id="eventId"><input type="hidden" id="eventType">
       <div class="row"><div class="field"><label>日付</label><input type="date" id="eventDate" required></div><div class="field"><label>時刻</label><input type="time" id="eventTime" step="60" required></div></div>
       <div id="eventFormFields" class="event-form-fields"></div>
-      <div class="field"><label>ひとことメモ（任意）</label><textarea id="eventNote" rows="2" placeholder="様子や気づいたこと"></textarea></div>
+      <div class="field" id="eventNoteField"><label>ひとことメモ（任意）</label><textarea id="eventNote" rows="2" placeholder="様子や気づいたこと"></textarea></div>
       <div class="row" style="justify-content:flex-end;margin-top:8px;"><button type="button" class="ghost" onclick="App.closeEventModal()">キャンセル</button><button type="submit">保存する</button></div>
     </form>
   </div>
@@ -818,7 +821,9 @@
 <div id="printArea"></div>
 
 <div id="reportLoadingOverlay" class="hidden">
-  <div class="report-loading-spinner"></div>
+  <div class="report-loading-pets" role="img" aria-label="犬と猫がレポートを作っています">
+    <img src="icons/dog.png" alt=""><img src="icons/report.png" alt=""><img src="icons/cat.png" alt="">
+  </div>
   <div class="report-loading-text">レポートを作成しています…</div>
   <div class="report-loading-subtext">画面が切り替わるまで、そのままお待ちください<br>(数十秒かかることがあります)</div>
   <div class="report-loading-warning">⚠️ PDF出力が終わるまでアプリを終了しないでください</div>
@@ -1232,7 +1237,7 @@ function eventSummary(event){
     case 'treat': return d.item || '';
     case 'meal': return [d.intakePercent != null ? `${d.intakePercent}%` : '', safeArray(d.mealProfileLabels).join('・')].filter(Boolean).join(' ');
     case 'water': return ({normal:'量：ふつう',more:'量：多い',less:'量：少ない'})[d.amount] || '';
-    case 'medication': return d.medicationLabel || '';
+    case 'medication': return [d.medicationLabel || safeArray(d.medicationLabels).join('・'), '投薬済み'].filter(Boolean).join('・');
     case 'weight': return d.kilograms != null ? `${d.kilograms}kg` : '';
     case 'temperature': return d.celsius != null ? `${Number(d.celsius).toFixed(1)}℃` : '';
     case 'symptom': return safeArray(d.symptoms).slice(0,2).join('・');
@@ -1464,8 +1469,12 @@ function handleFirestoreListenerError(err, generation, sourceUid){
   if(isPermissionDenied(err) && state.linkedOwnerUid && sourceUid === state.linkedOwnerUid){
     detachFirestoreListeners();
     state.linkedOwnerUid = null;
-    state.householdStatus = 'revoked';
-    state.householdError = '共有情報は残っていますが、共有先へのアクセス権がありません。';
+    // オーナー側で解除された瞬間に共有先リスナーがpermission-deniedになる。
+    // サーバー側removeFamilyMemberは本人の既知UIDも同時に消すため、ローカルも即座に
+    // 個人表示へ戻し、無効な「共有データを見る」ボタンや確認中表示を残さない。
+    state.knownHouseholdUid = null;
+    state.householdStatus = 'personal';
+    state.householdError = null;
     attachFirestoreListeners();
   } else {
     state.householdStatus = 'unavailable';
@@ -1950,6 +1959,12 @@ const App = {
   openFamilyModal(){
     document.getElementById('familyError').textContent = '';
     document.getElementById('familyJoinError').textContent = '';
+    // モーダル要素はログアウト後もDOMに残るため、別アカウントへ招待コードを見せない。
+    document.getElementById('familyInviteCode').value = '';
+    document.getElementById('familyJoinCode').value = '';
+    document.getElementById('familyCopyCodeButton').disabled = true;
+    document.getElementById('familyCopyMsg').textContent = '';
+    document.getElementById('familyCreateCodeButton').textContent = '発行';
     this.renderFamilyModal();
     document.getElementById('familyModalBackdrop').classList.remove('hidden');
   },
@@ -2111,22 +2126,13 @@ const App = {
   async removeFamilyEmail(email){
     if(!confirm(`${displayText(email)}との共有を解除しますか？解除すると、この記録を閲覧・編集できなくなります。`)) return;
     try{
-      // 古いローカル配列の全体書き戻しで別メンバーを巻き戻さないよう、
-      // 対象メールだけを原子的に削除する。この更新成功時点でアクセス権は失効する。
-      await ownUserDocRef().update({
-        familyEmails: firebase.firestore.FieldValue.arrayRemove(email),
-        activeFamilyEmails: firebase.firestore.FieldValue.arrayRemove(email),
-      });
+      // オーナーの権限一覧と参加者側のlinkedOwnerUid/knownHouseholdUidを
+      // サーバーで同時に消し、解除後の「共有データを見る」導線を残さない。
+      const removeMember = functions.httpsCallable('removeFamilyMember');
+      await removeMember({ email });
       state.familyEmails = state.familyEmails.filter(e => e !== email);
       state.activeFamilyEmails = state.activeFamilyEmails.filter(e => e !== email);
       this.renderFamilyModal();
-      try{
-        const snap = await ownUserDocRef().collection('familyMembers').where('email', '==', email).get();
-        await Promise.all(snap.docs.map(doc => doc.ref.delete()));
-      } catch(cleanupErr){
-        console.error('familyMembers cleanup failed', cleanupErr);
-        alert('共有解除は完了しましたが、参加表示の整理に失敗しました。');
-      }
     } catch(err){
       console.error('removeFamilyEmail failed', err);
       alert('削除に失敗しました。');
@@ -2924,7 +2930,11 @@ const App = {
     form.reset();
     // 狂犬病予防法の対象は犬のみなので、犬以外のペットでは選択肢自体を出さない。
     const pet = currentPet();
-    document.getElementById('prevCategoryRabies').classList.toggle('hidden', !(pet && pet.species === '犬'));
+    const rabiesOption = document.getElementById('prevCategoryRabies');
+    const dogSelected = !!(pet && pet.species === '犬');
+    // Safariでは<option>へのdisplay:noneが効かないため、hidden属性とdisabledを併用する。
+    rabiesOption.hidden = !dogSelected;
+    rabiesOption.disabled = !dogSelected;
     if(prevId){
       const p = state.preventions.find(x => x.id === prevId);
       title.textContent = '予防接種・予防投薬を編集';
@@ -2939,6 +2949,9 @@ const App = {
       title.textContent = '予防接種・予防投薬を登録';
       document.getElementById('prevId').value = '';
       document.getElementById('prevDate').value = new Date().toISOString().slice(0,10);
+    }
+    if(!dogSelected && document.getElementById('prevCategory').value === '狂犬病'){
+      document.getElementById('prevCategory').value = 'ワクチン';
     }
     document.getElementById('prevModalBackdrop').classList.remove('hidden');
   },
@@ -3318,6 +3331,7 @@ const App = {
     document.getElementById('eventDate').value = event?.date || state.selectedRecordDate;
     document.getElementById('eventTime').value = event?.time || `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
     document.getElementById('eventNote').value = event?.note || '';
+    document.getElementById('eventNoteField').classList.toggle('hidden', actualType === 'memo');
     document.getElementById('eventFormFields').innerHTML = this.eventFieldsHtml(actualType, event?.details || {});
     document.getElementById('eventModalBackdrop').classList.remove('hidden');
   },
@@ -3334,6 +3348,7 @@ const App = {
     document.getElementById('eventDate').value = state.selectedRecordDate;
     document.getElementById('eventTime').value = scheduledTime || `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
     document.getElementById('eventNote').value = '';
+    document.getElementById('eventNoteField').classList.remove('hidden');
     document.getElementById('eventFormFields').innerHTML = `<div class="field"><label>お薬</label><div class="scheduled-lock">${eventTypeInfo('medication').icon} ${escapeHtml(label)}</div><p class="hint">この予定の投薬を完了として記録します。時刻は必要に応じて調整できます。</p></div>`;
     document.getElementById('eventForm').dataset.scheduledTime = scheduledTime || '';
     document.getElementById('eventModalBackdrop').classList.remove('hidden');
@@ -3386,7 +3401,7 @@ const App = {
     if(event.type === 'symptom') add('症状', d.symptoms);
     if(event.type === 'visit'){ [['病院名','clinic'],['相談内容','reason'],['診断名','diagnosis'],['治療内容','treatment'],['次回の予定','followUpDate']].forEach(([label,key]) => add(label,d[key])); }
     if(event.type === 'memo') add('メモ', d.text);
-    add('ひとことメモ', event.note); return rows;
+    if(event.type !== 'memo') add('ひとことメモ', event.note); return rows;
   },
   openEventDetail(id){
     const event = state.events.find(item => item.id === id); if(!event) return;
@@ -3401,7 +3416,7 @@ const App = {
     const undoBtn = document.getElementById('eventUndoScheduledButton');
     editBtn.style.display = fromSchedule ? 'none' : '';
     deleteBtn.style.display = (fromSchedule || state.linkedOwnerUid) ? 'none' : '';
-    undoBtn.style.display = (fromSchedule && !state.linkedOwnerUid) ? '' : 'none';
+    undoBtn.style.display = fromSchedule ? '' : 'none';
     editBtn.onclick = () => { this.closeEventDetail(); this.openEventModal(event.type, event.id); };
     deleteBtn.onclick = () => this.deleteEvent(event.id);
     undoBtn.onclick = () => this.undoScheduledMedication(event.id);
@@ -3410,17 +3425,26 @@ const App = {
   closeEventDetail(){ document.getElementById('eventDetailBackdrop').classList.add('hidden'); },
   deleteEvent(id){ if(state.linkedOwnerUid){ alert('共有された記録は削除できません。'); return; } if(!confirm('この記録を削除しますか？')) return; colRef('events').doc(id).delete(); this.closeEventDetail(); },
   // 予定由来の完了を取り消す。完了イベントを削除すると、その予定行が本日の記録へ復帰する。
-  undoScheduledMedication(id){
-    if(state.linkedOwnerUid){ alert('共有された記録は削除できません。'); return; }
+  async undoScheduledMedication(id){
     if(!confirm('この投薬を未完了に戻しますか？予定として本日の記録に再表示されます。')) return;
-    colRef('events').doc(id).delete();
-    this.closeEventDetail();
+    try{
+      if(state.linkedOwnerUid){
+        const undoDose = functions.httpsCallable('undoScheduledMedication');
+        await undoDose({ ownerUid:state.linkedOwnerUid, eventId:id });
+      } else {
+        await colRef('events').doc(id).delete();
+      }
+      this.closeEventDetail();
+    } catch(err){
+      console.error('undoScheduledMedication failed', err);
+      alert('投薬を未完了に戻せませんでした。共有状態を確認して再度お試しください。');
+    }
   },
   renderMenu(){
     const group = (title, items) => `<div class="menu-section">${escapeHtml(title)}</div><div class="card" style="padding:0;">${items.map(([icon,label,description,action]) => `<button class="menu-item" type="button" onclick="${action}"><span class="menu-item-icon">${icon}</span><span class="menu-item-copy">${escapeHtml(label)}${description ? `<small>${escapeHtml(description)}</small>` : ''}</span><span class="menu-item-arrow">›</span></button>`).join('')}</div>`;
     const petItems = [[petTypeIcon('dog','') + petTypeIcon('cat',''),'新しい記録を登録する','家族の記録を追加',"App.openPetModal()"]];
     if(currentPet()) petItems.push(
-      [petTypeIcon('paw',''),'ペット情報を編集','名前・種類・性別・敬称',"App.openPetEditModal()"],
+      [petTypeIcon('paw',''),'選択中の記録を編集する','名前・種類・性別・敬称',"App.openPetEditModal()"],
       [iconSvg('trash','ic--danger'),'選択中の記録を削除する','記録・投薬・予防・受診歴もすべて削除',"App.deletePet(state.currentPetId)"]
     );
     let petManagement = state.linkedOwnerUid ? '' : group('ペットの管理', petItems);
@@ -4059,7 +4083,8 @@ const App = {
     const to = document.getElementById('exTo').value;
     const records = petRecords().filter(r => (!from || r.date >= from) && (!to || r.date <= to))
       .sort((a,b) => a.date < b.date ? -1 : 1);
-    return { from, to, records };
+    const events = petEvents().filter(e => (!from || e.date >= from) && (!to || e.date <= to));
+    return { from, to, records, events };
   },
 
   /**
@@ -4111,7 +4136,7 @@ const App = {
   async printReport(){
     // 出力範囲は最大31日間まで。無料枠1回で全期間を出力できてしまうと
     // 課金インセンティブが効かなくなるため、ここでクレジット消費前に弾く。
-    const { from, to, records } = this.getExportRange();
+    const { from, to, records, events } = this.getExportRange();
     const days = (from && to) ? Math.round((new Date(to) - new Date(from)) / 86400000) + 1 : null;
     if(!from || !to || days > 31){
       alert('出力範囲を31日間に設定してください。');
@@ -4136,7 +4161,7 @@ const App = {
       if(!ok) return;
 
       const pet = currentPet();
-      if(records.length === 0){ alert('選択した期間に記録がありません'); return; }
+      if(records.length === 0 && events.length === 0){ alert('選択した期間に記録がありません'); return; }
 
       const subscribed = !!(state.entitlements && state.entitlements.subscriptionActive);
 
@@ -4238,13 +4263,35 @@ const App = {
       </table>
     `;
 
-    const hasDiet = pet.dietMain || pet.dietTopping || pet.dietTreats;
-    const dietHtml = !hasDiet ? '' : `
-      <h2 style="font-size:15px;margin-top:18px;">現在の食事</h2>
+    // 現UIの正本は時刻つきevents。旧「現在の食事」属性は編集導線がなく、
+    // 古い値だけが残り続けるためレポートには出さない。ごはん候補と摂取量は
+    // mealイベント保存時のラベルをそのまま使い、候補を後で編集・削除しても履歴を保つ。
+    const eventsHtml = events.length === 0 ? '' : `
+      <h2 style="font-size:15px;margin-top:18px;">時刻つき記録</h2>
       <table>
-        <tr><th style="white-space:nowrap;">メインの食事</th><td style="white-space:pre-wrap;">${escapeHtml(pet.dietMain || '-')}</td></tr>
-        <tr><th style="white-space:nowrap;">トッピング</th><td style="white-space:pre-wrap;">${escapeHtml(pet.dietTopping || '-')}</td></tr>
-        <tr><th style="white-space:nowrap;">おやつ</th><td style="white-space:pre-wrap;">${escapeHtml(pet.dietTreats || '-')}</td></tr>
+        <tr><th>日時</th><th>種類</th><th>内容</th><th>メモ</th></tr>
+        ${events.map(event => `
+          <tr>
+            <td style="white-space:nowrap;">${fmtDate(event.date)} ${escapeHtml(event.time || '')}</td>
+            <td>${escapeHtml(eventTypeInfo(event.type).label)}</td>
+            <td>${escapeHtml(eventSummary(event) || '-')}</td>
+            <td style="white-space:pre-wrap;">${escapeHtml(event.type === 'memo' ? '' : (event.note || ''))}</td>
+          </tr>
+        `).join('')}
+      </table>
+    `;
+    const mealProfiles = petMealProfiles();
+    const mealProfilesHtml = mealProfiles.length === 0 ? '' : `
+      <h2 style="font-size:15px;margin-top:18px;">登録しているごはん</h2>
+      <table>
+        <tr><th>名前</th><th>内容</th><th>目安時刻</th></tr>
+        ${mealProfiles.map(profile => `
+          <tr>
+            <td>${escapeHtml(profile.label || '-')}</td>
+            <td style="white-space:pre-wrap;">${escapeHtml(profile.description || '-')}</td>
+            <td>${escapeHtml(profile.suggestedTime || '-')}</td>
+          </tr>
+        `).join('')}
       </table>
     `;
 
@@ -4293,15 +4340,18 @@ const App = {
       ${symptomCountHtml}
       ${dailyStatusHtml}
       ${symptomTimelineHtml}
+      ${eventsHtml}
+      ${mealProfilesHtml}
       ${visitsHtml}
       ${medsHtml}
-      ${dietHtml}
       ${prevsHtml}
-      <h2 style="font-size:15px;margin-top:18px;">日々の記録</h2>
+      ${records.length ? '<h2 style="font-size:15px;margin-top:18px;">日ごとの記録（旧形式を含む）</h2>' : ''}
+      ${records.length ? `
       <table>
         <tr><th>日付</th><th>体重</th><th>食欲</th><th>飲水</th><th>便(スコア)</th><th>尿</th><th>症状</th>${showCibdai ? '<th>CIBDAI</th>' : ''}<th>投薬</th></tr>
         ${rowsHtml}
       </table>
+      ` : ''}
     `;
       // base64画像自体はすでに出来上がっていても、<img>要素がその中身を実際に
       // デコードし終える前にwindow.print()を呼ぶと、セッションで最初の印刷時だけ
