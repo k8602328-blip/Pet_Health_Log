@@ -359,6 +359,16 @@
     #printArea .status-timeline-table th,#printArea .status-timeline-table td,
     #printArea .symptom-timeline-table th,#printArea .symptom-timeline-table td{padding:2px 3px;border:1px solid #ddd;}
     #printArea .status-legend{max-width:100%;}
+    /* グラフやタイムライン表の途中で改ページされると、前後関係や凡例が読めなくなる。
+       現行の縦並び・寸法・配色は変えず、各まとまりが残り領域に収まらない場合だけ
+       ブロック全体を次ページへ送る。旧WebKit向け指定も併記してiOS印刷に対応する。 */
+    #printArea .report-keep-together,
+    #printArea .symptom-timeline-scroll,
+    #printArea .status-legend{
+      break-inside:avoid-page;
+      page-break-inside:avoid;
+    }
+    #printArea .report-chart-block img{display:block;width:100%;max-width:600px;}
   }
 </style>
 </head>
@@ -4201,12 +4211,14 @@ const App = {
       records.forEach(r => safeArray(r.symptoms).forEach(s => symptomCounts[s] = (symptomCounts[s]||0) + 1));
       const symptomEntries = Object.entries(symptomCounts);
       const symptomCountHtml = `
+        <section class="report-keep-together">
         <h2 style="font-size:15px;margin-top:18px;">症状の出現回数</h2>
         ${symptomEntries.length === 0 ? '<p>この期間に記録された症状はありません。</p>' : `
           <ul style="margin:6px 0 0;padding-left:18px;">
             ${symptomEntries.map(([s,c]) => `<li>${escapeHtml(s)}: ${escapeHtml(c)}回</li>`).join('')}
           </ul>
         `}
+        </section>
       `;
 
       // 日々の状態タイムライン・症状タイムラインもサポートプラン限定。
@@ -4216,13 +4228,17 @@ const App = {
       // 出力期間の長さ(最大31日)に関わらず紙幅で切れないようにする。
       const PRINT_TIMELINE_CHUNK_DAYS = 14;
       const dailyStatusHtml = !subscribed ? '' : `
+        <section class="report-keep-together">
         <h2 style="font-size:15px;margin-top:18px;">日々の状態(飲水・便・尿)</h2>
         ${buildDailyStatusTimelineHtml(records, { chunkSize: PRINT_TIMELINE_CHUNK_DAYS })}
         ${buildStatusLegendHtml()}
+        </section>
       `;
       const symptomTimelineHtml = !subscribed ? '' : `
+        <section class="report-keep-together">
         <h2 style="font-size:15px;margin-top:18px;">症状タイムライン</h2>
         ${buildSymptomTimelineHtml(records, { chunkSize: PRINT_TIMELINE_CHUNK_DAYS })}
+        </section>
       `;
 
       const showCibdai = pet.trackCibdai;
@@ -4329,14 +4345,21 @@ const App = {
       </table>
     `;
 
+    // 見出しだけが前ページ末尾に残らないよう、最初に存在するグラフと見出しを
+    // 同じ改ページ不可ブロックへ入れる。グラフ自体の縦並びと寸法は従来どおり。
+    const reportCharts = [chartImg, appetiteImg, walkImg].filter(Boolean);
+    const chartsHtml = reportCharts.map((img, index) => `
+      <section class="report-keep-together report-chart-block"${index ? ' style="margin-top:10px;"' : ''}>
+        ${index === 0 ? '<h2 style="font-size:15px;margin-top:18px;">グラフ</h2>' : ''}
+        <img src="${img}">
+      </section>
+    `).join('');
+
     document.getElementById('printArea').innerHTML = `
       <h1>体調記録レポート</h1>
       <p>${escapeHtml(pet.name)}(${escapeHtml(pet.species)}${pet.breed ? '・'+escapeHtml(pet.breed) : ''}) ${pet.birthday ? '/ ' + ageString(pet.birthday) : ''}</p>
       <p>期間: ${from ? fmtDate(from) : '-'} 〜 ${to ? fmtDate(to) : '-'} (作成日: ${fmtDate(new Date().toISOString().slice(0,10))})</p>
-      ${(chartImg || appetiteImg || walkImg) ? '<h2 style="font-size:15px;margin-top:18px;">グラフ</h2>' : ''}
-      ${chartImg ? `<img src="${chartImg}" style="width:100%;max-width:600px;">` : ''}
-      ${appetiteImg ? `<img src="${appetiteImg}" style="width:100%;max-width:600px;margin-top:10px;">` : ''}
-      ${walkImg ? `<img src="${walkImg}" style="width:100%;max-width:600px;margin-top:10px;">` : ''}
+      ${chartsHtml}
       ${symptomCountHtml}
       ${dailyStatusHtml}
       ${symptomTimelineHtml}

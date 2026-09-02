@@ -69,6 +69,17 @@ test('レポートは現UIの時刻つき記録を出し、編集不能な旧食
   assert.doesNotMatch(block, /pet\.dietMain|pet\.dietTopping|pet\.dietTreats/);
 });
 
+test('レポートのグラフとタイムライン表は現行スタイルのままページを跨がない', () => {
+  const printCss = html.slice(html.indexOf('@media print'), html.indexOf('</style>'));
+  const reportBlock = html.slice(html.indexOf('async printReport(){'), html.indexOf('async openCheckout'));
+  assert.match(printCss, /\.report-keep-together[\s\S]*break-inside:avoid-page/);
+  assert.match(printCss, /\.symptom-timeline-scroll[\s\S]*page-break-inside:avoid/);
+  assert.match(reportBlock, /report-keep-together report-chart-block/);
+  assert.match(reportBlock, /index === 0 \? '<h2[^']+>グラフ<\/h2>'/);
+  assert.match(reportBlock, /buildDailyStatusTimelineHtml\(records, \{ chunkSize: PRINT_TIMELINE_CHUNK_DAYS \}\)/);
+  assert.match(reportBlock, /buildSymptomTimelineHtml\(records, \{ chunkSize: PRINT_TIMELINE_CHUNK_DAYS \}\)/);
+});
+
 test('実機確認で見つかった文言・メモ・猫の狂犬病選択を修正する', () => {
   assert.match(html, /'選択中の記録を編集する'/);
   assert.match(html, /eventNoteField'\)\.classList\.toggle\('hidden', actualType === 'memo'\)/);
