@@ -62,8 +62,15 @@
   .pet-choice-list{display:flex;flex-direction:column;gap:8px;}
   .pet-choice-button{display:flex;align-items:center;width:100%;gap:10px;text-align:left;background:var(--card);color:var(--text);border:1px solid var(--border);}
   .pet-choice-button.active{border-color:var(--primary);background:#FFF3E6;color:var(--primary-dark);}
-  .account-summary{display:flex;flex-direction:column;gap:3px;padding:14px 16px;background:var(--card);border:1px solid var(--border);border-radius:14px;margin-bottom:16px;}
+  .account-summary{display:flex;align-items:center;gap:12px;width:100%;padding:14px 16px;background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:14px;margin-bottom:16px;text-align:left;}
+  .account-summary-copy{display:flex;flex:1;min-width:0;flex-direction:column;gap:3px;}
   .account-summary strong{overflow-wrap:anywhere;}
+  .profile-avatar{display:inline-block;flex:0 0 auto;width:44px;height:44px;border-radius:50%;object-fit:cover;border:2px solid #fff;box-shadow:0 0 0 1px var(--border);vertical-align:middle;}
+  .profile-avatar--small{width:28px;height:28px;border-width:1px;}
+  .profile-avatar--fallback{object-fit:contain;padding:6px;background:#FFF3E6;}
+  .avatar-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;}
+  .avatar-choice{display:flex;flex-direction:column;align-items:center;gap:5px;padding:8px 3px;background:#fff;color:var(--text);border:2px solid transparent;font-size:11px;}
+  .avatar-choice.selected{border-color:var(--primary);background:#FFF3E6;}
   select, input[type=text], input[type=number], input[type=date], textarea{
     font-family:inherit;font-size:14px;padding:8px 10px;border:1px solid var(--border);
     border-radius:8px;background:#fff;color:var(--text);
@@ -239,7 +246,7 @@
     transform:translate3d(0,0,0);will-change:transform;isolation:isolate;}
   .daily-quick-dock .quick-event-bar{margin:0;padding:2px;max-width:920px;margin:0 auto;}
   .event-timeline{display:flex;flex-direction:column;gap:6px;}
-  .event-row{display:grid;grid-template-columns:54px 32px minmax(0,1fr) 14px;gap:8px;align-items:center;width:100%;border:1px solid var(--border);border-radius:10px;background:#fff;padding:10px;text-align:left;cursor:pointer;}
+  .event-row{display:grid;grid-template-columns:54px 32px minmax(0,1fr) 28px 14px;gap:8px;align-items:center;width:100%;border:1px solid var(--border);border-radius:10px;background:#fff;padding:10px;text-align:left;cursor:pointer;}
   .event-row:hover{background:#fffaf5;}
   /* 未完了の投薬予定行は、保存済みの記録と一目で区別できるよう破線枠＋淡い色にする */
   .event-row--scheduled{border-style:dashed;border-color:var(--primary);background:#FFF4E6;}
@@ -525,6 +532,18 @@
 
 <div id="eventDetailBackdrop" class="modal-backdrop hidden">
   <div class="modal event-detail-modal"><button type="button" class="ghost event-detail-close" onclick="App.closeEventDetail()">閉じる</button><h3 id="eventDetailTitle">記録の詳細</h3><ul id="eventDetailList" class="event-detail-list"></ul><div class="event-detail-actions"><button type="button" id="eventEditButton">編集</button><button type="button" class="danger" id="eventDeleteButton">削除</button><button type="button" class="secondary" id="eventUndoScheduledButton" style="display:none;">未完了に戻す</button></div></div>
+</div>
+
+<div id="profileModalBackdrop" class="modal-backdrop hidden">
+  <div class="modal">
+    <h3>アカウント設定</h3>
+    <form id="profileForm">
+      <div class="field"><label>アカウント名（記録者として表示）</label><input type="text" id="profileDisplayName" maxlength="30" required></div>
+      <div class="field"><label>アイコン</label><div id="profileIconChoices" class="avatar-grid"></div></div>
+      <div class="card" style="padding:12px;margin:14px 0;"><div class="hint">ログイン情報</div><div id="profileAuthName"></div><div id="profileAuthEmail" class="muted"></div></div>
+      <div class="row" style="justify-content:flex-end;"><button type="button" class="ghost" onclick="App.closeProfileModal()">キャンセル</button><button type="submit">保存する</button></div>
+    </form>
+  </div>
 </div>
 
 <div id="petModalBackdrop" class="modal-backdrop hidden">
@@ -1204,8 +1223,24 @@ let state = {
   householdStatus: 'loading',
   householdError: null,
   familyEmails: [],
-  activeFamilyEmails: []
+  activeFamilyEmails: [],
+  accountProfile: null
 };
+
+const PROFILE_ICONS = [
+  ['mother','ママ',0,0],['father','パパ',1,0],['son','息子',2,0],['daughter','娘',3,0],
+  ['grandfather','おじいちゃん',0,1],['grandmother','おばあちゃん',1,1],['toy_poodle','犬1（トイプードル）',2,1],['pomeranian','犬2（ポメラニアン）',3,1],
+  ['shiba','犬3（柴犬）',0,2],['orange_tabby','猫1（茶トラ）',1,2],['siamese','猫2（シャム猫）',2,2],['black_cat','猫3（黒猫）',3,2]
+];
+function profileIcon(id, extraClass=''){
+  const icon = PROFILE_ICONS.find(item => item[0] === id);
+  if(!icon) return `<img class="profile-avatar profile-avatar--fallback ${extraClass}" src="icons/paw.png" alt="">`;
+  return `<img class="profile-avatar ${extraClass}" src="profile-icons/${encodeURIComponent(icon[0])}.png" alt="${escapeHtml(icon[1])}">`;
+}
+function authorSnapshot(){
+  const profile = state.accountProfile || {};
+  return { authorUid:currentUser.uid, authorName:displayText(profile.profileDisplayName, currentUser.displayName || currentUser.email), authorIconId:profile.profileIconId || null };
+}
 
 function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
 
@@ -1542,12 +1577,22 @@ function attachFirestoreListeners(){
     App.render();
   }, err => handleFirestoreListenerError(err, generation, sourceUid));
   firestoreUnsubscribers.push(unsubUser);
+  // 共有先を閲覧中でも、記録者として使うプロフィールは常にログイン本人のものを読む。
+  const unsubOwnProfile = ownUserDocRef().onSnapshot(doc => {
+    const data = doc.data() || {};
+    state.accountProfile = {
+      profileDisplayName: data.profileDisplayName || '',
+      profileIconId: data.profileIconId || ''
+    };
+    App.render();
+  }, err => handleFirestoreListenerError(err, generation, currentUser.uid));
+  firestoreUnsubscribers.push(unsubOwnProfile);
 }
 function detachFirestoreListeners(){
   firestoreListenerGeneration++;
   firestoreUnsubscribers.forEach(u => u());
   firestoreUnsubscribers = [];
-  state = { ...state, pets:[], records:[], events:[], mealProfiles:[], medications:[], preventions:[], visits:[], currentPetId:null, entitlements:null, familyEmails:[], activeFamilyEmails:[], deletionStatus:null, deletionScheduledFor:null };
+  state = { ...state, pets:[], records:[], events:[], mealProfiles:[], medications:[], preventions:[], visits:[], currentPetId:null, entitlements:null, familyEmails:[], activeFamilyEmails:[], deletionStatus:null, deletionScheduledFor:null, accountProfile:null };
 }
 
 function petRecords(){
@@ -1731,6 +1776,7 @@ const App = {
     document.getElementById('prevForm').addEventListener('submit', e => this.submitPrev(e));
     document.getElementById('visitForm').addEventListener('submit', e => this.submitVisit(e));
     document.getElementById('eventForm').addEventListener('submit', e => this.submitEvent(e));
+    document.getElementById('profileForm').addEventListener('submit', e => this.submitProfile(e));
     document.getElementById('rDate').addEventListener('change', () => this.buildMedChecks());
     document.getElementById('medPhoto').addEventListener('change', e => this.handleMedPhoto(e));
     document.getElementById('rPhotoInput').addEventListener('change', e => this.handleRecordPhotos(e));
@@ -2692,6 +2738,11 @@ const App = {
       memo: document.getElementById('rMemo').value.trim(),
       photos: state.recordPhotos
     };
+    if(!id) Object.assign(data, authorSnapshot());
+    else {
+      const previous = state.records.find(record => record.id === id);
+      if(previous) Object.assign(data, {authorUid:previous.authorUid || null, authorName:previous.authorName || null, authorIconId:previous.authorIconId || null});
+    }
     const docId = id || uid();
     colRef('records').doc(docId).set(data);
     this.closeRecordModal();
@@ -3272,11 +3323,11 @@ const App = {
     const allRows = mergeTimelineItems(events, scheduledItems).map(item => {
       if(item.kind === 'scheduled'){
         const medication = item.medication;
-        return `<button type="button" class="event-row event-row--scheduled" ${actionAttrs('openScheduledMedication', medication.id)} data-time="${escapeHtml(item.time)}"><span class="event-time">${escapeHtml(item.time)}</span><span class="event-icon">${eventTypeInfo('medication').icon}</span><span class="event-main"><span class="event-title">${escapeHtml(medLabel(medication))}</span><span class="event-summary">投薬予定・未完了</span></span><span class="event-chevron">＋</span></button>`;
+        return `<button type="button" class="event-row event-row--scheduled" ${actionAttrs('openScheduledMedication', medication.id)} data-time="${escapeHtml(item.time)}"><span class="event-time">${escapeHtml(item.time)}</span><span class="event-icon">${eventTypeInfo('medication').icon}</span><span class="event-main"><span class="event-title">${escapeHtml(medLabel(medication))}</span><span class="event-summary">投薬予定・未完了</span></span><span></span><span class="event-chevron">＋</span></button>`;
       }
       const event = item.event;
       const info = eventTypeInfo(event.type);
-      return `<button type="button" class="event-row" ${actionAttrs('openEventDetail', event.id)}><span class="event-time">${escapeHtml(event.time || '--:--')}</span><span class="event-icon">${info.icon}</span><span class="event-main"><span class="event-title">${escapeHtml(info.label)}</span>${eventSummary(event) ? `<span class="event-summary">${escapeHtml(eventSummary(event))}</span>` : ''}</span><span class="event-chevron">›</span></button>`;
+      return `<button type="button" class="event-row" ${actionAttrs('openEventDetail', event.id)}><span class="event-time">${escapeHtml(event.time || '--:--')}</span><span class="event-icon">${info.icon}</span><span class="event-main"><span class="event-title">${escapeHtml(info.label)}</span>${eventSummary(event) ? `<span class="event-summary">${escapeHtml(eventSummary(event))}</span>` : ''}</span>${profileIcon(event.authorIconId,'profile-avatar--small')}<span class="event-chevron">›</span></button>`;
     }).join('') || '<div class="empty">この日の記録はまだありません。下のボタンから記録できます。</div>';
     const buttons = Object.entries(EVENT_TYPES).map(([type, info]) => `<button type="button" class="quick-event-button" onclick="App.openEventModal('${type}')"><span>${info.icon}</span>${escapeHtml(info.label)}</button>`).join('');
     main.innerHTML = `<div class="daily-screen">${this.weeklyTrendCardHtml()}<div class="card">`
@@ -3406,7 +3457,7 @@ const App = {
     if(!date || !time) return;
     const previous = state.events.find(item => item.id === id);
     const data = { petId:state.currentPetId, type, date, time, sortKey:`${date}T${time}`, note:document.getElementById('eventNote').value.trim(), details:this.readEventDetails(type), updatedAt:firebase.firestore.FieldValue.serverTimestamp() };
-    if(!previous) data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+    if(!previous){ data.createdAt = firebase.firestore.FieldValue.serverTimestamp(); Object.assign(data, authorSnapshot()); }
     colRef('events').doc(id).set(data, {merge:true}); state.selectedRecordDate = date; this.closeEventModal();
   },
   eventDetailRows(event){
@@ -3425,7 +3476,8 @@ const App = {
     if(event.type === 'symptom') add('症状', d.symptoms);
     if(event.type === 'visit'){ [['病院名','clinic'],['相談内容','reason'],['診断名','diagnosis'],['治療内容','treatment'],['次回の予定','followUpDate']].forEach(([label,key]) => add(label,d[key])); }
     if(event.type === 'memo') add('メモ', d.text);
-    if(event.type !== 'memo') add('ひとことメモ', event.note); return rows;
+    if(event.type !== 'memo') add('ひとことメモ', event.note);
+    add('記録者', event.authorName || '記録者情報なし'); return rows;
   },
   openEventDetail(id){
     const event = state.events.find(item => item.id === id); if(!event) return;
@@ -3472,15 +3524,39 @@ const App = {
       [iconSvg('trash','ic--danger'),'選択中の記録を削除する','記録・投薬・予防・受診歴もすべて削除',"App.deletePet(state.currentPetId)"]
     );
     let petManagement = state.linkedOwnerUid ? '' : group('ペットの管理', petItems);
-    const accountName = currentUser ? displayText(currentUser.displayName || currentUser.email) : '';
+    const accountName = currentUser ? displayText(state.accountProfile?.profileDisplayName, currentUser.displayName || currentUser.email) : '';
     const accountEmail = currentUser ? displayText(currentUser.email) : '';
-    petManagement += `<div class="menu-section">アカウント</div><div class="account-summary"><strong>${escapeHtml(accountName)}</strong>${accountEmail && accountEmail !== accountName ? `<span class="muted">${escapeHtml(accountEmail)}</span>` : ''}</div>`;
+    petManagement += `<div class="menu-section">アカウント</div><button type="button" class="account-summary" onclick="App.openProfileModal()">${profileIcon(state.accountProfile?.profileIconId)}<span class="account-summary-copy"><strong>${escapeHtml(accountName)}</strong><span class="muted">タップして表示名・アイコン・ログイン情報を確認</span></span><span>›</span></button>`;
     const sharedNotice = state.linkedOwnerUid ? '<div class="notice">共有された記録を閲覧中は一部メニューが使用できません。</div>' : '';
     const recordTools = state.linkedOwnerUid ? '' : group('記録を活用', [[iconSvg('report'),'レポート出力','主治医への共有レポート・PDF',"App.switchTab('export')"]]);
     const services = state.linkedOwnerUid ? '' : group('サービス', [[iconSvg('family'),'家族共有','家族や同居の方と記録を共有',"App.openFamilyModal()"],[iconSvg('upgrade'),'アップグレード','有料機能とお支払い',"App.openUpgradeModal()"]]);
     const accountItems = [[iconSvg('privacy'),'プライバシーポリシー・利用規約','',"window.open('privacy.html','_blank','noopener')"],[iconSvg('logout'),'ログアウト','',"AppAuth.signOut()"]];
     if(!state.linkedOwnerUid) accountItems.push([iconSvg('account-delete','ic--danger'),'アカウントを削除する','',"App.requestAccountDeletion()"]);
     document.getElementById('mainContent').innerHTML = `${sharedNotice}${petManagement}${group('記録の設定', [[iconSvg('meal-setup'),'ごはんの登録','食事候補の登録・編集・並び替え',"App.renderMealProfiles()"],[iconSvg('med-setup'),'くすりの登録','薬・用量・投薬予定・通知',"App.switchTab('meds')"]])}${group('健康管理', [[iconSvg('prevention'),'予防','ワクチン・ノミダニ・フィラリア',"App.switchTab('prev')"],[iconSvg('visits'),'受診歴','通院の記録',"App.switchTab('visits')"]])}${recordTools}${services}${group('サポート', [[iconSvg('guide'),'使い方ガイド','',"window.open('usage-guide.html','_blank','noopener')"],[iconSvg('contact'),'お問い合わせ','',"window.location.href='mailto:contact@pet-health-log.com'"]])}${group('プライバシーとアカウント', accountItems)}`;
+  },
+  openProfileModal(){
+    const profile = state.accountProfile || {};
+    document.getElementById('profileDisplayName').value = profile.profileDisplayName || currentUser.displayName || '';
+    document.getElementById('profileAuthName').textContent = currentUser.displayName ? `Googleアカウント名: ${currentUser.displayName}` : 'Googleアカウント名: 未設定';
+    document.getElementById('profileAuthEmail').textContent = `メールアドレス: ${currentUser.email || '未取得'}`;
+    const selected = profile.profileIconId || '';
+    document.getElementById('profileIconChoices').innerHTML = PROFILE_ICONS.map(([id,label]) => `<button type="button" class="avatar-choice ${id === selected ? 'selected' : ''}" data-profile-icon="${id}" onclick="App.selectProfileIcon('${id}')">${profileIcon(id)}<span>${escapeHtml(label)}</span></button>`).join('');
+    document.getElementById('profileModalBackdrop').classList.remove('hidden');
+  },
+  selectProfileIcon(id){
+    document.querySelectorAll('[data-profile-icon]').forEach(button => button.classList.toggle('selected', button.dataset.profileIcon === id));
+  },
+  closeProfileModal(){ document.getElementById('profileModalBackdrop').classList.add('hidden'); },
+  async submitProfile(e){
+    e.preventDefault();
+    const name = document.getElementById('profileDisplayName').value.trim();
+    const selected = document.querySelector('[data-profile-icon].selected');
+    if(!name){ alert('アカウント名を入力してください。'); return; }
+    if(!selected){ alert('アイコンを選んでください。'); return; }
+    try{
+      await ownUserDocRef().update({ profileDisplayName:name, profileIconId:selected.dataset.profileIcon, profileUpdatedAt:firebase.firestore.FieldValue.serverTimestamp() });
+      this.closeProfileModal();
+    } catch(err){ console.error('profile update failed', err); alert('アカウント設定を保存できませんでした。通信状態を確認してください。'); }
   },
   renderMealProfiles(){
     const profiles = petMealProfiles();
@@ -3502,7 +3578,7 @@ const App = {
       <div class="record-card">
         <div class="record-card-header" onclick="this.closest('.record-card').classList.toggle('expanded')">
           <div class="record-card-main">
-            <span>${fmtDate(r.date)}</span>
+            <span>${fmtDate(r.date)}</span>${profileIcon(r.authorIconId,'profile-avatar--small')}
               <span class="record-card-weight">${r.weight ? escapeHtml(r.weight)+'kg' : ''}</span>
           </div>
           <div class="record-card-badges">
@@ -4658,6 +4734,7 @@ if (typeof module !== 'undefined') {
     recordedMealIntakes, mergeTimelineItems, localDateString, actionAttrs,
     coerceEventFieldValue, scheduledDoseTaken, medScheduledTimes,
     EVENT_TYPES, eventTypeInfo, iconSvg, petTypeIcon, petDisplayName,
+    PROFILE_ICONS, profileIcon,
   };
 }
 </script>

@@ -130,6 +130,19 @@ test('追加・共有・課金・アカウント・ログアウトはメニュ�
   for (const value of ['新しい記録を登録する','openFamilyModal','openUpgradeModal','accountName','ログアウト']) assert.ok(menu.includes(value), value);
 });
 
+test('アカウント名と12種類の記録者アイコンを編集し、新規記録へ作成者を保存する', () => {
+  const required = ['mother','father','son','daughter','grandfather','grandmother','toy_poodle','pomeranian','shiba','orange_tabby','siamese','black_cat'];
+  for (const id of required) {
+    assert.ok(HTML.includes(`'${id}'`), id);
+    assert.ok(fs.existsSync(path.join(ROOT, 'profile-icons', `${id}.png`)), `${id}.png`);
+  }
+  assert.ok(HTML.includes('id="profileForm"'));
+  assert.ok(HTML.includes('profileDisplayName:name'));
+  assert.ok(HTML.includes('Object.assign(data, authorSnapshot())'));
+  assert.ok(HTML.includes("profileIcon(event.authorIconId,'profile-avatar--small')"));
+  assert.ok(HTML.includes("add('記録者', event.authorName || '記録者情報なし')"));
+});
+
 test('記録詳細は右上に閉じる、右下に編集・削除の順で表示する', () => {
   const detail = HTML.slice(HTML.indexOf('id="eventDetailBackdrop"'), HTML.indexOf('id="petModalBackdrop"'));
   assert.match(detail, /event-detail-close[^>]*>閉じる</);
