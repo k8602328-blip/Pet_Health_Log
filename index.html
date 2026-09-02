@@ -596,7 +596,7 @@
         <div class="checks" id="rSymptoms"></div>
       </div>
       <div class="field">
-        <label>今日飲んだ薬(「お薬」タブで登録した薬から選択)</label>
+        <label>今日飲んだ薬(メニューの「くすりの登録」で登録した薬から選択)</label>
         <div class="checks" id="rMeds"></div>
       </div>
       <div class="field hidden" id="rCibdaiSection">
@@ -2280,7 +2280,7 @@ const App = {
     // 引数無し(日付変更時の再描画)は、今チェック済みの状態を保ったまま薬の一覧だけ更新する
     const current = medsGiven || this.collectMedsGiven();
     if(meds.length === 0){
-      wrap.innerHTML = `<span class="muted">この日に該当する登録済みの薬がありません(「お薬」タブで登録できます)</span>`;
+      wrap.innerHTML = `<span class="muted">この日に該当する登録済みの薬がありません(メニューの「くすりの登録」で登録できます)</span>`;
       return;
     }
     wrap.innerHTML = meds.map(m => {
