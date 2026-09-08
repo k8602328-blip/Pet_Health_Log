@@ -50,8 +50,10 @@ test('iconSvgとpetTypeIconはSVGを描かずPNGを参照する', () => {
 
 test('全PNG素材がindex.htmlから参照され、参照切れがない', () => {
   const refs = new Set(referencedPngs());
-  // historyは旧「これまでの記録」メニュー撤去後も素材として保管する。
-  for (const id of EXPECTED.filter(id => id !== 'history')) assert.ok(refs.has(id), `${id}.png is not referenced`);
+  // history は旧「これまでの記録」メニュー撤去後、visits は旧「受診歴」タブ撤去後
+  // (受診記録は events の type:'visit' へ一本化)も、素材としては保管する。
+  const keptButUnreferenced = new Set(['history', 'visits']);
+  for (const id of EXPECTED.filter(id => !keptButUnreferenced.has(id))) assert.ok(refs.has(id), `${id}.png is not referenced`);
   for (const id of refs) assert.ok(EXPECTED.includes(id), `unexpected icon reference: ${id}`);
 });
 
@@ -62,7 +64,7 @@ test('共有記録の閲覧中は制限対象メニューと削除操作を表�
   assert.match(menu, /state\.linkedOwnerUid \? '' : group\('記録を活用'/);
   assert.match(menu, /state\.linkedOwnerUid \? '' : group\('サービス'/);
   assert.doesNotMatch(menu, /'これまでの記録'/);
-  for (const method of ['deleteRecord','deleteMed','deletePrev','deleteVisit','deleteMealProfile']) {
+  for (const method of ['deleteRecord','deleteMed','deletePrev','deleteMealProfile']) {
     assert.match(HTML, new RegExp(`${method}\\(id\\)\\{\\s*if\\(state\\.linkedOwnerUid\\)`));
   }
 });
@@ -172,7 +174,7 @@ test('入力モーダルを閉じるとフォーカスを解除して固定バ�
 });
 
 test('予防記録は狭い表ではなく操作ボタンを内包したカードで表示する', () => {
-  const prev = HTML.slice(HTML.indexOf('renderPrevTab(){'), HTML.indexOf('renderVisitsTab(){'));
+  const prev = HTML.slice(HTML.indexOf('renderPrevTab(){'), HTML.indexOf('renderChartTab(){'));
   assert.match(prev, /<article class="prevention-card">/);
   assert.match(prev, /class="prevention-details"/);
   assert.match(prev, /実施日[^]*次回予定[^]*病院/);

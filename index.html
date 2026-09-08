@@ -762,28 +762,6 @@
   </div>
 </div>
 
-<div id="visitModalBackdrop" class="modal-backdrop hidden">
-  <div class="modal">
-    <h3 id="visitModalTitle">受診記録を登録</h3>
-    <form id="visitForm">
-      <input type="hidden" id="visitId">
-      <div class="row">
-        <div class="field"><label>受診日</label><input type="date" id="visitDate" required></div>
-        <div class="field"><label>病院名</label><input type="text" id="visitClinic"></div>
-      </div>
-      <div class="field"><label>相談内容・主訴</label><input type="text" id="visitReason" placeholder="例: 3日前から嘔吐が続く"></div>
-      <div class="field"><label>診断名・疾患名(分かれば)</label><input type="text" id="visitDiagnosis" placeholder="例: 急性胃腸炎"></div>
-      <div class="field"><label>治療内容(任意)</label><textarea id="visitTreatment" rows="2" placeholder="点滴、投薬内容など"></textarea></div>
-      <div class="field"><label>次回受診予定(任意)</label><input type="date" id="visitFollowUp"></div>
-      <div class="field"><label>メモ</label><textarea id="visitMemo" rows="2"></textarea></div>
-      <div class="row" style="justify-content:flex-end;margin-top:8px;">
-        <button type="button" class="ghost" onclick="App.closeVisitModal()">キャンセル</button>
-        <button type="submit">保存する</button>
-      </div>
-    </form>
-  </div>
-</div>
-
 <div id="fecalGuideModalBackdrop" class="modal-backdrop hidden">
   <div class="modal">
     <h3>糞便スコアの見本</h3>
@@ -1197,7 +1175,6 @@ let state = {
   mealProfiles: [],
   medications: [],
   preventions: [],
-  visits: [],
   currentPetId: null,
   deletionStatus: null,
   deletionScheduledFor: null,
@@ -1208,7 +1185,6 @@ let state = {
   editingRecordId: null,
   editingMedId: null,
   editingPrevId: null,
-  editingVisitId: null,
   medPhotoData: null,
   recordPhotos: [],
   photoViewerPreviousOverflow: '',
@@ -1551,7 +1527,7 @@ function handleFirestoreListenerError(err, generation, sourceUid){
 function attachFirestoreListeners(){
   const generation = ++firestoreListenerGeneration;
   const sourceUid = dataUid();
-  const collections = ['pets','records','medications','preventions','visits','events','mealProfiles'];
+  const collections = ['pets','records','medications','preventions','events','mealProfiles'];
   collections.forEach(name => {
     const unsub = colRef(name).onSnapshot(snap => {
       state[name] = snap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -1599,7 +1575,7 @@ function detachFirestoreListeners(){
   firestoreListenerGeneration++;
   firestoreUnsubscribers.forEach(u => u());
   firestoreUnsubscribers = [];
-  state = { ...state, pets:[], records:[], events:[], mealProfiles:[], medications:[], preventions:[], visits:[], currentPetId:null, entitlements:null, familyEmails:[], activeFamilyEmails:[], deletionStatus:null, deletionScheduledFor:null, accountProfile:null };
+  state = { ...state, pets:[], records:[], events:[], mealProfiles:[], medications:[], preventions:[], currentPetId:null, entitlements:null, familyEmails:[], activeFamilyEmails:[], deletionStatus:null, deletionScheduledFor:null, accountProfile:null };
 }
 
 function petRecords(){
@@ -1619,9 +1595,27 @@ function petPreventions(){
     .filter(p => p.petId === state.currentPetId)
     .sort((a,b) => (b.date||'').localeCompare(a.date||''));
 }
+// 受診記録は独立した visits コレクションを廃止し、events の type:'visit' に一本化した。
+// 入力・編集は「本日の記録」とイベント詳細に統一し、専用の受診歴タブは撤去済み。
+// ホームの「直近の受診歴」とレポートの受診歴表はここで events から受診イベントだけを取り出し、
+// 旧 visits ドキュメントと同じ形（date / clinic / reason / diagnosis / treatment /
+// followUpDate / memo、id は events のドキュメントID）へ整形して返す。
 function petVisits(){
-  return state.visits
-    .filter(v => v.petId === state.currentPetId)
+  return state.events
+    .filter(e => e.petId === state.currentPetId && e.type === 'visit')
+    .map(e => {
+      const d = e.details || {};
+      return {
+        id: e.id,
+        date: e.date || '',
+        clinic: d.clinic || '',
+        reason: d.reason || '',
+        diagnosis: d.diagnosis || '',
+        treatment: d.treatment || '',
+        followUpDate: d.followUpDate || '',
+        memo: e.note || ''
+      };
+    })
     .sort((a,b) => (b.date||'').localeCompare(a.date||''));
 }
 function latestPrevByCategory(category){
@@ -1781,7 +1775,6 @@ const App = {
     document.getElementById('recordForm').addEventListener('submit', e => this.submitRecord(e));
     document.getElementById('medForm').addEventListener('submit', e => this.submitMed(e));
     document.getElementById('prevForm').addEventListener('submit', e => this.submitPrev(e));
-    document.getElementById('visitForm').addEventListener('submit', e => this.submitVisit(e));
     document.getElementById('eventForm').addEventListener('submit', e => this.submitEvent(e));
     document.getElementById('profileForm').addEventListener('submit', e => this.submitProfile(e));
     document.getElementById('rDate').addEventListener('change', () => this.buildMedChecks());
@@ -2269,9 +2262,11 @@ const App = {
     colRef('pets').doc(petId).update({ trackCibdai: !pet.trackCibdai });
   },
 
-  // 記録・投薬・予防・受診歴はpetsのサブコレクションではなく、petIdを持つ
-  // トップレベルコレクションとして保存されている(colRef参照)ため、ペット削除時は
-  // それぞれをwhere('petId','==',petId)で検索してから個別に削除する必要がある。
+  // 記録・イベント・ごはんの登録・投薬・予防はpetsのサブコレクションではなく、
+  // petIdを持つトップレベルコレクションとして保存されている(colRef参照)ため、
+  // ペット削除時はそれぞれをwhere('petId','==',petId)で検索してから個別に削除し、
+  // 最後にpets文書を消す。受診記録は独立コレクションを廃止しeventsのtype:'visit'へ
+  // 一本化したので、eventsの削除に含まれる。
   // 写真はFirebase Storageではなく圧縮したdata URLとしてFirestore文書に直接
   // 埋め込まれているため、これらの文書を消せば写真データも一緒に消える。
   async deletePet(petId){
@@ -2284,7 +2279,7 @@ const App = {
     if(typed !== pet.name){ alert('入力がペットの名前と一致しなかったため、削除を中止しました。'); return; }
 
     try{
-      const collections = ['records', 'medications', 'preventions', 'visits'];
+      const collections = ['records', 'events', 'mealProfiles', 'medications', 'preventions'];
       for(const name of collections){
         const snap = await colRef(name).where('petId', '==', petId).get();
         const docs = snap.docs;
@@ -3064,57 +3059,6 @@ const App = {
     colRef('preventions').doc(id).delete();
   },
 
-  openVisitModal(visitId){
-    state.editingVisitId = visitId || null;
-    const title = document.getElementById('visitModalTitle');
-    const form = document.getElementById('visitForm');
-    form.reset();
-    if(visitId){
-      const v = state.visits.find(x => x.id === visitId);
-      title.textContent = '受診記録を編集';
-      document.getElementById('visitId').value = v.id;
-      document.getElementById('visitDate').value = v.date || '';
-      document.getElementById('visitClinic').value = v.clinic || '';
-      document.getElementById('visitReason').value = v.reason || '';
-      document.getElementById('visitDiagnosis').value = v.diagnosis || '';
-      document.getElementById('visitTreatment').value = v.treatment || '';
-      document.getElementById('visitFollowUp').value = v.followUpDate || '';
-      document.getElementById('visitMemo').value = v.memo || '';
-    } else {
-      title.textContent = '受診記録を登録';
-      document.getElementById('visitId').value = '';
-      document.getElementById('visitDate').value = new Date().toISOString().slice(0,10);
-    }
-    document.getElementById('visitModalBackdrop').classList.remove('hidden');
-  },
-  closeVisitModal(){
-    document.getElementById('visitModalBackdrop').classList.add('hidden');
-    state.editingVisitId = null;
-  },
-  submitVisit(e){
-    e.preventDefault();
-    if(!state.currentPetId){ alert('先にペットを登録してください'); return; }
-    const id = document.getElementById('visitId').value;
-    const data = {
-      petId: state.currentPetId,
-      date: document.getElementById('visitDate').value,
-      clinic: document.getElementById('visitClinic').value.trim(),
-      reason: document.getElementById('visitReason').value.trim(),
-      diagnosis: document.getElementById('visitDiagnosis').value.trim(),
-      treatment: document.getElementById('visitTreatment').value.trim(),
-      followUpDate: document.getElementById('visitFollowUp').value || '',
-      memo: document.getElementById('visitMemo').value.trim()
-    };
-    const docId = id || uid();
-    colRef('visits').doc(docId).set(data);
-    this.closeVisitModal();
-  },
-  deleteVisit(id){
-    if(state.linkedOwnerUid){ alert('共有された記録は削除できません。'); return; }
-    if(!confirm('この受診記録を削除しますか?')) return;
-    colRef('visits').doc(id).delete();
-  },
-
   switchTab(tab){
     state.activeTab = tab;
     document.querySelectorAll('.tab-btn').forEach(b => {
@@ -3293,7 +3237,6 @@ const App = {
     if(state.activeTab === 'chart') return this.renderChartTab();
     if(state.activeTab === 'meds') return this.renderMedsTab();
     if(state.activeTab === 'prev') return this.renderPrevTab();
-    if(state.activeTab === 'visits') return this.renderVisitsTab();
     if(state.activeTab === 'export') return this.renderExportTab();
   },
 
@@ -3539,7 +3482,7 @@ const App = {
     const services = state.linkedOwnerUid ? '' : group('サービス', [[iconSvg('family'),'家族共有','家族や同居の方と記録を共有',"App.openFamilyModal()"],[iconSvg('upgrade'),'アップグレード','有料機能とお支払い',"App.openUpgradeModal()"]]);
     const accountItems = [[iconSvg('privacy'),'プライバシーポリシー・利用規約','',"window.open('privacy.html','_blank','noopener')"],[iconSvg('logout'),'ログアウト','',"AppAuth.signOut()"]];
     if(!state.linkedOwnerUid) accountItems.push([iconSvg('account-delete','ic--danger'),'アカウントを削除する','',"App.requestAccountDeletion()"]);
-    document.getElementById('mainContent').innerHTML = `${sharedNotice}${petManagement}${group('記録の設定', [[iconSvg('meal-setup'),'ごはんの登録','食事候補の登録・編集・並び替え',"App.renderMealProfiles()"],[iconSvg('med-setup'),'くすりの登録','薬・用量・投薬予定・通知',"App.switchTab('meds')"]])}${group('健康管理', [[iconSvg('prevention'),'予防','ワクチン・ノミダニ・フィラリア',"App.switchTab('prev')"],[iconSvg('visits'),'受診歴','通院の記録',"App.switchTab('visits')"]])}${recordTools}${services}${group('サポート', [[iconSvg('guide'),'使い方ガイド','',"window.open('usage-guide.html','_blank','noopener')"],[iconSvg('contact'),'お問い合わせ','',"window.location.href='mailto:contact@pet-health-log.com'"]])}${group('プライバシーとアカウント', accountItems)}`;
+    document.getElementById('mainContent').innerHTML = `${sharedNotice}${petManagement}${group('記録の設定', [[iconSvg('meal-setup'),'ごはんの登録','食事候補の登録・編集・並び替え',"App.renderMealProfiles()"],[iconSvg('med-setup'),'くすりの登録','薬・用量・投薬予定・通知',"App.switchTab('meds')"]])}${group('健康管理', [[iconSvg('prevention'),'予防','ワクチン・ノミダニ・フィラリア',"App.switchTab('prev')"]])}${recordTools}${services}${group('サポート', [[iconSvg('guide'),'使い方ガイド','',"window.open('usage-guide.html','_blank','noopener')"],[iconSvg('contact'),'お問い合わせ','',"window.location.href='mailto:contact@pet-health-log.com'"]])}${group('プライバシーとアカウント', accountItems)}`;
   },
   openProfileModal(){
     const profile = state.accountProfile || {};
@@ -3705,15 +3648,13 @@ const App = {
         </div>
       </div>
       <div class="card">
-        <div class="row" style="justify-content:space-between;align-items:center;">
-          <h3 style="margin:0;">直近の受診歴</h3>
-          <button class="secondary" onclick="App.switchTab('visits')">管理する</button>
-        </div>
+        <h3 style="margin:0 0 8px;">直近の受診歴</h3>
         ${lastVisit ? `
             <div class="muted">${fmtDate(lastVisit.date)} ${lastVisit.clinic ? '・'+escapeHtml(lastVisit.clinic) : ''}</div>
             <div style="margin-top:4px;"><strong>${escapeHtml(lastVisit.diagnosis || '診断名は未記入')}</strong></div>
             ${lastVisit.reason ? `<div class="muted" style="margin-top:2px;">${escapeHtml(lastVisit.reason)}</div>` : ''}
-        ` : '<div class="empty">まだ受診記録がありません</div>'}
+            <p class="muted" style="margin-top:8px;font-size:12px;">受診の記録は「本日の記録」の「病院」から追加・編集できます。</p>
+        ` : '<div class="empty">まだ受診記録がありません。「本日の記録」の「病院」から追加できます。</div>'}
       </div>
       <div class="card">
         <h3>最近の記録</h3>
@@ -3872,41 +3813,6 @@ const App = {
           <button onclick="App.openPrevModal()">+ 記録を追加</button>
         </div>
         ${items.length === 0 ? '<div class="empty">まだ記録がありません</div>' : `<div class="prevention-list">${items.map(cardHtml).join('')}</div>`}
-      </div>
-    `;
-  },
-
-  renderVisitsTab(){
-    const visits = petVisits();
-    const main = document.getElementById('mainContent');
-    const cardHtml = v => `
-      <div class="med-card">
-        <div class="row" style="justify-content:space-between;">
-          <div>
-            <div class="med-title">${fmtDate(v.date)} ${v.clinic ? '・' + escapeHtml(v.clinic) : ''}</div>
-            <div class="muted">${escapeHtml(v.reason || '')}</div>
-          </div>
-          <div class="actions-cell">
-            <button class="secondary" ${actionAttrs('openVisit', v.id)}>編集</button>
-            ${state.linkedOwnerUid ? '' : `<button class="danger" ${actionAttrs('deleteVisit', v.id)}>削除</button>`}
-          </div>
-        </div>
-        <table style="margin-top:6px;">
-          <tr><th style="width:110px;">診断名・疾患名</th><td>${escapeHtml(v.diagnosis || '(未記入)')}</td></tr>
-          ${v.treatment ? `<tr><th>治療内容</th><td>${escapeHtml(v.treatment)}</td></tr>` : ''}
-          ${v.followUpDate ? `<tr><th>次回受診予定</th><td>${fmtDate(v.followUpDate)}</td></tr>` : ''}
-          ${v.memo ? `<tr><th>メモ</th><td>${escapeHtml(v.memo)}</td></tr>` : ''}
-        </table>
-      </div>
-    `;
-    main.innerHTML = `
-      <div class="card">
-        <div class="row" style="justify-content:space-between;align-items:center;">
-          <h3 style="margin:0;">受診歴</h3>
-          <button onclick="App.openVisitModal()">+ 受診記録を追加</button>
-        </div>
-        <p class="hint">診断名がその場で分からなくても大丈夫です。あとで確認できたら編集して追記してください。</p>
-        ${visits.length === 0 ? '<div class="empty">まだ受診記録がありません</div>' : visits.map(cardHtml).join('')}
       </div>
     `;
   },
@@ -4600,8 +4506,6 @@ document.addEventListener('click', event => {
     deleteMed: () => App.deleteMed(id),
     openPrev: () => App.openPrevModal(id),
     deletePrev: () => App.deletePrev(id),
-    openVisit: () => App.openVisitModal(id),
-    deleteVisit: () => App.deleteVisit(id),
     openEventDetail: () => App.openEventDetail(id),
     openScheduledMedication: () => App.openScheduledMedication(id, control.dataset.time),
     editMealProfile: () => App.editMealProfile(id),
@@ -4749,6 +4653,8 @@ if (typeof module !== 'undefined') {
     coerceEventFieldValue, scheduledDoseTaken, medScheduledTimes,
     EVENT_TYPES, eventTypeInfo, iconSvg, petTypeIcon, petDisplayName,
     PROFILE_ICONS, profileIcon,
+    // 破壊的処理(deletePet)をスタブ環境で検証するための最小シーム。
+    App, state, __setTestUser: user => { currentUser = user; },
   };
 }
 </script>
