@@ -134,7 +134,7 @@ test('採用しないと決めた重複画像を参照していない', () => {
 
 test('有料機能を無料と誤認させない表記と、削除が元に戻せない旨がある', () => {
   assert.ok(guideHtml.includes('治療サポートプラン'));
-  assert.ok(guideHtml.includes('月額480円'));
+  assert.ok(guideHtml.includes('月額600円'));
   assert.ok(guideHtml.includes('月額200円'));
   assert.ok(guideHtml.includes('無料枠は月1回'));
   assert.ok(guideHtml.includes('毎月1日に無料回数が復活します。無料回数は1以上には増えません。'));

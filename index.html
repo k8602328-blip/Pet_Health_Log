@@ -1118,7 +1118,7 @@ const UPGRADE_ITEMS = [
       </div>`
   },
   {
-    item:'supportPlan', label:'治療サポートプラン', price:'¥480/月',
+    item:'supportPlan', label:'治療サポートプラン', price:'¥600/月',
     descHtml:`
       <p style="margin:0;">通院中のペットの体調管理に役立つ機能がまとめて使えるようになります。</p>
       <ul>
@@ -2574,7 +2574,7 @@ const App = {
     if(btn){ btn.disabled = true; btn.textContent = '処理中...'; }
     try{
       const createCheckoutSession = functions.httpsCallable('createCheckoutSession');
-      const result = await createCheckoutSession({ item });
+      const result = await createCheckoutSession({ item, ...(item === 'supportPlan' ? { displayedSupportPlanAmount: 600 } : {}) });
       if(result?.data?.updated){
         alert(result.data.pending
           ? '追加席のお支払い確認中です。支払い完了後に席数へ反映されます。'
