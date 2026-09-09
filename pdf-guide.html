@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>iPhoneでレポートをPDF保存する方法 - もふもふカルテ</title>
 <style>
   :root{
@@ -21,11 +21,22 @@
     background:var(--bg);
     color:var(--text);
   }
-  .wrap{max-width:520px;margin:0 auto;padding:24px 16px 60px;}
+  /* iPhoneアプリ(WebView)ではステータスバー(時刻表示)の下まで描画されるため、
+     viewport-fit=cover と合わせて上下左右のセーフエリアぶん余白を足す。
+     ブラウザ表示では env() はすべて 0 になり、従来と同じ 24/16/60px になる。 */
+  .wrap{
+    max-width:520px;margin:0 auto;
+    padding:
+      calc(24px + env(safe-area-inset-top))
+      calc(16px + env(safe-area-inset-right))
+      calc(60px + env(safe-area-inset-bottom))
+      calc(16px + env(safe-area-inset-left));
+  }
   a{color:var(--primary-dark);}
   h1{font-size:20px;color:var(--primary-dark);margin:0 0 8px;}
   .lead{color:var(--muted);font-size:14px;line-height:1.7;margin:0 0 24px;}
-  .back{display:inline-block;margin-bottom:16px;font-size:14px;}
+  /* 戻る導線は最低44pxの高さを確保して指で押しやすくする。 */
+  .back{display:inline-flex;align-items:center;min-height:44px;padding:6px 2px;margin-bottom:8px;font-size:14px;}
   .step{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px;margin-bottom:16px;}
   .step-num{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:var(--primary);color:#fff;font-weight:700;font-size:13px;margin-right:8px;flex-shrink:0;}
   .step-title{display:flex;align-items:center;font-weight:700;font-size:15px;margin-bottom:10px;}

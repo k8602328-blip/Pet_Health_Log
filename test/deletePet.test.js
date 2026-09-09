@@ -112,7 +112,9 @@ function makeHarness(spec = {}) {
     prompt: spec.prompt || (() => 'モモ'),
     console: { ...console, error: (...a) => calls.consoleErrors.push(a) },
   });
-  app.__setTestUser({ uid: 'u1' });
+  app.__household.setCurrentUser({ uid: 'u1' });
+  app.state = app.__household.getState();
+  app.state.bootPhase = 'ready';
   app.state.linkedOwnerUid = spec.linkedOwnerUid || null;
   app.state.pets = spec.pets || [{ id: 'p1', name: 'モモ' }];
   app.state.currentPetId = 'currentPetId' in spec ? spec.currentPetId : 'p1';

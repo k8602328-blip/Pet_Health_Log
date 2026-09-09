@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>もふもふカルテ｜家族でつくる、ペットの健康記録</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#FB923C">
@@ -44,7 +44,7 @@
   .app{max-width:920px;margin:0 auto;padding:0 16px 60px;}
   header.topbar{
     display:grid;grid-template-columns:1fr;gap:12px;align-items:center;
-    padding:18px 4px;
+    padding:calc(18px + env(safe-area-inset-top)) 4px 18px;
   }
   .brand{font-size:22px;font-weight:700;color:var(--primary-dark);}
   .brand-subtitle{margin:0 0 16px;color:var(--muted);font-size:14px;font-weight:600;}
@@ -65,11 +65,19 @@
   .account-summary{display:flex;align-items:center;gap:12px;width:100%;padding:14px 16px;background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:14px;margin-bottom:16px;text-align:left;}
   .account-summary-copy{display:flex;flex:1;min-width:0;flex-direction:column;gap:3px;}
   .account-summary strong{overflow-wrap:anywhere;}
-  .profile-avatar{display:inline-block;flex:0 0 auto;width:44px;height:44px;border-radius:50%;object-fit:cover;border:2px solid #fff;box-shadow:0 0 0 1px var(--border);vertical-align:middle;}
+  .profile-avatar-frame{display:inline-flex;flex:0 0 auto;width:44px;height:44px;border-radius:50%;overflow:hidden;border:2px solid #fff;box-shadow:0 0 0 1px var(--border);vertical-align:middle;background:#FFF9F1;}
+  .profile-avatar{display:block;width:100%;height:100%;object-fit:cover;transform:scale(1.18);}
+  .profile-avatar-frame--son .profile-avatar,
+  .profile-avatar-frame--toy_poodle .profile-avatar,
+  .profile-avatar-frame--siamese .profile-avatar{transform:translateX(4%) scale(1.34);}
+  /* 素材の被写体が左寄りに切り出されている3種は補正量を増やして丸枠の中心に合わせる */
+  .profile-avatar-frame--daughter .profile-avatar,
+  .profile-avatar-frame--pomeranian .profile-avatar,
+  .profile-avatar-frame--black_cat .profile-avatar{transform:translateX(10%) scale(1.34);}
   .profile-avatar--small{width:28px;height:28px;border-width:1px;}
-  .profile-avatar--fallback{object-fit:contain;padding:6px;background:#FFF3E6;}
+  .profile-avatar--fallback .profile-avatar{object-fit:contain;padding:6px;background:#FFF3E6;transform:none;}
   .avatar-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;}
-  .avatar-choice{display:flex;flex-direction:column;align-items:center;gap:5px;padding:8px 3px;background:#fff;color:var(--text);border:2px solid transparent;font-size:11px;}
+  .avatar-choice{display:flex;align-items:center;justify-content:center;padding:8px;background:#fff;color:var(--text);border:2px solid transparent;}
   .avatar-choice.selected{border-color:var(--primary);background:#FFF3E6;}
   select, input[type=text], input[type=number], input[type=date], textarea{
     font-family:inherit;font-size:14px;padding:8px 10px;border:1px solid var(--border);
@@ -130,10 +138,48 @@
   .report-loading-subtext{font-size:14px;color:var(--muted);line-height:1.6;}
   .report-loading-dismiss{margin-top:6px;font-size:13px;padding:8px 16px;}
   .report-loading-warning{font-size:12px;color:var(--danger);font-weight:600;}
+  /* 起動・再試行中の共有情報の解決が終わるまでアプリ本体を覆う。
+     ペット未登録画面や前アカウントの記録を先に見せないための遮蔽層。 */
+  #bootOverlay{
+    position:fixed;inset:0;background:var(--bg,#FFF8F0);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:16px;text-align:center;padding:24px;z-index:260;
+  }
+  #bootOverlay .brand{font-size:20px;}
+  .boot-spinner{
+    width:34px;height:34px;border-radius:50%;
+    border:3px solid var(--border,#F0E2D3);border-top-color:var(--primary,#EA7C1F);
+    animation:boot-spin 0.9s linear infinite;margin:4px auto 0;
+  }
+  @keyframes boot-spin{to{transform:rotate(360deg)}}
+  @media (prefers-reduced-motion:reduce){.boot-spinner{animation:none;}}
+  .boot-overlay-text{font-size:15px;color:var(--muted);line-height:1.6;max-width:360px;}
+  .boot-overlay-title{font-size:17px;font-weight:700;color:var(--text);}
+  #bootError .boot-overlay-actions{display:flex;flex-direction:column;gap:10px;width:100%;max-width:280px;margin-top:4px;}
+  #bootError .boot-overlay-actions button{width:100%;min-height:44px;}
   #onboardingScreen{
     position:fixed;inset:0;background:#FFF8F0;
     display:flex;flex-direction:column;z-index:500;
   }
+  /* アプリ版で同梱HTML(使い方ガイド・PDF保存手順・規約等)を、
+     フル文書遷移せずアプリ内オーバーレイのiframeで開く。
+     これによりSPAがコールドリロードせず、認証・Firestoreも張り直さない。 */
+  #localPageOverlay{
+    position:fixed;inset:0;z-index:1200;background:var(--bg,#FFF8F0);
+    display:flex;flex-direction:column;
+  }
+  #localPageOverlay[hidden]{display:none;}
+  .local-page-bar{
+    flex:0 0 auto;display:flex;align-items:center;
+    padding:calc(8px + env(safe-area-inset-top)) calc(8px + env(safe-area-inset-right)) 8px calc(8px + env(safe-area-inset-left));
+    border-bottom:1px solid var(--border,#F0E2D3);background:#fff;
+  }
+  .local-page-back{
+    display:inline-flex;align-items:center;min-height:44px;padding:6px 10px;
+    font:inherit;font-size:15px;font-weight:600;color:var(--primary-dark,#EA7C1F);
+    background:none;border:0;cursor:pointer;
+  }
+  #localPageFrame{flex:1 1 auto;width:100%;border:0;background:var(--bg,#FFF8F0);}
   .onboarding-imagewrap{flex:1 1 55%;min-height:0;overflow:hidden;position:relative;}
   .onboarding-imagewrap img{width:100%;height:100%;object-fit:cover;display:block;}
   .onboarding-body{flex:0 0 auto;padding:18px 24px max(20px, env(safe-area-inset-bottom));display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px;}
@@ -149,10 +195,25 @@
     background:rgba(255,255,255,0.85);border:none;border-radius:999px;color:var(--muted);
     font-size:13px;padding:7px 14px;
   }
+  @media (max-width:640px){
+    .onboarding-imagewrap{
+      flex:1 1 auto;display:flex;align-items:center;justify-content:center;
+      padding:max(54px, calc(env(safe-area-inset-top) + 46px)) 10px 8px;background:#fff;
+    }
+    .onboarding-imagewrap img{object-fit:contain;}
+    .onboarding-body{padding:12px 20px max(16px, env(safe-area-inset-bottom));gap:6px;}
+    .onboarding-body h2{font-size:18px;}
+    .onboarding-body p{font-size:13px;line-height:1.5;}
+  }
+  @media (max-width:640px) and (max-height:700px){
+    .onboarding-imagewrap{padding-top:max(48px, calc(env(safe-area-inset-top) + 40px));}
+    .onboarding-body{padding-top:8px;}
+  }
   .actions-cell{white-space:nowrap;}
   .actions-cell button{padding:4px 8px;font-size:12px;margin-right:4px;}
   .muted{color:var(--muted);font-size:12px;}
   .chart-wrap{position:relative;height:280px;margin-bottom:10px;}
+  .chart-sub-label{font-size:12px;font-weight:700;color:var(--muted);margin:0 0 4px;}
   .symptom-timeline-scroll{overflow-x:auto;}
   .symptom-timeline-table{border-collapse:collapse;font-size:11px;}
   .symptom-timeline-table th,.symptom-timeline-table td{padding:5px 7px;text-align:center;border-bottom:1px solid var(--border);white-space:nowrap;}
@@ -168,6 +229,17 @@
   .status-legend-swatch{height:18px;border-radius:4px;border:1px solid var(--border);}
   .status-legend-labels{margin-top:4px;font-size:10px;color:var(--muted);text-align:center;}
   .hint{background:#FFF3CD;color:#8a6d1f;border:1px solid #F5E1A4;border-radius:8px;padding:8px 12px;font-size:12px;margin-bottom:12px;line-height:1.5;}
+  /* 個別に閉じられる説明文(お薬モーダル4件・ごはん設定1件)。×とテキストが狭い画面でも重ならないよう右パディングを確保する。 */
+  .dismissible-hint{position:relative;padding-right:34px;}
+  .hint-dismiss{position:absolute;top:2px;right:2px;width:28px;height:28px;min-width:28px;padding:0;border:none;background:transparent;color:#8a6d1f;font-size:16px;line-height:1;cursor:pointer;border-radius:6px;}
+  .hint-dismiss:hover{background:rgba(138,109,31,.14);}
+  .hint-restore{display:inline-block;margin:0 0 12px;padding:3px 10px;font-size:11px;color:var(--muted);background:transparent;border:1px dashed var(--border);border-radius:6px;cursor:pointer;}
+  .weekly-trend-card{margin-bottom:12px;border:1px solid var(--border);}
+  .weekly-trend-card.is-concern{border-color:var(--danger);}
+  .weekly-trend-card h3{margin:0 0 8px;}
+  .weekly-trend-card p{margin:0;line-height:1.65;}
+  .weekly-trend-upsell{margin:0 0 8px;color:var(--muted);font-size:11px;line-height:1.4;}
+  .weekly-trend-upsell button{border:0;background:none;color:var(--primary-dark);font:inherit;padding:0;text-decoration:underline;cursor:pointer;}
   .option-hint{font-size:11px;color:var(--muted);margin:3px 0 0;min-height:14px;}
   .med-card{border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px;}
   .med-card .med-title{font-weight:700;font-size:15px;}
@@ -347,13 +419,17 @@
   .upgrade-desc li .ic{width:20px;height:20px;vertical-align:-5px;margin-right:6px;}
 
   @media print{
+    /* 用紙と余白を明示する。iOS(UIViewPrintFormatter)はCSSの@page余白を無視するため、
+       実機側の余白は SceneDelegate.swift の perPageContentInsets に依存する点に注意。
+       この@pageはデスクトップのChrome/Safariの印刷とサンプル生成(preferCSSPageSize)向け。 */
+    @page{ size:A4; margin:12mm; }
     /* Chromeは既定で背景色・背景画像を印刷しない(印刷ダイアログの「背景のグラフィック」
        設定に依存する)。Safariとの見た目の差が出ないよう、常に出力させる。 */
     *{-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;}
     #photoViewerBackdrop{display:none !important;}
     body *{visibility:hidden;}
     #printArea, #printArea *{visibility:visible;}
-    #printArea{display:block;position:absolute;top:0;left:0;width:100%;padding:20px;}
+    #printArea{display:block;position:absolute;top:0;left:0;width:186mm;padding:0;box-sizing:border-box;}
     #printArea h1{font-size:20px;}
     #printArea table{width:100%;border-collapse:collapse;font-size:12px;}
     #printArea th,#printArea td{border:1px solid #ccc;padding:5px;}
@@ -366,34 +442,106 @@
     #printArea .status-timeline-table th,#printArea .status-timeline-table td,
     #printArea .symptom-timeline-table th,#printArea .symptom-timeline-table td{padding:2px 3px;border:1px solid #ddd;}
     #printArea .status-legend{max-width:100%;}
+    /* 1ページ目は表紙。ロゴ＋アプリ名＋レポート名＋ペット情報・対象期間・作成日だけを
+       置き、記録は載せない。
+       以前は min-height:100vh に依存していたが、iOSの印刷では 100vh が用紙高さではなく
+       画面高さになり、表紙下端に「毎日の記録」が流れ込む原因になっていた。
+       vh を使わず、表紙は自然な内容高さの塊(break-inside:avoid)にして直後で改ページする。
+       次の記録ブロック(report-record-page)も avoid かつ1ページ弱の高さなので、
+       @page 改ページを無視する経路でも表紙と同ページには収まらず2ページ目送りになる。 */
+    #printArea .report-cover{
+      box-sizing:border-box;padding:40px 24px;min-height:560px;
+      display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;
+      break-inside:avoid-page;page-break-inside:avoid;
+      break-after:page;page-break-after:always;
+    }
+    #printArea .report-cover-logo{width:112px;height:112px;object-fit:contain;margin-bottom:16px;}
+    #printArea .report-cover-app{font-size:16px;font-weight:700;letter-spacing:.04em;color:#6f655d;margin-bottom:4px;}
+    #printArea .report-cover-title{font-size:26px;font-weight:800;margin:0 0 28px;}
+    #printArea .report-cover-info{display:grid;grid-template-columns:auto auto;gap:6px 16px;justify-content:center;text-align:left;font-size:13px;line-height:1.7;margin:0;}
+    #printArea .report-cover-info dt{font-weight:700;color:#6f655d;margin:0;}
+    #printArea .report-cover-info dd{margin:0;color:#4a423b;}
     /* グラフやタイムライン表の途中で改ページされると、前後関係や凡例が読めなくなる。
        現行の縦並び・寸法・配色は変えず、各まとまりが残り領域に収まらない場合だけ
        ブロック全体を次ページへ送る。旧WebKit向け指定も併記してiOS印刷に対応する。 */
     #printArea .report-keep-together,
+    #printArea .report-table-card,
     #printArea .symptom-timeline-scroll,
     #printArea .status-legend{
       break-inside:avoid-page;
       page-break-inside:avoid;
     }
     #printArea .report-chart-block img{display:block;width:100%;max-width:600px;}
-    #printArea .report-daily-section{margin-top:18px;}
-    #printArea .report-record-page{break-after:page;page-break-after:always;}
-    #printArea .report-record-page:last-child{break-after:auto;page-break-after:auto;}
+    /* 毎日の記録の後ろの「グラフ・資料」はまとめて新しいページから始める。
+       最終記録ページに資料が食い込んで「残日数だけ」の体裁が崩れるのを防ぐ。 */
+    #printArea .report-resources{break-before:page;page-break-before:always;}
+    #printArea .report-resources > :first-child{margin-top:0 !important;}
+    #printArea .report-resources > :first-child > h2:first-child,
+    #printArea .report-resources > :first-child > :first-child > h2:first-child{margin-top:0 !important;}
+    /* 「症状が記録・判定された日数」と「症状タイムライン」は1つの塊にして、
+       通常量(最大31日=タイムライン最大3分割)なら丸ごと同じページに載せる。
+       塊が1ページに収まらない場合だけ break-inside の指定を緩め、
+       日数→タイムラインの順・タイムラインの分割表単位で継続する(内容は欠落させない)。 */
+    #printArea .report-symptom-block{break-inside:avoid-page;page-break-inside:avoid;}
+    #printArea .report-symptom-count{break-after:avoid-page;page-break-after:avoid;}
+    #printArea .report-symptom-timeline{break-before:avoid-page;page-break-before:avoid;}
+    /* 見出しだけが前ページ末尾に残らないよう、1つの一覧表を折返し後の高さで
+       1ページに収まる行数ずつの「継続カード」へ分けて渡す(JS側 reportTableCards)。
+       各カードで表題と列見出し(<thead>)を再掲し、カード単位で改ページする。 */
+    #printArea .report-table-card{margin-top:18px;}
+    #printArea .report-table-card + .report-table-card{margin-top:10px;}
+    #printArea .report-table-card > h2{margin:0 0 6px;}
+    #printArea .report-table-card thead{display:table-header-group;}
+    /* 列幅は colgroup で固定。極端に長い1セルでも他列を潰さない。 */
+    #printArea .report-table-card table{table-layout:fixed;}
+    #printArea .report-table-card th,#printArea .report-table-card td{overflow-wrap:anywhere;word-break:break-word;vertical-align:top;}
+    /* 1行だけで1ページを超える極端な行だけは、カード内改ページと行内改ページを許可して
+       全文を落とさず継続表示する(縮小・非表示はしない)。
+       表題(report-table-title)と列見出しは <thead> に入れて全ての物理ページ先頭で再掲する。 */
+    #printArea .report-table-card--overflow{break-inside:auto;page-break-inside:auto;}
+    #printArea .report-table-card--overflow tbody tr,
+    #printArea .report-table-card--overflow td{break-inside:auto;page-break-inside:auto;}
+    #printArea .report-table-card .report-table-title th{
+      border:0;background:transparent;text-align:left;font-weight:700;font-size:15px;
+      padding:12px 0 6px;overflow-wrap:normal;word-break:normal;
+    }
+    /* 毎日の記録: 表紙の次のページから、上段2日＋下段2日の4日/ページ。
+       「毎日の記録」の見出しは最初の記録ブロックの中に1回だけ入れ、
+       ブロック全体を break-inside:avoid にして 見出し＋4日 を必ず同じページに載せる
+       (iOSの印刷は @page 改ページを無視するので、この「1ブロック=1ページ弱」で
+        改ページさせる。ブロック高さは JS の DAY_LANE_HEIGHT_PX から算出し要素に inline 指定)。
+       枠の実寸(枠線・段間隔・見出し込み)は印刷可能領域に合わせて JS 側で決める。
+       先頭ブロックは表紙の改ページで始まるので break-before は2ブロック目以降に付ける。 */
+    #printArea .report-daily-section{margin:0;}
+    #printArea .report-record-page{break-inside:avoid-page;page-break-inside:avoid;}
+    #printArea .report-record-page + .report-record-page{break-before:page;page-break-before:always;}
+    #printArea .report-record-title{font-size:15px;font-weight:700;color:#6f655d;height:20px;line-height:20px;margin:0 0 8px;}
+    /* 上下の記録枠は同じ寸法。高さは inline style（JS: DAY_PAIR_HEIGHT_PX / DAY_LANE_HEIGHT_PX）。 */
     #printArea .report-day-pair{
-      height:405px;margin:0 0 12px;border:1px solid #d9cec2;border-radius:10px;background:#fff;
+      box-sizing:border-box;margin:0 0 12px;border:1px solid #d9cec2;border-radius:10px;background:#fff;
       break-inside:avoid-page;page-break-inside:avoid;overflow:hidden;
     }
+    #printArea .report-day-pair:last-child{margin-bottom:0;}
     #printArea .report-pair-head{display:grid;grid-template-columns:42px 1fr 1fr;border-bottom:1px solid #ddd;}
     #printArea .report-pair-date{font-size:12px;font-weight:700;text-align:center;padding:6px;border-left:1px solid #eee4da;}
-    #printArea .report-pair-body{display:grid;grid-template-columns:42px 1fr 1fr;height:330px;}
-    #printArea .report-time-axis{position:relative;background:#d7ccc2;color:#fff;}
+    /* body/レーンは指定した高さで必ずクリップする(過密日のリストや位置補正が
+       枠をはみ出して隣の枠・サマリーに重ならないようにする)。 */
+    #printArea .report-pair-body{display:grid;grid-template-columns:42px 1fr 1fr;overflow:hidden;}
+    #printArea .report-time-axis{position:relative;background:#d7ccc2;color:#fff;min-height:0;}
     #printArea .report-hour{position:absolute;left:0;right:0;height:1px;border-top:1px solid rgba(255,255,255,.65);font-size:7px;padding-left:4px;box-sizing:border-box;}
-    #printArea .report-day-lane{position:relative;border-left:1px solid #ddd;min-width:0;overflow:hidden;}
+    #printArea .report-day-lane{position:relative;border-left:1px solid #ddd;min-width:0;min-height:0;overflow:hidden;}
     #printArea .report-day-lane + .report-day-lane{border-left:1px dashed #cdbfb2;}
     #printArea .report-timed-event{position:absolute;left:4px;right:4px;display:grid;grid-template-columns:30px 15px minmax(0,1fr);gap:3px;align-items:start;font-size:8px;line-height:1.2;}
     #printArea .report-timed-event .ic{width:13px;height:13px;object-fit:contain;}
     #printArea .report-event-time{color:#6f655d;white-space:nowrap;}
-    #printArea .report-event-text{min-width:0;overflow-wrap:anywhere;}
+    /* 各記録は1行に固定して行高を一定にする(重なり防止の位置計算が行高前提のため)。
+       入り切らない要約は末尾を…で省略する。 */
+    #printArea .report-event-text{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    /* 記録が多すぎて時刻配置では読めない日は、時刻順の詰めたリストにする。 */
+    #printArea .report-day-lane--list{display:flex;flex-direction:column;gap:1px;padding:3px 4px;}
+    #printArea .report-list-event{display:grid;grid-template-columns:30px 15px minmax(0,1fr);gap:3px;align-items:start;font-size:7px;line-height:1.35;}
+    #printArea .report-list-event .ic{width:11px;height:11px;object-fit:contain;}
+    #printArea .report-list-more{font-size:7px;line-height:1.5;color:#91877e;padding-left:2px;}
     #printArea .report-pair-summary{display:grid;grid-template-columns:42px 1fr 1fr;height:38px;border-top:1px solid #eee4da;}
     #printArea .report-day-summary{padding:3px 5px;border-left:1px solid #ddd;font-size:7px;line-height:1.25;color:#5c5148;overflow:hidden;}
     #printArea .report-day-empty{position:absolute;top:46%;left:0;right:0;text-align:center;font-size:9px;color:#91877e;}
@@ -465,6 +613,13 @@
   </div>
 </div>
 
+<div id="localPageOverlay" hidden>
+  <div class="local-page-bar">
+    <button type="button" id="localPageBack" class="local-page-back">← もふもふカルテに戻る</button>
+  </div>
+  <iframe id="localPageFrame" title="もふもふカルテ" referrerpolicy="no-referrer" src="about:blank"></iframe>
+</div>
+
 <div id="authScreen" class="modal-backdrop">
   <div class="modal" style="text-align:center;">
     <div class="brand" style="margin-bottom:6px;"><img class="ic" src="icons/paw.png" alt="">もふもふカルテ</div>
@@ -489,6 +644,23 @@
       ・ <a href="privacy.html" target="_blank" style="color:var(--muted);">プライバシーポリシー</a>
       ・ <a href="terms.html" target="_blank" style="color:var(--muted);">利用規約</a>
     </p>
+  </div>
+</div>
+
+<div id="bootOverlay" class="hidden">
+  <div class="brand"><img class="ic" src="icons/paw.png" alt="">もふもふカルテ</div>
+  <div id="bootLoading">
+    <p class="boot-overlay-text">データを読み込んでいます…</p>
+    <div class="boot-spinner" aria-hidden="true"></div>
+  </div>
+  <div id="bootError" class="hidden">
+    <p class="boot-overlay-title" id="bootErrorTitle">読み込みに時間がかかっています</p>
+    <p class="boot-overlay-text" id="bootErrorDetail">通信状態を確認して、もう一度お試しください。</p>
+    <div class="boot-overlay-actions">
+      <button type="button" id="bootRetryButton" onclick="App.retryHousehold()">再試行</button>
+      <button type="button" id="bootInviteResendButton" class="secondary hidden" onclick="App.resendUnconfirmedInvite()">重複に注意してもう一度参加する</button>
+      <button type="button" class="secondary" onclick="AppAuth.signOut()">ログアウト</button>
+    </div>
   </div>
 </div>
 
@@ -659,14 +831,14 @@
       </div>
       <div class="field"><label>メモ</label><textarea id="rMemo" rows="3" placeholder="様子や気づいたことなど"></textarea></div>
       <div id="rPhotosField" class="field">
-        <label>写真(便・尿・患部など、治療サポートプラン)</label>
+        <label>写真(便・尿・患部など、<span class="js-plan-name">治療サポートプラン</span>)</label>
         <input type="file" id="rPhotoInput" accept="image/*" multiple>
         <p class="hint">1記録につき最大4枚まで添付できます。</p>
         <div id="rPhotoPreviewGrid" class="photo-grid"></div>
       </div>
       <div id="rPhotosUpsell" class="field hidden">
         <label>写真添付</label>
-        <p class="hint">記録への写真添付は治療サポートプランで利用できます。 <button type="button" class="ghost" style="padding:2px 8px;font-size:11px;" onclick="App.closeRecordModal(); App.openUpgradeModal();">アップグレードを見る</button></p>
+        <p class="hint">記録への写真添付は<span class="js-plan-name">治療サポートプラン</span>で利用できます。 <button type="button" class="ghost" style="padding:2px 8px;font-size:11px;" onclick="App.closeRecordModal(); App.openUpgradeModal();">アップグレードを見る</button></p>
       </div>
       <div class="row" style="justify-content:flex-end;margin-top:8px;">
         <button type="button" class="ghost" onclick="App.closeRecordModal()">キャンセル</button>
@@ -679,7 +851,8 @@
 <div id="medModalBackdrop" class="modal-backdrop hidden">
   <div class="modal">
     <h3 id="medModalTitle">お薬を登録</h3>
-    <p class="hint">薬品名や用量が分からない場合は空欄でOKです。薬袋や診療明細の写真を貼っておくと、次回受診時に主治医へ確認する際の手がかりになります。</p>
+    <p class="hint dismissible-hint" id="medHintName"><button type="button" class="hint-dismiss" aria-label="この説明を閉じる" onclick="App.dismissHint('medHintName')">×</button>薬品名や用量が分からない場合は空欄でOKです。薬袋や診療明細の写真を貼っておくと、次回受診時に主治医へ確認する際の手がかりになります。</p>
+    <button type="button" class="hint-restore hidden" id="medHintName-restore" onclick="App.showHint('medHintName')">説明を表示</button>
     <form id="medForm">
       <input type="hidden" id="medId">
       <div class="field"><label>薬の名前(分かれば)</label><input type="text" id="medName" placeholder="例: メトロニダゾール"></div>
@@ -693,7 +866,8 @@
           <option value="3">1日3回</option>
           <option value="4">1日4回</option>
         </select>
-        <p class="hint">記録画面で、この回数ぶんチェックボックスが出るようになります(例: 朝・夜)。</p>
+        <p class="hint dismissible-hint" id="medHintDoses"><button type="button" class="hint-dismiss" aria-label="この説明を閉じる" onclick="App.dismissHint('medHintDoses')">×</button>記録画面で、この回数ぶんチェックボックスが出るようになります(例: 朝・夜)。</p>
+        <button type="button" class="hint-restore hidden" id="medHintDoses-restore" onclick="App.showHint('medHintDoses')">説明を表示</button>
       </div>
       <div class="row">
         <div class="field"><label>開始日</label><input type="date" id="medStart"></div>
@@ -707,20 +881,22 @@
           <button type="button" class="secondary" onclick="App.addScheduledTime()">+ 追加</button>
         </div>
         <div id="medScheduledTimeList" class="chip-list"></div>
-        <p class="hint">本日の記録に「投薬予定」として表示されます。通知は届きません。どなたでも設定できます。</p>
+        <p class="hint dismissible-hint" id="medHintScheduled"><button type="button" class="hint-dismiss" aria-label="この説明を閉じる" onclick="App.dismissHint('medHintScheduled')">×</button>本日の記録に「投薬予定」として表示されます。通知は届きません。どなたでも設定できます。</p>
+        <button type="button" class="hint-restore hidden" id="medHintScheduled-restore" onclick="App.showHint('medHintScheduled')">説明を表示</button>
       </div>
       <div id="medReminderField" class="field">
-        <label>通知の時刻(治療サポートプラン)</label>
+        <label>通知の時刻(<span class="js-plan-name">治療サポートプラン</span>)</label>
         <div class="row" style="align-items:flex-end;">
           <div class="field" style="flex:0 0 auto;"><input type="time" id="medReminderTimeInput" step="300"></div>
           <button type="button" class="secondary" onclick="App.addReminderTime()">+ 追加</button>
         </div>
         <div id="medReminderTimeList" class="chip-list"></div>
-        <p class="hint">5分刻みで指定できます。この時刻に通知します。予定の時刻とは別に管理されます。</p>
+        <p class="hint dismissible-hint" id="medHintReminder"><button type="button" class="hint-dismiss" aria-label="この説明を閉じる" onclick="App.dismissHint('medHintReminder')">×</button>5分刻みで指定できます。この時刻に通知します。予定の時刻とは別に管理されます。</p>
+        <button type="button" class="hint-restore hidden" id="medHintReminder-restore" onclick="App.showHint('medHintReminder')">説明を表示</button>
       </div>
       <div id="medReminderUpsell" class="field hidden">
         <label>通知の時刻</label>
-        <p class="hint">投薬リマインダー通知は治療サポートプランで利用できます。予定の時刻だけなら上で設定できます。 <button type="button" class="ghost" style="padding:2px 8px;font-size:11px;" onclick="App.closeMedModal(); App.openUpgradeModal();">アップグレードを見る</button></p>
+        <p class="hint">投薬リマインダー通知は<span class="js-plan-name">治療サポートプラン</span>で利用できます。予定の時刻だけなら上で設定できます。 <button type="button" class="ghost" style="padding:2px 8px;font-size:11px;" onclick="App.closeMedModal(); App.openUpgradeModal();">アップグレードを見る</button></p>
       </div>
       <div class="field"><label>薬袋・お薬手帳の写真(任意)</label><input type="file" id="medPhoto" accept="image/*"></div>
       <div id="medPhotoPreviewWrap" class="field hidden"><img id="medPhotoPreview" style="max-width:160px;border-radius:8px;"><button type="button" class="ghost" onclick="App.clearMedPhoto()">写真を削除</button></div>
@@ -792,9 +968,9 @@
 
 <div id="familyModalBackdrop" class="modal-backdrop hidden">
   <div class="modal">
-    <h3>家族共有</h3>
+    <h3>記録共有</h3>
 
-    <p class="hint">他のひとをこの記録に招待しましょう。一緒に記録をつけることができるようになります。<a href="usage-guide.html#s10" target="_blank" rel="noopener">使い方ガイドを見る</a></p>
+    <p class="hint">他のひとをこの記録に招待しましょう。一緒に記録をつけることができるようになります。<a href="usage-guide.html#s11" target="_blank" rel="noopener">使い方ガイドを見る</a></p>
 
     <div id="familyOwnerSection">
       <label style="font-size:13px;font-weight:600;">現在の共有メンバー</label>
@@ -829,8 +1005,8 @@
     </div>
 
     <div id="familyMemberSection" class="hidden">
-      <p class="hint">現在、家族共有に参加して他の方の記録を閲覧・編集しています。</p>
-      <button type="button" class="danger" onclick="App.closeFamilyModal(); App.leaveHousehold();">家族共有から抜けて自分のデータに戻る</button>
+      <p class="hint">現在、記録共有に参加して他の方の記録を閲覧・編集しています。</p>
+      <button type="button" class="danger" onclick="App.closeFamilyModal(); App.leaveHousehold();">記録共有から抜けて自分のデータに戻る</button>
     </div>
 
     <div class="row" style="justify-content:flex-end;margin-top:8px;">
@@ -890,9 +1066,258 @@ db.enablePersistence({ synchronizeTabs: true }).catch(() => {});
 // 通知を実際に使う(App.enableNotifications())タイミングまで初期化を遅らせることで回避する。
 let messaging = null;
 
+function isNativeApp(){
+  return Boolean(window.NativeBridge && window.NativeBridge.isNative);
+}
+
+// 有料プランのユーザー向け呼称。Web版は「治療サポートプラン」、アプリ版は
+// ストア購入画面の表示名に合わせて「サポートプラン」に統一する。
+function planLabel(){ return isNativeApp() ? 'サポートプラン' : '治療サポートプラン'; }
+
+// オーバーレイで開いてよい同梱ページ。使い方ガイド・PDF保存手順・規約類だけを許可し、
+// index.html(アプリ本体)・任意の外部URL・javascript: などは受け付けない。
+const ALLOWED_LOCAL_PAGES = new Set([
+  'usage-guide.html', 'pdf-guide.html', 'guide.html',
+  'privacy.html', 'terms.html', 'tokushoho.html',
+]);
+// 渡された値をURLとして検証し、許可された同梱ページなら
+// 「ファイル名 + クエリ + アンカー」だけを返す。許可外はnull。
+// スキームは http/https に限定しない。アプリ版のWebViewは iOS が capacitor://localhost、
+// Android が https://localhost で動くため。代わりに「同一オリジン」で外部URLを弾き、
+// javascript:/data: 等は明示的に拒否する(これらは同一オリジンにもならない)。
+const BLOCKED_LOCAL_PAGE_PROTOCOLS = new Set(['javascript:', 'data:', 'vbscript:', 'blob:', 'file:']);
+// 同一オリジン判定は URL.origin に頼らない。アプリ版のWebViewは iOS が capacitor://localhost、
+// Android が https://localhost で動き、capacitor: など非特殊スキームでは origin が "null" に
+// なる実装があるため、scheme + host で厳密に比較する。
+function isSameAppOrigin(url){
+  try{
+    return url.protocol === window.location.protocol && url.host === window.location.host;
+  } catch(_e){ return false; }
+}
+function resolveLocalPageUrl(path){
+  let parsed;
+  try{ parsed = new URL(String(path), window.location.href); }
+  catch(_e){ return null; }
+  if(BLOCKED_LOCAL_PAGE_PROTOCOLS.has(parsed.protocol)) return null;
+  if(!isSameAppOrigin(parsed)) return null;
+  const name = parsed.pathname.split('/').pop();
+  if(!ALLOWED_LOCAL_PAGES.has(name)) return null;
+  return name + parsed.search + parsed.hash;
+}
+
+// 同梱HTML(使い方ガイド・PDF保存手順・規約など)を開く。
+// アプリ版はフル文書遷移すると index.html がコールドリロードして認証・Firestoreを
+// 張り直すことになり、iOSのWebViewでは接続が復帰せず「表示消失」を招く。
+// そこでアプリ内オーバーレイのiframeで開き、SPA本体を生かしたままにする。
+function openLocalPage(path){
+  if(isNativeApp()){
+    showLocalPageOverlay(path);
+    return;
+  }
+  window.open(path, '_blank', 'noopener');
+}
+
+function showLocalPageOverlay(path){
+  const overlay = document.getElementById('localPageOverlay');
+  const frame = document.getElementById('localPageFrame');
+  if(!overlay || !frame) return;
+  const target = resolveLocalPageUrl(path);
+  if(!target) return; // 許可外URLは開かない(既存オーバーレイの状態も変えない)
+  frame.src = target;
+  overlay.hidden = false;
+  document.documentElement.style.overflow = 'hidden';
+}
+
+function closeLocalPageOverlay(){
+  const overlay = document.getElementById('localPageOverlay');
+  const frame = document.getElementById('localPageFrame');
+  if(!overlay || !frame) return;
+  overlay.hidden = true;
+  frame.src = 'about:blank';
+  document.documentElement.style.overflow = '';
+}
+
+// iframe内で読み込まれた同梱ページのリンクを親側で仲介する。
+// ・各ページの「もふもふカルテに戻る」(a.back / href="./")はオーバーレイの戻るボタンと重複するので隠す
+// ・アプリ本体へ戻ろうとするリンクはオーバーレイを閉じるだけ(本体はリロードしない)
+// ・同梱サンプルPDFはOSビューアで開く(iframe内にはnative-bridgeのハンドラが届かないため)
+// ・ガイド間リンク・ページ内アンカーはiframe内でそのまま遷移(オーバーレイは開いたまま)
+function wireLocalPageFrame(){
+  const frame = document.getElementById('localPageFrame');
+  if(!frame) return;
+  frame.addEventListener('load', () => {
+    let doc;
+    try{ doc = frame.contentDocument; }catch(_e){ return; }
+    if(!doc || !frame.getAttribute('src') || frame.getAttribute('src') === 'about:blank') return;
+    // 各ページの .back は display 指定があり hidden 属性では消えないため style で消す。
+    doc.querySelectorAll('a.back').forEach(a => { a.style.display = 'none'; });
+    doc.addEventListener('click', event => {
+      const anchor = event.target && event.target.closest && event.target.closest('a[href]');
+      if(!anchor) return;
+      let url;
+      try{ url = new URL(anchor.getAttribute('href'), doc.baseURI); }catch(_e){ return; }
+      if(!isSameAppOrigin(url)) return;
+      if(url.pathname === '/' || url.pathname.endsWith('/index.html') || url.pathname === window.location.pathname){
+        event.preventDefault();
+        closeLocalPageOverlay();
+      } else if(url.pathname.endsWith('/sample-report.pdf')){
+        event.preventDefault();
+        const dev = window.NativeBridge && window.NativeBridge.device;
+        if(dev && dev.openSample){
+          dev.openSample().catch(() => alert('サンプルPDFを開けません。PDFに対応するアプリをご確認ください。'));
+        }
+      } else if(url.pathname.endsWith('.html') && !ALLOWED_LOCAL_PAGES.has(url.pathname.split('/').pop())){
+        // 同梱ガイド・規約以外のHTMLへはiframe内でも遷移させない。
+        event.preventDefault();
+      }
+      // 許可された同梱ページ同士のリンク・ページ内アンカーは、クエリ/アンカーを保ったまま
+      // iframe内でそのまま遷移させる(オーバーレイは開いたまま)。
+    }, true);
+  });
+}
+
 let currentUser = null;
 let firestoreUnsubscribers = [];
 let firestoreListenerGeneration = 0;
+
+// 起動・再試行ごとに固定する「実行世代」と開始UID。
+// resolveHousehold等の非同期処理は、await後の状態更新・購読開始・描画の前に
+// isActiveHouseholdRun()で「この処理がまだ現在の起動か」を確認し、
+// タイムアウト後の遅延応答・ログアウト後・別アカウントへの切り替え後に
+// 旧世代が状態や購読を上書きしないようにする。
+let householdRunGeneration = 0;
+let householdRunUid = null;
+function beginHouseholdRun(){
+  householdRunGeneration++;
+  householdRunUid = currentUser ? currentUser.uid : null;
+  return { generation: householdRunGeneration, uid: householdRunUid };
+}
+function isActiveHouseholdRun(run){
+  return !!run
+    && run.generation === householdRunGeneration
+    && run.uid === (currentUser ? currentUser.uid : null);
+}
+// ログアウト・アカウント変更で進行中の起動処理を明示的に無効化する。
+function invalidateHouseholdRun(){
+  householdRunGeneration++;
+  householdRunUid = currentUser ? currentUser.uid : null;
+}
+
+// URLの招待(?invite= / ?familyInvite=)とアプリ内招待は、このページ読み込み中に
+// 一度だけ受諾を試みる。応答不明後の「状態を再確認」で受諾Callable/書き込みを自動再送
+// させず、サーバー状態の照合だけを行う。再送は利用者の明示操作(下記resendUnconfirmedInvite)のみ。
+const attemptedInviteKeys = new Set();
+// アプリ内フォームから渡された招待コード。resolveHousehold が一度だけ消費する。
+let pendingInAppInviteCode = null;
+// 未確認画面からの「明示的な再送」1回分の許可。resolveHousehold が消費する。
+// { kind:'code', code } または { kind:'uid', ownerUid }。
+let resendInviteRequest = null;
+
+// 招待受諾の「結果未確認」状態をUID別にlocalStorageへ保持する。
+// これで全体15秒超過・送信中の再読み込み/終了でも未確認状態を失わず、暗黙の再送も起こさない。
+// 招待コードはエラー表示・ログには出さない(localStorageのみ、確定時に削除)。
+const PENDING_INVITE_PREFIX = 'mmk:pendingInvite:';
+function readPendingInvite(uid){
+  if(!uid) return null;
+  try{
+    const raw = localStorage.getItem(PENDING_INVITE_PREFIX + uid);
+    return raw ? JSON.parse(raw) : null;
+  } catch(_e){ return null; }
+}
+// 保存できたか(読み戻せたか)を返す。quota超過・プライベートモードでの失敗を検出する。
+function writePendingInvite(uid, value){
+  if(!uid) return false;
+  const key = PENDING_INVITE_PREFIX + uid;
+  try{
+    localStorage.setItem(key, JSON.stringify({ ...value, at: Date.now() }));
+    return localStorage.getItem(key) != null;
+  } catch(_e){ return false; }
+}
+function clearPendingInvite(uid){
+  if(!uid) return;
+  try{ localStorage.removeItem(PENDING_INVITE_PREFIX + uid); } catch(_e){ /* noop */ }
+}
+
+// ─── 個別に閉じられる説明文(お薬モーダル4件・ごはん設定1件)───────────────
+// 「×」で閉じ、「説明を表示」で戻す。閉じた集合は端末内共通の表示設定として
+// localStorageへ保存する(薬・ペットのデータには持たせない)。localStorageが
+// 読み書き不可でも例外は伝播させず、メモリ上の集合でそのセッション中は機能する。
+const DISMISSED_HINTS_KEY = 'mmk:dismissedHints';
+const DISMISSIBLE_HINT_IDS = ['medHintName', 'medHintDoses', 'medHintScheduled', 'medHintReminder', 'mealHintIntro'];
+let dismissedHintsCache = null; // Set。初回にlocalStorageから読み、以後はこれを正とする。
+function loadDismissedHints(){
+  if(dismissedHintsCache) return dismissedHintsCache;
+  let ids = [];
+  try{
+    const parsed = JSON.parse(localStorage.getItem(DISMISSED_HINTS_KEY) || '[]');
+    if(Array.isArray(parsed)) ids = parsed.filter(id => DISMISSIBLE_HINT_IDS.includes(id));
+  } catch(_e){ /* 読めない環境ではメモリのみで動く */ }
+  dismissedHintsCache = new Set(ids);
+  return dismissedHintsCache;
+}
+function persistDismissedHints(){
+  try{ localStorage.setItem(DISMISSED_HINTS_KEY, JSON.stringify([...loadDismissedHints()])); }
+  catch(_e){ /* 保存不可でもメモリ状態で当該セッションは機能する */ }
+}
+
+// 「その招待は成立しなかった」とサーバーが確実に判断できる業務エラーだけを列挙する。
+// deadline-exceeded / unavailable / internal 等は RPC 自体の失敗(応答時間内の gRPC deadline を
+// 含む)と区別できないため、確定業務エラーには入れず「結果未確認」として扱う。
+// バックエンドが期限切れ等を専用の識別情報で返せるようになるまでは推測しない。
+const DEFINITE_INVITE_BUSINESS_CODES = new Set([
+  'invalid-argument', 'functions/invalid-argument',
+  'not-found', 'functions/not-found',
+  'failed-precondition', 'functions/failed-precondition',
+  'resource-exhausted', 'functions/resource-exhausted',
+  'unauthenticated', 'functions/unauthenticated',
+  'permission-denied', 'functions/permission-denied', 'firestore/permission-denied',
+]);
+function isDefiniteInviteBusinessError(err){
+  return !!err && (DEFINITE_INVITE_BUSINESS_CODES.has(String(err.code || ''))
+    || (String(err.code || '').endsWith('deadline-exceeded') && err.details?.reason === 'INVITE_EXPIRED'));
+}
+
+// 起動・再試行の全体待機上限。これを超えたら説明と「再試行」「ログアウト」を出し、
+// 成否不明のまま通常画面(記録編集・購入・共有操作)へは進ませない。
+const HOUSEHOLD_BOOT_TIMEOUT_MS = 15000;
+// 招待受諾Callableの待機上限。全体上限より短くして、Callable無応答を全体タイムアウトの
+// 汎用エラーではなく「招待の結果未確認」として区別できるようにする。
+const INVITE_CALLABLE_TIMEOUT_MS = 12000;
+
+// 共有情報の解決が終わるまでアプリ本体を覆う起動オーバーレイの表示制御。
+// phase: 'loading'(確認中) / 'error'(上限超過・失敗) /
+//        'invite-unconfirmed'(招待受諾の結果が不明) / 'ready'(解決済み)
+function setBootPhase(phase, detail){
+  state.bootPhase = phase;
+  const overlay = typeof document !== 'undefined' && document.getElementById('bootOverlay');
+  if(!overlay) return;
+  const errorLike = phase === 'error' || phase === 'invite-unconfirmed';
+  overlay.classList.toggle('hidden', phase === 'ready');
+  const loadingEl = document.getElementById('bootLoading');
+  const errorEl = document.getElementById('bootError');
+  if(loadingEl) loadingEl.classList.toggle('hidden', phase !== 'loading');
+  if(errorEl) errorEl.classList.toggle('hidden', !errorLike);
+  const titleEl = document.getElementById('bootErrorTitle');
+  if(titleEl) titleEl.textContent = phase === 'invite-unconfirmed'
+    ? '参加の受け付けを確認できませんでした'
+    : '読み込みに時間がかかっています';
+  if(errorLike && detail){
+    const detailEl = document.getElementById('bootErrorDetail');
+    if(detailEl) detailEl.textContent = detail;
+  }
+  const retryButton = document.getElementById('bootRetryButton');
+  if(retryButton){
+    retryButton.disabled = phase === 'loading';
+    retryButton.textContent = phase === 'invite-unconfirmed' ? '状態を再確認' : '再試行';
+  }
+  const resendButton = document.getElementById('bootInviteResendButton');
+  if(resendButton){
+    // 再送ボタンは「未確認」かつ再送に使えるコードが手元にあるときだけ出す。
+    const canResend = phase === 'invite-unconfirmed' && !!(state.inviteUnconfirmed && state.inviteUnconfirmed.code);
+    resendButton.classList.toggle('hidden', !canResend);
+  }
+}
+function isAppReady(){ return state.bootPhase === 'ready'; }
 
 // ⑤家族共有: 招待された家族として閲覧中は、自分のuidではなく招待元(オーナー)のuidの
 // データを読み書きする。それ以外(オーナー本人)は自分のuidのまま。
@@ -983,6 +1408,125 @@ function chunkRecords(records, chunkSize){
   const chunks = [];
   for(let i = 0; i < records.length; i += chunkSize) chunks.push(records.slice(i, i + chunkSize));
   return chunks;
+}
+
+// 便スコア・ごはんの食べた量・体温から症状を自動判定するしきい値。
+// レポートの「症状が記録・判定された日数」「症状タイムライン」に、手入力の症状と合わせて集計する。
+const DERIVED_SYMPTOM = {
+  STOOL_DIARRHEA_MIN: 6, // 便スコア6・7 → 下痢
+  STOOL_SOFT_MIN: 4,     // 便スコア4・5 → 軟便
+  APPETITE_POOR_MAX: 50, // ごはんの食べた量が50%以下 → 食欲不振
+  FEVER_MIN_C: 39.5,     // 体温39.5℃以上 → 発熱
+};
+
+// その日のごはんイベントから「有効な食事量(intakePercent)」だけを取り出す共通ヘルパー。
+// 未入力(null / undefined / 空文字 / 空白のみの文字列)や不正値(非数値・非有限・真偽値・
+// 配列・オブジェクト・0〜100の範囲外)は集計から除外し、明示的な数値0・文字列"0"は
+// 有効な0%として残す。食欲の平均値計算(dailyRecordFromEvents)と症状の自動判定
+// (derivedSymptomsFromEvents の「食欲不振」)で同じ判定条件を使うためにここへ集約する。
+function validMealIntakePercents(dateEvents){
+  const out = [];
+  for(const e of safeArray(dateEvents)){
+    if(!e || e.type !== 'meal') continue;
+    const raw = e.details && e.details.intakePercent;
+    if(typeof raw === 'boolean') continue;                     // 真偽値は数値化できても対象外
+    if(typeof raw !== 'number' && typeof raw !== 'string') continue; // null/undefined/配列/オブジェクト等
+    if(typeof raw === 'string' && raw.trim() === '') continue; // 空文字・空白のみは未入力
+    const n = Number(raw);
+    if(!Number.isFinite(n)) continue;                          // 非数値文字列・NaN・Infinity
+    if(n < 0 || n > 100) continue;                             // 0〜100の範囲外は不正値
+    out.push(n);
+  }
+  return out;
+}
+
+// その日のイベントから自動判定した症状ラベルの配列を返す(順序: 便→食欲→体温)。
+// 便は「その日の最悪スコア」で下痢/軟便のどちらか一方(同日に両方は出さない)。
+// ごはんは「1回でも食べた量がしきい値以下」なら食欲不振。体温は「1回でもしきい値以上」で発熱。
+function derivedSymptomsFromEvents(dateEvents){
+  const byType = type => safeArray(dateEvents).filter(e => e && e.type === type);
+  const nums = (type, key) => byType(type)
+    .map(e => Number(e.details && e.details[key]))
+    .filter(v => Number.isFinite(v));
+  const out = [];
+  const stoolScores = nums('stool', 'score');
+  if(stoolScores.length){
+    const worst = Math.max(...stoolScores);
+    if(worst >= DERIVED_SYMPTOM.STOOL_DIARRHEA_MIN) out.push('下痢');
+    else if(worst >= DERIVED_SYMPTOM.STOOL_SOFT_MIN) out.push('軟便');
+  }
+  const mealIntakes = validMealIntakePercents(dateEvents);
+  if(mealIntakes.length && mealIntakes.some(v => v <= DERIVED_SYMPTOM.APPETITE_POOR_MAX)) out.push('食欲不振');
+  if(nums('temperature', 'celsius').some(v => v >= DERIVED_SYMPTOM.FEVER_MIN_C)) out.push('発熱');
+  return out;
+}
+
+// 症状セクションに自動判定分が含まれるときの注記。レポート・グラフタブ共用。
+function derivedSymptomNoteHtml(recs){
+  if(!safeArray(recs).some(r => safeArray(r && r.derivedSymptoms).length)) return '';
+  return `<p style="font-size:11px;color:#8a7c73;margin:4px 0 0;">※ 便スコア(6・7→下痢／4・5→軟便)、ごはんの食べた量(${DERIVED_SYMPTOM.APPETITE_POOR_MAX}%以下→食欲不振)、体温(${DERIVED_SYMPTOM.FEVER_MIN_C}℃以上→発熱)から自動判定した項目を含みます。</p>`;
+}
+
+// 「本日の記録」のクイック記録(events)から、その日の飲水・便・尿・体重・食欲・症状を合成する。
+// 旧UIの日次記録(records)はメニュー奥の「以前の日次記録」からしか追加できず、現行の入力は
+// すべて events へ入る。レポートの日次サマリー・日々の状態タイムライン・症状タイムライン・
+// 体重/食欲グラフは records だけを見ていたため、events で記録した内容が反映されなかった。
+// 飲水・尿はその日の最後のイベントの量、便はその日の最後のスコア、体重はその日の最後の記録、
+// 食欲はその日のごはんイベントの摂取率の平均、症状はその日の症状イベントの和集合を採る。
+// derivedSymptoms は便・ごはん・体温から自動判定した症状(症状セクション専用。手入力症状とは別枠)。
+function dailyRecordFromEvents(dateEvents){
+  const byType = type => safeArray(dateEvents).filter(e => e && e.type === type);
+  const lastOf = type => { const a = byType(type); return a.length ? a[a.length - 1] : null; };
+  const amountLabel = a => ({ more:'多い', less:'少ない', normal:'いつも通り' })[a] || '';
+  const out = {};
+  const weightEv = lastOf('weight');
+  if(weightEv && weightEv.details && weightEv.details.kilograms != null) out.weight = Number(weightEv.details.kilograms);
+  const intakes = validMealIntakePercents(dateEvents);
+  if(intakes.length) out.appetite = String(Math.round(intakes.reduce((s, v) => s + v, 0) / intakes.length));
+  const waterEv = lastOf('water');
+  if(waterEv) out.water = amountLabel(waterEv.details && waterEv.details.amount);
+  const urineEv = lastOf('urine');
+  if(urineEv) out.urine = amountLabel(urineEv.details && urineEv.details.amount);
+  const stoolEv = lastOf('stool');
+  if(stoolEv && stoolEv.details && stoolEv.details.score != null) out.stool = Number(stoolEv.details.score);
+  const symptoms = [...new Set(byType('symptom').flatMap(e => safeArray(e.details && e.details.symptoms)))];
+  if(symptoms.length) out.symptoms = symptoms;
+  const derivedSymptoms = derivedSymptomsFromEvents(dateEvents);
+  if(derivedSymptoms.length) out.derivedSymptoms = derivedSymptoms;
+  const medCount = byType('medication').length;
+  if(medCount) out.medEventCount = medCount;
+  return out;
+}
+
+// レポート用の日次記録。旧 records があれば土台にし、空欄のフィールドだけ events から補完する
+// (旧データの明示値は尊重)。症状は両者の和集合。日付昇順で返す。
+function mergeDailyRecordsWithEvents(records, events, from, to){
+  const legacyByDate = new Map(safeArray(records).map(r => [r.date, r]));
+  const eventsByDate = new Map();
+  safeArray(events).forEach(e => {
+    if(!e || !e.date) return;
+    if(!eventsByDate.has(e.date)) eventsByDate.set(e.date, []);
+    eventsByDate.get(e.date).push(e);
+  });
+  const inRange = d => (!from || d >= from) && (!to || d <= to);
+  const petId = (safeArray(records)[0] || safeArray(events)[0] || {}).petId || null;
+  const merged = [];
+  for(const date of new Set([...legacyByDate.keys(), ...eventsByDate.keys()])){
+    if(!inRange(date)) continue;
+    const legacy = legacyByDate.get(date) || null;
+    const derived = eventsByDate.has(date) ? dailyRecordFromEvents(sortEvents(eventsByDate.get(date))) : {};
+    if(!legacy && Object.keys(derived).length === 0) continue;
+    const rec = legacy ? { ...legacy } : { date, petId };
+    for(const key of ['weight', 'appetite', 'water', 'urine', 'stool']){
+      const empty = rec[key] === undefined || rec[key] === null || rec[key] === '';
+      if(empty && derived[key] !== undefined) rec[key] = derived[key];
+    }
+    rec.symptoms = [...new Set([...safeArray(rec.symptoms), ...safeArray(derived.symptoms)])];
+    if(safeArray(derived.derivedSymptoms).length) rec.derivedSymptoms = derived.derivedSymptoms;
+    if(derived.medEventCount && !medsGivenTags(rec.medsGiven).length) rec.medEventCount = derived.medEventCount;
+    merged.push(rec);
+  }
+  return merged.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
 }
 
 // グラフタブとPDFレポートの両方で使う「日々の状態(飲水・便・尿)」表のHTML。
@@ -1128,17 +1672,16 @@ const UPGRADE_ITEMS = [
         <li>${iconSvg('memo')}「今週のようす」(週次の体調傾向を自動でお知らせ)</li>
         <li>${iconSvg('report')}PDFレポートの拡張(グラフ画像やタイムライン表も出力)</li>
       </ul>`,
-    media:[
-      { src:'upgrade-images/graph-sample-walk.jpg', alt:'お散歩時間の推移グラフの例', caption:'お散歩時間の推移' },
-      { src:'upgrade-images/graph-sample-appetite.jpg', alt:'食欲の推移グラフの例', caption:'食欲の推移' },
-      { src:'upgrade-images/med-reminder-sample.jpg', alt:'投薬リマインダー設定画面の例', caption:'投薬リマインダー:飲ませる時間になったら通知でお知らせします' }
-    ]
   },
   {
     item:'familySeat', label:'家族共有 追加席(1人分)', price:'¥200/月',
     desc:'招待した家族が同じペットの記録を閲覧・記入・修正できるようになります(1人分)。'
   }
 ];
+
+// 広告SDKの導入までは、アプリ版の商品一覧に「広告非表示」を表示しない
+// (将来の広告非表示方針を撤回したわけではなく、表示を保留する)。
+// ストア課金レイヤー(native/src, functions)側のremoveAds定義には手を入れない。
 
 // 初回オンボーディング。localStorageのフラグ1つだけで完結させる(Firestoreには持たせない)。
 // ログアウトしてもlocalStorageは消えないため、同じ端末なら再ログイン後も再表示されない。
@@ -1147,24 +1690,24 @@ const ONBOARDING_PAGES = [
   {
     img:'onboarding-images/step1.jpg',
     title:'毎日の小さな変化を、見逃さない。',
-    desc:'もふもふカルテは、ペットの毎日の様子をかんたんに残し、家族で健康管理に役立てるための記録アプリです。'
+    desc:'もふもふカルテは、ペットの毎日の様子をかんたんに残し、健康管理に役立てるための記録アプリです。'
   },
   {
     img:'onboarding-images/step2.jpg',
     title:'いつもの様子を、かんたん記録。',
-    desc:'体重、食事、飲水、便・尿、症状、お薬、写真など。毎日の健康情報をひとつにまとめられます。',
+    desc:'体重、食事、飲水、便・尿、症状、お薬などを記録できます。治療サポートプランでは写真も添付できます。',
     note:'記録できる項目は必要なものだけでOKです。'
   },
   {
     img:'onboarding-images/step3.jpg',
     title:'続けるほど、変化が見えてくる。',
-    desc:'記録した内容はグラフやタイムラインで整理。体重や食欲、排泄、症状などの変化を振り返りやすくなります。',
+    desc:'体重の推移をグラフで確認できます。治療サポートプランでは、体温・食欲・お散歩のグラフや、排泄・症状のタイムラインも確認できます。',
     note:'※表示は記録内容の整理であり、診断を行うものではありません。'
   },
   {
     img:'onboarding-images/step4.jpg',
     title:'記録を、診察につなげる。',
-    desc:'受診時には、日々の記録やグラフをスマホやPDFで獣医師に共有できます。いつから、どんな変化があったのかを伝える助けになります。'
+    desc:'受診時には、日々の記録を画面やPDFで獣医師に共有できます。PDFは毎月1回無料で、追加分はパックを購入して出力できます。'
   }
 ];
 
@@ -1198,6 +1741,7 @@ let state = {
   weightChart: null,
   appetiteChart: null,
   walkChart: null,
+  walkDistanceChart: null,
   temperatureChart: null,
   symptomChart: null,
   entitlements: null,
@@ -1205,6 +1749,12 @@ let state = {
   knownHouseholdUid: null,
   householdStatus: 'loading',
   householdError: null,
+  // 起動オーバーレイの局面。'ready'になるまで通常画面へは進ませない。
+  bootPhase: 'loading',
+  // 招待受諾の結果が不明なときの再送用情報 { kind, code }。確定・ログアウトで消す。
+  inviteUnconfirmed: null,
+  // 直近の招待の「確定した業務エラー」メッセージ。bootWithHousehold が読み取り即クリア。
+  inviteBusinessError: null,
   familyEmails: [],
   activeFamilyEmails: [],
   accountProfile: null
@@ -1217,8 +1767,8 @@ const PROFILE_ICONS = [
 ];
 function profileIcon(id, extraClass=''){
   const icon = PROFILE_ICONS.find(item => item[0] === id);
-  if(!icon) return `<img class="profile-avatar profile-avatar--fallback ${extraClass}" src="icons/paw.png" alt="">`;
-  return `<img class="profile-avatar ${extraClass}" src="profile-icons/${encodeURIComponent(icon[0])}.png" alt="${escapeHtml(icon[1])}">`;
+  if(!icon) return `<span class="profile-avatar-frame profile-avatar--fallback ${extraClass}"><img class="profile-avatar" src="icons/paw.png" alt=""></span>`;
+  return `<span class="profile-avatar-frame profile-avatar-frame--${icon[0]} ${extraClass}"><img class="profile-avatar" src="profile-icons/${encodeURIComponent(icon[0])}.png" alt="${escapeHtml(icon[1])}"></span>`;
 }
 function authorSnapshot(){
   const profile = state.accountProfile || {};
@@ -1288,7 +1838,49 @@ function eventSummary(event){
     default: return '';
   }
 }
-function recordedMealIntakes(events){ return safeArray(events).filter(e => e.type === 'meal' && Number.isFinite(Number(e.details?.intakePercent))).map(e => Number(e.details.intakePercent)); }
+// 記録済みの食事量。未入力・不正値の除外と明示的な0%の維持は共通ヘルパーへ委譲する。
+function recordedMealIntakes(events){ return validMealIntakePercents(events); }
+// 受診歴は「本日の記録」の病院イベント(type:'visit')だけを対象にし、受診日の降順で返す。
+// 旧「受診歴」タブ(visitsコレクション)は廃止済みで、コード側の参照も持たない。
+function buildVisitHistory(events){
+  return safeArray(events)
+    .filter(e => e && e.type === 'visit')
+    .map(e => ({
+      date: e.date || '',
+      clinic: e.details?.clinic || '',
+      reason: e.details?.reason || '',
+      diagnosis: e.details?.diagnosis || '',
+      treatment: e.details?.treatment || '',
+      followUpDate: e.details?.followUpDate || '',
+      memo: e.note || ''
+    }))
+    .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+}
+// 「本日の記録」の「お散歩」イベントを日付ごとに合算し、時間(分)と距離(m)を
+// それぞれ別系列で返す。旧「今日の記録」モーダルのwalkMinutesは対象外。
+// null・undefined・空文字は「記録なし」として除外し、数値の0は有効な記録として扱う。
+// その日に一方しか記録がなければ、無い方の系列にはその日を含めない。
+function walkNumericOrNull(value){
+  if(value === null || value === undefined || value === '') return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+function aggregateWalkSeries(events){
+  const byDay = new Map();
+  safeArray(events).filter(e => e && e.type === 'walk').forEach(e => {
+    const cur = byDay.get(e.date) || { minutes:0, distance:0, hasMinutes:false, hasDistance:false };
+    const dm = walkNumericOrNull(e.details?.durationMinutes);
+    const ds = walkNumericOrNull(e.details?.distanceMeters);
+    if(dm !== null){ cur.minutes += dm; cur.hasMinutes = true; }
+    if(ds !== null){ cur.distance += ds; cur.hasDistance = true; }
+    byDay.set(e.date, cur);
+  });
+  const dates = [...byDay.keys()].filter(Boolean).sort();
+  return {
+    minutes: dates.filter(d => byDay.get(d).hasMinutes).map(d => ({ date:d, value:byDay.get(d).minutes })),
+    distance: dates.filter(d => byDay.get(d).hasDistance).map(d => ({ date:d, value:byDay.get(d).distance })),
+  };
+}
 function mergeTimelineItems(events, scheduledItems){
   return [
     ...safeArray(events).map(event => ({ kind:'event', time:event.time || '', event })),
@@ -1307,6 +1899,30 @@ function scheduledDoseTaken(events, medicationId, time){
 function medScheduledTimes(m){
   const scheduled = safeArray(m?.scheduledTimes);
   return scheduled.length ? scheduled : safeArray(m?.reminderTimes);
+}
+// お薬保存時に書き込む通知用reminderTimesを決める。
+// 通知時刻を編集できるのは「加入済み かつ Web版」のときだけ。それ以外
+// (未加入、またはアプリ版)は、編集UIを出さないので既存値をそのまま保持する。
+// アプリ版でWeb設定済みの通知時刻を消さないための分岐。
+function reportRangeError({ from, to, records, events }){
+  const valid = value => /^\d{4}-\d{2}-\d{2}$/.test(value || '') &&
+    Number.isFinite(Date.parse(value)) && new Date(value).toISOString().slice(0,10) === value;
+  if(!valid(from) || !valid(to)) return '開始日と終了日を正しい日付で指定してください。';
+  const days = (Date.parse(to) - Date.parse(from)) / 86400000 + 1;
+  if(days < 1 || days > 31) return '開始日から終了日までを1〜31日間に設定してください。';
+  if(!safeArray(records).length && !safeArray(events).length) return '選択した期間に記録がありません';
+  return '';
+}
+
+function isValidReminderTime(value){
+  return typeof value === 'string' && /^(?:[01]\d|2[0-3]):[0-5][05]$/.test(value);
+}
+function resolveMedReminderTimes({ subscribed, draft, existing }){
+  // 加入者は通知時刻を編集できる(Web/アプリ共通)。未加入は編集UIが購入誘導なので
+  // draftは使わず、既存のreminderTimesをそのまま保持する(解約後の設定を消さない)。
+  return subscribed
+    ? [...safeArray(draft)]
+    : [...safeArray(existing && existing.reminderTimes)];
 }
 function escapeHtml(value){
   return displayText(value)
@@ -1402,7 +2018,7 @@ function loadMessagingScript(){
 // firebase-messaging-sw.js自身はメインページと別の実行コンテキストで動くので、
 // 上のfirebase-messaging-compat.js(メインページに<script>で置くとhttpsCallableを壊す
 // 既知の問題があった)を早期に読み込むことにはならず、この対策とは無関係に安全に登録できる。
-if('serviceWorker' in navigator){
+if(!isNativeApp() && 'serviceWorker' in navigator){
   navigator.serviceWorker.register('firebase-messaging-sw.js')
     .catch(err => console.error('early Service Worker registration failed', err));
 }
@@ -1490,12 +2106,21 @@ async function confirmedHouseholdWrite(writeOperation, operationName){
 // knownHouseholdUidは「離脱してもワンクリックで戻れる」ためにあえて
 // 残す設計だが、それはオーナーがまだ許可している場合の話で、
 // 解除済みなら「戻る」導線自体を出してはいけない(出しても必ず失敗する)。
-async function clearRevokedHouseholdLink(){
+async function clearRevokedHouseholdLink(run){
+  // 書込先(本人のドキュメント参照)を開始時に固定する。await後にログアウト・
+  // アカウント変更が起きても、別ユーザーのドキュメントへ書かない。
+  if(!currentUser) return false;
+  const ownRef = ownUserDocRef();
+  const startUid = currentUser.uid;
   try{
     await confirmedHouseholdWrite(
-      () => ownUserDocRef().update({ linkedOwnerUid: null, knownHouseholdUid: null }),
+      () => ownRef.update({ linkedOwnerUid: null, knownHouseholdUid: null }),
       'clear revoked household link'
     );
+    // await後: 世代が進んでいる/ユーザーが変わっていれば状態は触らない。
+    // タイムアウトで来た場合、書き込みが取り消せたとは扱わず false を返す。
+    if(run && !isActiveHouseholdRun(run)) return false;
+    if(!currentUser || currentUser.uid !== startUid) return false;
     state.knownHouseholdUid = null;
     state.householdStatus = 'personal';
     state.householdError = null;
@@ -1506,7 +2131,9 @@ async function clearRevokedHouseholdLink(){
   }
 }
 function handleFirestoreListenerError(err, generation, sourceUid){
-  if(generation !== firestoreListenerGeneration) return;
+  // 解除済み・別世代の旧購読、またはログアウト後に遅れて届いたエラー通知で
+  // 現在の画面状態を上書きしない。
+  if(generation !== firestoreListenerGeneration || !currentUser) return;
   console.error('Firestore listener error:', err);
   if(isPermissionDenied(err) && state.linkedOwnerUid && sourceUid === state.linkedOwnerUid){
     detachFirestoreListeners();
@@ -1524,22 +2151,62 @@ function handleFirestoreListenerError(err, generation, sourceUid){
   }
   App.render();
 }
-function attachFirestoreListeners(){
+let cancelInitialFirestoreWait = null;
+function attachFirestoreListeners(waitForInitial = false){
+  // 二重呼び出し(再試行の連打・認証通知の重複)で購読を多重登録しないよう、
+  // 既存の購読が残っていれば必ず解除してから張り直す。
+  if(firestoreUnsubscribers.length) detachFirestoreListeners();
   const generation = ++firestoreListenerGeneration;
   const sourceUid = dataUid();
+  const profileUid = currentUser.uid;
+  // 成功コールバックでも毎回、世代と読み取り対象UIDが現在と一致するかを確認する。
+  // detach前にキューされた旧購読の遅延スナップショットで state を上書きしない。
+  const staleData = () => generation !== firestoreListenerGeneration || !currentUser || sourceUid !== dataUid();
+  // 初回はキャッシュだけで完了にせず、全8購読のサーバー応答を待つ。
+  const pending = new Set(['pets','records','medications','preventions','events','mealProfiles','user','profile']);
+  let finishInitial;
+  let initialFinished = !waitForInitial;
+  const initial = new Promise(resolve => { finishInitial = resolve; });
+  const finish = result => {
+    if(initialFinished) return;
+    initialFinished = true;
+    if(cancelInitialFirestoreWait === cancel) cancelInitialFirestoreWait = null;
+    finishInitial(result);
+  };
+  const cancel = () => finish(false);
+  if(waitForInitial) cancelInitialFirestoreWait = cancel;
+  const received = (key, snap) => {
+    if(!initialFinished && snap.metadata?.fromCache !== true){
+      pending.delete(key);
+      if(!pending.size) finish(true);
+    }
+    if(isAppReady()) App.render();
+  };
+  const failed = (err, uid) => {
+    if(staleData()) return;
+    if(!initialFinished){
+      state.householdStatus = 'unavailable';
+      state.householdError = 'データを読み込めませんでした。通信状態を確認して再試行してください。';
+      finish(false);
+      return;
+    }
+    handleFirestoreListenerError(err, generation, uid);
+  };
   const collections = ['pets','records','medications','preventions','events','mealProfiles'];
   collections.forEach(name => {
-    const unsub = colRef(name).onSnapshot(snap => {
+    const unsub = colRef(name).onSnapshot({ includeMetadataChanges: true }, snap => {
+      if(staleData()) return;
       state[name] = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       if(name === 'pets' && !state.currentPetId && state.pets.length > 0){
         state.currentPetId = state.pets[0].id;
       }
-      App.render();
-    }, err => handleFirestoreListenerError(err, generation, sourceUid));
+      received(name, snap);
+    }, err => failed(err, sourceUid));
     firestoreUnsubscribers.push(unsub);
   });
   let userDocLoaded = false;
-  const unsubUser = userDocRef().onSnapshot(doc => {
+  const unsubUser = userDocRef().onSnapshot({ includeMetadataChanges: true }, doc => {
+    if(staleData()) return;
     const data = doc.data() || {};
     state.entitlements = data.entitlements || null;
     state.familyEmails = data.familyEmails || [];
@@ -1557,21 +2224,24 @@ function attachFirestoreListeners(){
         state.currentPetId = data.currentPetId;
       }
     }
-    App.render();
-  }, err => handleFirestoreListenerError(err, generation, sourceUid));
+    received('user', doc);
+  }, err => failed(err, sourceUid));
   firestoreUnsubscribers.push(unsubUser);
   // 共有先を閲覧中でも、記録者として使うプロフィールは常にログイン本人のものを読む。
-  const unsubOwnProfile = ownUserDocRef().onSnapshot(doc => {
+  const unsubOwnProfile = ownUserDocRef().onSnapshot({ includeMetadataChanges: true }, doc => {
+    if(generation !== firestoreListenerGeneration || !currentUser || profileUid !== currentUser.uid) return;
     const data = doc.data() || {};
     state.accountProfile = {
       profileDisplayName: data.profileDisplayName || '',
       profileIconId: data.profileIconId || ''
     };
-    App.render();
-  }, err => handleFirestoreListenerError(err, generation, currentUser.uid));
+    received('profile', doc);
+  }, err => failed(err, profileUid));
   firestoreUnsubscribers.push(unsubOwnProfile);
+  return waitForInitial ? initial : Promise.resolve(true);
 }
 function detachFirestoreListeners(){
+  if(cancelInitialFirestoreWait) cancelInitialFirestoreWait();
   firestoreListenerGeneration++;
   firestoreUnsubscribers.forEach(u => u());
   firestoreUnsubscribers = [];
@@ -1593,29 +2263,6 @@ function petMedications(){
 function petPreventions(){
   return state.preventions
     .filter(p => p.petId === state.currentPetId)
-    .sort((a,b) => (b.date||'').localeCompare(a.date||''));
-}
-// 受診記録は独立した visits コレクションを廃止し、events の type:'visit' に一本化した。
-// 入力・編集は「本日の記録」とイベント詳細に統一し、専用の受診歴タブは撤去済み。
-// ホームの「直近の受診歴」とレポートの受診歴表はここで events から受診イベントだけを取り出し、
-// 旧 visits ドキュメントと同じ形（date / clinic / reason / diagnosis / treatment /
-// followUpDate / memo、id は events のドキュメントID）へ整形して返す。
-function petVisits(){
-  return state.events
-    .filter(e => e.petId === state.currentPetId && e.type === 'visit')
-    .map(e => {
-      const d = e.details || {};
-      return {
-        id: e.id,
-        date: e.date || '',
-        clinic: d.clinic || '',
-        reason: d.reason || '',
-        diagnosis: d.diagnosis || '',
-        treatment: d.treatment || '',
-        followUpDate: d.followUpDate || '',
-        memo: e.note || ''
-      };
-    })
     .sort((a,b) => (b.date||'').localeCompare(a.date||''));
 }
 function latestPrevByCategory(category){
@@ -1658,57 +2305,76 @@ function daysAgoStr(days){
 
 /**
  * ⑥傾向分析。AI診断ではなく、あくまでルールベースの閾値検知に留める。
- * 直近7日間の記録から、症状・体重(直近7日 vs その前7日)・食欲・便・飲水/尿の
- * それぞれを機械的にチェックし、該当した項目を優先度順に並べて1文にまとめる。
+ * 旧日次記録と新しいクイック記録を合わせ、直近7日間に記録された全項目を要約する。
+ * 症状・体重(直近7日 vs その前7日)・食欲・便・飲水/尿は従来どおり機械的に
+ * 変化を検知し、体温など診断的な基準が必要な項目は数値の範囲だけを伝える。
  * 何も引っかからなければ「安定しています」という一言を返す(黙って何も出さない、
  * ということはしない)。診断ではなく目安である旨は呼び出し側(UI)で必ず併記する。
  */
-function analyzeWeeklySummary(records){
+function analyzeWeeklySummary(records, events = []){
   const today = new Date().toISOString().slice(0,10);
   const windowStart = daysAgoStr(6);
   const prevStart = daysAgoStr(13);
   const prevEnd = daysAgoStr(7);
   const windowRecords = records.filter(r => r.date >= windowStart && r.date <= today);
+  const windowEvents = safeArray(events).filter(e => e.date >= windowStart && e.date <= today);
+  const recordedDays = new Set([...windowRecords, ...windowEvents].map(item => item.date).filter(Boolean));
 
-  if(windowRecords.length < 3){
+  if(recordedDays.size < 3){
     return { level:'insufficient', text:'直近1週間の記録がまだ少なく、傾向を判定できません。記録を続けると傾向がわかりやすくなります。' };
   }
 
   const avg = list => list.reduce((a,b) => a+b, 0) / list.length;
+  const eventsOf = type => windowEvents.filter(e => e.type === type);
+  const numericDetails = (type, key) => eventsOf(type).map(e => Number(e.details?.[key])).filter(Number.isFinite);
 
-  const symptomDays = windowRecords.filter(r => safeArray(r.symptoms).length > 0);
-  const distinctSymptoms = [...new Set(symptomDays.flatMap(r => safeArray(r.symptoms)))];
+  const distinctSymptoms = [...new Set([
+    ...windowRecords.flatMap(r => safeArray(r.symptoms)),
+    ...eventsOf('symptom').flatMap(e => safeArray(e.details?.symptoms)),
+  ])];
   const hasSymptoms = distinctSymptoms.length > 0;
 
   // 体重は直近7日の平均とその前7日の平均を比較する(単純な最新値同士の比較だと
   // 1日分のブレに引っ張られやすいため)。
-  const thisWeekWeights = windowRecords.filter(r => r.weight != null).map(r => r.weight);
-  const prevWeekWeights = records.filter(r => r.date >= prevStart && r.date < prevEnd && r.weight != null).map(r => r.weight);
+  const thisWeekWeightEntries = [
+    ...windowRecords.filter(r => r.weight != null).map(r => ({ date:r.date, value:Number(r.weight) })),
+    ...eventsOf('weight').map(e => ({ date:e.date, value:Number(e.details?.kilograms) })),
+  ].filter(entry => Number.isFinite(entry.value)).sort((a,b) => a.date.localeCompare(b.date));
+  const thisWeekWeights = thisWeekWeightEntries.map(entry => entry.value);
+  const prevWeekWeights = [
+    ...records.filter(r => r.date >= prevStart && r.date < prevEnd && r.weight != null).map(r => Number(r.weight)),
+    ...safeArray(events).filter(e => e.type === 'weight' && e.date >= prevStart && e.date < prevEnd).map(e => Number(e.details?.kilograms)),
+  ].filter(Number.isFinite);
   let weightDown = false;
   if(thisWeekWeights.length > 0 && prevWeekWeights.length > 0){
     const pctChange = ((avg(thisWeekWeights) - avg(prevWeekWeights)) / avg(prevWeekWeights)) * 100;
     weightDown = pctChange <= -3;
   }
 
-  const appetiteVals = windowRecords.filter(r => r.appetite != null && r.appetite !== '').map(r => Number(appetiteValue(r.appetite)));
+  // events由来の食事量は共通ヘルパーで取得する(未入力・不正値を0%として平均や
+  // 集計件数へ混入させない。明示的な0/"0"は有効値として残す)。旧recordsの食欲値は
+  // 従来どおり appetiteValue() で数値化して合算する。
+  const appetiteVals = [
+    ...windowRecords.filter(r => r.appetite != null && r.appetite !== '').map(r => Number(appetiteValue(r.appetite))),
+    ...validMealIntakePercents(windowEvents),
+  ].filter(Number.isFinite);
   const appetiteLow = appetiteVals.length > 0 && avg(appetiteVals) <= 50;
 
-  const stoolVals = windowRecords.filter(r => r.stool != null && r.stool !== '').map(r => Number(r.stool));
+  const stoolVals = [
+    ...windowRecords.filter(r => r.stool != null && r.stool !== '').map(r => Number(r.stool)),
+    ...numericDetails('stool', 'score'),
+  ].filter(Number.isFinite);
   let stoolFlag = null;
   if(stoolVals.length > 0 && avg(stoolVals.map(v => Math.abs(v - 3))) >= 1.5){
     stoolFlag = avg(stoolVals) < 3 ? 'hard' : 'soft';
   }
 
-  const waterLabels = windowRecords.map(r => waterLabel(r.water)).filter(Boolean);
-  const urineLabels = windowRecords.map(r => urineLabel(r.urine)).filter(Boolean);
+  const amountLabel = value => ({normal:'いつも通り',more:'多い',less:'少ない'})[value] || value;
+  const waterLabels = [...windowRecords.map(r => waterLabel(r.water)), ...eventsOf('water').map(e => amountLabel(e.details?.amount))].filter(Boolean);
+  const urineLabels = [...windowRecords.map(r => urineLabel(r.urine)), ...eventsOf('urine').map(e => amountLabel(e.details?.amount))].filter(Boolean);
   const isMajority = (labels, target) => labels.length > 0 && labels.filter(l => l === target).length >= Math.ceil(labels.length / 2);
   const waterFlag = isMajority(waterLabels, '多い') ? 'up' : (isMajority(waterLabels, '少ない') ? 'down' : null);
   const urineFlag = isMajority(urineLabels, '多い') ? 'up' : (isMajority(urineLabels, '少ない') ? 'down' : null);
-
-  const hasConcern = hasSymptoms || weightDown || appetiteLow || stoolFlag || waterFlag || urineFlag;
-  if(!hasConcern){
-    return { level:'stable', text:'直近1週間は症状の記録がなく、体調は安定しているようですね。この調子で記録を続けましょう。' };
-  }
 
   const parts = [];
   if(hasSymptoms) parts.push(`${distinctSymptoms.slice(0,3).join('・')}の症状`);
@@ -1719,8 +2385,39 @@ function analyzeWeeklySummary(records){
   if(waterFlag) parts.push(`飲水量が${waterFlag === 'up' ? '多い' : '少ない'}日`);
   if(urineFlag) parts.push(`尿量が${urineFlag === 'up' ? '多い' : '少ない'}日`);
 
-  // 文が長くなりすぎないよう、該当項目は最大3つまでに絞って1文にする。
-  const sentence = `直近1週間、${parts.slice(0,3).join('・')}が見られます。`;
+  const activityParts = [];
+  if(appetiteVals.length) activityParts.push(`食事${appetiteVals.length}回（平均${Math.round(avg(appetiteVals))}%）`);
+  if(waterLabels.length) activityParts.push(`飲水${waterLabels.length}回`);
+  if(stoolVals.length) activityParts.push(`便${stoolVals.length}回`);
+  if(urineLabels.length) activityParts.push(`尿${urineLabels.length}回`);
+  const walks = numericDetails('walk', 'durationMinutes');
+  const legacyWalks = windowRecords.filter(r => r.walkMinutes != null && r.walkMinutes !== '').map(r => Number(r.walkMinutes)).filter(Number.isFinite);
+  if(walks.length + legacyWalks.length) activityParts.push(`お散歩${[...walks, ...legacyWalks].reduce((a,b) => a+b, 0)}分`);
+  const plays = numericDetails('play', 'durationMinutes');
+  if(plays.length) activityParts.push(`遊び${plays.reduce((a,b) => a+b, 0)}分`);
+  if(eventsOf('treat').length) activityParts.push(`おやつ${eventsOf('treat').length}回`);
+  if(eventsOf('medication').length) activityParts.push(`投薬${eventsOf('medication').length}回`);
+  if(thisWeekWeightEntries.length) activityParts.push(`最新体重${thisWeekWeightEntries[thisWeekWeightEntries.length - 1].value}kg`);
+  const temperatures = numericDetails('temperature', 'celsius');
+  if(temperatures.length === 1) activityParts.push(`体温${temperatures[0].toFixed(1)}℃`);
+  else if(temperatures.length > 1) activityParts.push(`体温${Math.min(...temperatures).toFixed(1)}〜${Math.max(...temperatures).toFixed(1)}℃`);
+  const visitCount = eventsOf('visit').length;
+  if(visitCount) activityParts.push(`病院${visitCount}回`);
+  const memoCount = eventsOf('memo').length + windowRecords.filter(r => r.memo).length;
+  if(memoCount) activityParts.push(`メモ${memoCount}件`);
+  const photoCount = windowRecords.reduce((sum, r) => sum + safeArray(r.photos).length, 0);
+  if(photoCount) activityParts.push(`写真${photoCount}枚`);
+  const latestCibdai = windowRecords.find(r => r.cibdai);
+  if(latestCibdai) activityParts.push(`CIBDAI ${cibdaiTotal(latestCibdai.cibdai)}点`);
+
+  const overview = `直近1週間は${recordedDays.size}日分を記録しました。${activityParts.length ? activityParts.join('、') + '。' : ''}`;
+  const hasConcern = parts.length > 0;
+  if(!hasConcern){
+    return { level:'stable', text:`${overview}記録上、大きな変化は見つかりませんでした。この調子で記録を続けましょう。` };
+  }
+
+  // 文が長くなりすぎないよう、気になる変化は最大3つまでに絞る。
+  const sentence = `${overview}気になる変化として、${parts.slice(0,3).join('・')}が見られます。`;
   // 症状+体重減少、症状+食欲低下、体重減少+食欲低下の組み合わせは特に注意が必要なため、
   // 「様子を見る」ではなく受診相談を促すトーンにする。
   const severe = (hasSymptoms && weightDown) || (hasSymptoms && appetiteLow) || (weightDown && appetiteLow);
@@ -1822,39 +2519,71 @@ const App = {
    * 既に参加済みの家族関係(自分のドキュメントのlinkedOwnerUid)を復元する。
    * 以降のFirestoreアクセスはすべてこれで決まったdataUid()を使う。
    */
-  async registerFamilyMembership(ownerUid){
-    const memberRef = db.collection('users').doc(ownerUid).collection('familyMembers').doc(currentUser.uid);
+  async registerFamilyMembership(ownerUid, run){
+    if(!currentUser) return;
+    // UID・書込先・表示名・メールを開始時に固定する。await(get)の間に
+    // ログアウトやA→B切替が起きても、旧ユーザーの情報で新オーナーへ書かない。
+    const startUid = currentUser.uid;
+    const memberRef = db.collection('users').doc(ownerUid).collection('familyMembers').doc(startUid);
+    const email = currentUser.email;
+    const displayName = currentUser.displayName || currentUser.email;
     const memberSnap = await memberRef.get({ source: 'server' });
+    // get後: 世代が進んでいる/ユーザーが変わっていれば set を発行しない。
+    if(run && !isActiveHouseholdRun(run)) return;
+    if(!currentUser || currentUser.uid !== startUid) return;
     if(memberSnap.exists) return;
     await memberRef.set({
-      email: currentUser.email,
-      displayName: currentUser.displayName || currentUser.email,
+      email,
+      displayName,
       joinedAt: firebase.firestore.FieldValue.serverTimestamp(),
     });
   },
 
-  async resolveHousehold(){
+  async resolveHousehold(run){
+    // 呼び出し側が世代トークンを渡さなかった場合は、この解決自体を新しい起動とみなす。
+    if(!run) run = beginHouseholdRun();
+    // await後は毎回これで「まだ現在の起動か」を確認し、旧世代なら状態を触らず抜ける。
+    const stale = () => !isActiveHouseholdRun(run);
+
     state.householdStatus = 'loading';
     state.householdError = null;
+    state.inviteBusinessError = null;
     const params = new URLSearchParams(location.search);
     const inviteUid = params.get('invite');
     const familyInviteCode = params.get('familyInvite');
+    const myUid = currentUser.uid;
+    // このUIDに「結果未確認」の招待が保存されていれば、受諾は再送せず照合のみを行う。
+    const pendingInvite = readPendingInvite(myUid);
+    const stripUrlParam = (name) => {
+      if(!params.has(name)) return;
+      params.delete(name);
+      const s = params.toString();
+      try{ history.replaceState(null, '', location.pathname + (s ? `?${s}` : '')); }catch(_e){}
+    };
 
     let ownSnap;
+    let ownFromServer = true;
     try{
       ownSnap = await ownUserDocRef().get({ source: 'server' });
+      if(stale()) return;
       if(!ownSnap.exists){
         const ensureUserProfile = functions.httpsCallable('ensureUserProfile');
         await ensureUserProfile();
+        if(stale()) return;
         ownSnap = await ownUserDocRef().get({ source: 'server' });
+        if(stale()) return;
       }
       if(!ownSnap.exists) throw new Error('profile-missing');
     } catch(err){
+      if(stale()) return;
       console.error('自分のプロフィールの取得に失敗', err);
       try{
         ownSnap = await ownUserDocRef().get({ source: 'cache' });
+        if(stale()) return;
         if(!ownSnap.exists) throw new Error('profile-missing');
+        ownFromServer = false;
       } catch(cacheErr){
+        if(stale()) return;
         state.householdStatus = 'unavailable';
         state.householdError = '共有情報の読み込みに失敗しました。通信を確認して再試行してください。';
         return;
@@ -1865,74 +2594,194 @@ const App = {
     state.linkedOwnerUid = ownData.linkedOwnerUid || null;
     state.knownHouseholdUid = ownData.knownHouseholdUid || null;
 
-    if(familyInviteCode){
+    // 自分のプロフィールをサーバーで確認できず、キャッシュにも共有先が無い場合は、
+    // 通信失敗を「個人アカウント」と推測しない。成否不明として再試行を促す。
+    if(!ownFromServer && !state.linkedOwnerUid){
+      state.householdStatus = 'unavailable';
+      state.householdError = '共有情報をサーバーで確認できませんでした。通信を確認して再試行してください。';
+      return;
+    }
+
+    // 未確認画面からの「明示的な再送」1回分の許可。pendingInvite があっても、この場合だけ送信する。
+    const resend = resendInviteRequest;
+    resendInviteRequest = null; // 消費(遅延した旧応答で再トリガーしない)
+
+    // ===== 招待コード受諾(?familyInvite= / アプリ内フォーム / 明示再送): このページ読み込みで一度だけ =====
+    let codeToTry = null, codeKind = null;
+    if(resend && resend.kind === 'code' && resend.code){
+      codeToTry = resend.code; codeKind = 'resend';
+    } else if(!pendingInvite){
+      if(pendingInAppInviteCode){ codeToTry = pendingInAppInviteCode; codeKind = 'inapp'; }
+      else if(familyInviteCode && !attemptedInviteKeys.has('familyInvite:' + familyInviteCode)){
+        codeToTry = familyInviteCode; codeKind = 'url';
+      }
+    }
+    pendingInAppInviteCode = null; // 消費(再入で二重送信しない)
+
+    if(codeToTry){
+      // 副作用リクエストの前に、UID別の未確認状態を永続保存する(全体15秒超過・送信中の
+      // 再読み込み/終了でも失わないため)。保存できなければ送信しない。
+      if(!writePendingInvite(myUid, { kind: 'code', code: codeToTry })){
+        state.householdStatus = 'unavailable';
+        state.householdError = 'この端末に招待の処理状態を保存できないため、参加処理を開始できません。ブラウザの設定（プライベートモード等）をご確認ください。';
+        return;
+      }
+      state.inviteUnconfirmed = { kind: 'code', code: codeToTry };
+      if(codeKind === 'url') attemptedInviteKeys.add('familyInvite:' + codeToTry);
+      stripUrlParam('familyInvite');
       try{
         const acceptInvite = functions.httpsCallable('acceptFamilyInviteCode');
-        const result = await acceptInvite({ code: familyInviteCode });
+        // Callable待機は全体上限より短い専用上限。無応答を「招待の結果未確認」に落とす。
+        const result = await withTimeout(acceptInvite({ code: codeToTry }), INVITE_CALLABLE_TIMEOUT_MS, 'accept family invite code');
+        if(stale()) return; // 遅延した旧応答: 保存状態も画面も変えない
         const ownerUid = result.data.ownerUid;
         state.linkedOwnerUid = ownerUid;
         state.knownHouseholdUid = ownerUid;
         state.householdStatus = 'shared';
+        state.inviteUnconfirmed = null;
+        clearPendingInvite(myUid);
         alert('もふもふカルテのメンバーに参加しました。');
-        params.delete('familyInvite');
-        const newSearch = params.toString();
-        history.replaceState(null, '', location.pathname + (newSearch ? `?${newSearch}` : ''));
       } catch(err){
-        console.error('招待コードの受け入れに失敗', err);
-        state.householdError = this.familyInviteErrorMessage(err);
-        alert(state.householdError);
+        if(stale()) return; // 遅延した旧応答: 保存状態も画面も変えない
+        console.error('招待コードの受け入れに失敗', String((err && err.code) || 'error')); // コードは出さない
+        if(isDefiniteInviteBusinessError(err)){
+          // サーバーが「成立しなかった」と確実に判断できる業務エラーだけ、未確認を消して通常の照合へ流す。
+          clearPendingInvite(myUid);
+          state.inviteUnconfirmed = null;
+          state.inviteBusinessError = this.familyInviteErrorMessage(err);
+          alert(state.inviteBusinessError);
+        } else {
+          // タイムアウト・通信・不明エラー(deadline-exceeded 含む) = 結果未確認。保存済みのまま。
+          state.householdStatus = 'invite-unconfirmed';
+          state.householdError = '招待の受け付け結果を確認できませんでした。通信を確認して「状態を再確認」してください。二重に参加しないよう、再送は下のボタンからのみ行ってください。';
+          return;
+        }
       }
+    } else if(pendingInvite && pendingInvite.kind === 'code'){
+      state.inviteUnconfirmed = { kind: 'code', code: pendingInvite.code || null };
+      let resolution;
+      try {
+        const response = await functions.httpsCallable('getFamilyInviteResult')({ code: pendingInvite.code });
+        if(stale()) return;
+        resolution = response.data;
+      } catch(_err) {
+        if(stale()) return;
+      }
+      if(resolution && ['accepted-active', 'accepted-inactive'].includes(resolution.status)
+          && typeof resolution.ownerUid === 'string' && resolution.ownerUid){
+        // Re-read current membership through the normal server-only path. Never restore a link.
+        clearPendingInvite(myUid);
+        state.inviteUnconfirmed = null;
+        alert(resolution.status === 'accepted-active'
+          ? '招待が受け付けられていたことを確認しました。現在の共有状態を読み込みます。'
+          : '招待は受け付けられていましたが、現在はその共有を利用していません。現在の状態を読み込みます。');
+        return this.resolveHousehold(run);
+      }
+      state.householdStatus = 'invite-unconfirmed';
+      state.householdError = '招待の受け付け結果はまだ確認できていません。通信を確認して「状態を再確認」してください。';
+      return;
     }
 
-    if(!familyInviteCode && inviteUid && inviteUid !== currentUser.uid){
+    // ===== メール招待(?invite=<ownerUid>): linkedOwnerUidを直接書く。ownerUidが分かるので照合で確定できる =====
+    const uidResend = resend && resend.kind === 'uid' && resend.ownerUid ? resend.ownerUid : null;
+    const uidToTry = uidResend || (!familyInviteCode && !codeToTry && !pendingInvite
+      && inviteUid && inviteUid !== myUid && !attemptedInviteKeys.has('invite:' + inviteUid) ? inviteUid : null);
+    if(uidToTry){
+      // 書き込み(副作用)の前に未確認状態を永続保存する。保存できなければ送信しない。
+      if(!writePendingInvite(myUid, { kind: 'uid', ownerUid: uidToTry })){
+        state.householdStatus = 'unavailable';
+        state.householdError = 'この端末に招待の処理状態を保存できないため、参加処理を開始できません。ブラウザの設定（プライベートモード等）をご確認ください。';
+        return;
+      }
+      state.inviteUnconfirmed = { kind: 'uid', code: null, ownerUid: uidToTry };
+      attemptedInviteKeys.add('invite:' + uidToTry);
+      stripUrlParam('invite');
       try{
-        // 読めれば(=招待元のfamilyEmailsに自分のメールが載っていれば)成功する
-        const ownerSnap = await db.collection('users').doc(inviteUid).get({ source: 'server' });
+        const ownerSnap = await db.collection('users').doc(uidToTry).get({ source: 'server' });
+        if(stale()) return;
         if(!ownerSnap.exists) throw new Error('owner-not-found');
         await confirmedHouseholdWrite(
-          () => ownUserDocRef().update({ linkedOwnerUid: inviteUid, knownHouseholdUid: inviteUid }),
+          () => ownUserDocRef().update({ linkedOwnerUid: uidToTry, knownHouseholdUid: uidToTry }),
           'accept household invitation'
         );
-        state.linkedOwnerUid = inviteUid;
-        state.knownHouseholdUid = inviteUid;
+        if(stale()) return;
+        state.linkedOwnerUid = uidToTry;
+        state.knownHouseholdUid = uidToTry;
         state.householdStatus = 'shared';
-        // オーナー側の管理画面で「誰が参加しているか」が名前で分かるように、
-        // 自分の表示名をオーナーのfamilyMembersサブコレクションに書いておく。
+        state.inviteUnconfirmed = null;
+        clearPendingInvite(myUid);
         try{
-          await this.registerFamilyMembership(inviteUid);
+          await this.registerFamilyMembership(uidToTry, run);
         } catch(memberErr){
-          console.error('参加済み表示の登録に失敗', memberErr);
-          state.householdError = '共有への参加は完了しましたが、表示名の登録は後で再試行します。';
+          console.error('参加済み表示の登録に失敗');
+          if(!stale()) state.householdError = '共有への参加は完了しましたが、表示名の登録は後で再試行します。';
         }
+        if(stale()) return;
         alert('もふもふカルテのメンバーに参加しました。');
-        params.delete('invite');
-        const newSearch = params.toString();
-        history.replaceState(null, '', location.pathname + (newSearch ? `?${newSearch}` : ''));
       } catch(err){
-        console.error('招待の受け入れに失敗', err);
+        if(stale()) return;
+        console.error('招待の受け入れに失敗', String((err && err.code) || 'error'));
         state.linkedOwnerUid = ownData.linkedOwnerUid || null;
         state.knownHouseholdUid = ownData.knownHouseholdUid || null;
-        state.householdStatus = isPermissionDenied(err) ? 'revoked' : 'unavailable';
-        state.householdError = isPermissionDenied(err)
-          ? '共有情報はありますが、招待されたアカウントにアクセス権がありません。'
-          : isHouseholdWriteUnconfirmed(err)
-            ? '通信の問題で招待処理の完了を確認できません。通信復帰後に再試行してください。'
-            : '招待の受け入れに失敗しました。通信を確認して再試行してください。';
-        alert(state.householdError);
+        if(isPermissionDenied(err)){
+          clearPendingInvite(myUid);
+          state.inviteUnconfirmed = null;
+          state.inviteBusinessError = '共有情報はありますが、招待されたアカウントにアクセス権がありません。';
+          state.householdStatus = 'revoked';
+          state.householdError = state.inviteBusinessError;
+          alert(state.householdError);
+        } else {
+          // 結果未確認。保存済みのまま。次回は照合で確定を試みる。
+          state.householdStatus = 'invite-unconfirmed';
+          state.householdError = '招待の受け付け結果を確認できませんでした。通信を確認して「状態を再確認」してください。';
+          return;
+        }
+      }
+    } else if(!codeToTry && pendingInvite && pendingInvite.kind === 'uid' && pendingInvite.ownerUid){
+      // 再試行・再読み込み(?invite= はURLから除去済み): 照合のみ。
+      // owner docがサーバーで読めて linkedOwnerUid が一致すれば確定。
+      try{
+        await db.collection('users').doc(pendingInvite.ownerUid).get({ source: 'server' });
+        if(stale()) return;
+        if(state.linkedOwnerUid === pendingInvite.ownerUid){
+          clearPendingInvite(myUid);
+          state.inviteUnconfirmed = null; // 下の共有先検証ブロックが shared を確定
+        } else {
+          state.inviteUnconfirmed = { kind: 'uid', code: null, ownerUid: pendingInvite.ownerUid };
+          state.householdStatus = 'invite-unconfirmed';
+          state.householdError = '招待の受け付け結果はまだ確認できていません。時間をおいて「状態を再確認」するか、重複処理に注意して再送してください。';
+          return;
+        }
+      } catch(err){
+        if(stale()) return;
+        if(isPermissionDenied(err)){
+          clearPendingInvite(myUid);
+          state.inviteUnconfirmed = null;
+          state.linkedOwnerUid = null;
+          state.householdStatus = 'revoked';
+          state.householdError = '招待されたアカウントにアクセス権がありません。';
+        } else {
+          state.inviteUnconfirmed = { kind: 'uid', code: null, ownerUid: pendingInvite.ownerUid };
+          state.householdStatus = 'invite-unconfirmed';
+          state.householdError = '招待の受け付け結果を確認できませんでした。通信を確認して「状態を再確認」してください。';
+          return;
+        }
       }
     }
 
     if(state.linkedOwnerUid && state.householdStatus !== 'shared'){
       try{
         await db.collection('users').doc(state.linkedOwnerUid).get({ source: 'server' });
+        if(stale()) return;
         state.householdStatus = 'shared';
         try{
-          await this.registerFamilyMembership(state.linkedOwnerUid);
+          await this.registerFamilyMembership(state.linkedOwnerUid, run);
         } catch(memberErr){
           console.error('参加済み表示の再登録に失敗', memberErr);
-          state.householdError = '共有は有効ですが、表示名を更新できませんでした。';
+          if(!stale()) state.householdError = '共有は有効ですが、表示名を更新できませんでした。';
         }
       } catch(err){
+        if(stale()) return;
         if(isPermissionDenied(err)){
           state.linkedOwnerUid = null;
           state.householdStatus = 'revoked';
@@ -1940,90 +2789,176 @@ const App = {
           // Firestore側のlinkedOwnerUid/knownHouseholdUidも消しておかないと、
           // 次回読み込み時にまた同じ失効済みUIDを読み直して同じエラーを繰り返す
           // (バナーが永久に消えないバグの原因だった)。
-          await clearRevokedHouseholdLink();
+          await clearRevokedHouseholdLink(run);
         } else {
-          state.householdStatus = 'offline';
-          state.householdError = 'オフラインのため、前回確認した共有情報を表示しています。';
+          // 共有先をサーバーで確認できない。通信失敗を「共有解除」とも推測せず、
+          // キャッシュだけを根拠に閲覧可能(ready)へも進めない。成否不明のエラーとする。
+          state.householdStatus = 'unavailable';
+          state.householdError = '共有先をサーバーで確認できませんでした。通信を確認して再試行してください。';
         }
       }
     } else if(state.householdStatus === 'loading'){
+      // ここに来るのは自分のプロフィールをサーバーで確認できた場合のみ(cache単独は上で除外済み)。
       state.householdStatus = state.knownHouseholdUid ? 'left' : 'personal';
     }
   },
 
   async leaveHousehold(){
-    if(!confirm('家族共有から抜けて、自分のデータに戻りますか?')) return;
-    const previousStatus = state.householdStatus;
-    state.householdStatus = 'switching';
-    this.render();
-    try{
-      await confirmedHouseholdWrite(
-        () => ownUserDocRef().update({ linkedOwnerUid: null }),
-        'leave household'
-      );
-      detachFirestoreListeners();
-      state.linkedOwnerUid = null;
-      state.householdStatus = state.knownHouseholdUid ? 'left' : 'personal';
-      state.householdError = null;
-      attachFirestoreListeners();
-      this.render();
-    } catch(err){
-      console.error('leaveHousehold failed', err);
-      state.householdStatus = isHouseholdWriteUnconfirmed(err) ? 'unavailable' : previousStatus;
-      state.householdError = isHouseholdWriteUnconfirmed(err)
-        ? '通信の問題で切り替えの完了を確認できません。再操作せず、通信復帰後に「再試行」で状態を確認してください。'
-        : '共有状態の切り替えに失敗しました。';
-      this.render();
-      alert(state.householdError);
-    }
+    if(!isAppReady()) return;
+    if(!confirm('記録共有から抜けて、自分のデータに戻りますか?')) return;
+    return this.switchHousehold(null);
   },
 
-  // 一度家族共有から離れた後も、既知の共有先へワンクリックで
-  // 同じ共有データに戻れるようにする(knownHouseholdUidは離脱時にもクリアしない)。
   async rejoinHousehold(){
-    if(!state.knownHouseholdUid) return;
+    if(!isAppReady() || !state.knownHouseholdUid) return;
+    return this.switchHousehold(state.knownHouseholdUid);
+  },
+
+  async switchHousehold(ownerUid){
+    if(!isAppReady() || !currentUser) return;
+    const run = beginHouseholdRun();
+    const ownRef = ownUserDocRef();
+    setBootPhase('loading');
     state.householdStatus = 'switching';
+    detachFirestoreListeners();
     this.render();
     try{
-      await db.collection('users').doc(state.knownHouseholdUid).get({ source: 'server' });
-      await confirmedHouseholdWrite(
-        () => ownUserDocRef().update({ linkedOwnerUid: state.knownHouseholdUid }),
-        'rejoin household'
-      );
-      detachFirestoreListeners();
-      state.linkedOwnerUid = state.knownHouseholdUid;
-      state.householdStatus = 'shared';
-      state.householdError = null;
-      attachFirestoreListeners();
-      this.render();
+      // 書込み先・共有先を開始時に固定。読取りと書込みを合わせて有界待機する。
+      await withTimeout((async () => {
+        if(ownerUid){
+          await db.collection('users').doc(ownerUid).get({ source: 'server' });
+          if(!isActiveHouseholdRun(run)) return;
+        }
+        await ownRef.update({ linkedOwnerUid: ownerUid });
+      })(), HOUSEHOLD_BOOT_TIMEOUT_MS, 'switch household');
+      if(!isActiveHouseholdRun(run)) return;
     } catch(err){
-      console.error('rejoinHousehold failed', err);
-      state.linkedOwnerUid = null;
-      if(isPermissionDenied(err)){
-        const cleared = await clearRevokedHouseholdLink();
-        this.render();
-        alert(cleared
-          ? '共有はオーナー側で解除されているため、自分のデータの表示に戻しました。'
-          : '共有情報はありますが、オーナー側で共有が解除されています。');
-        return;
-      }
+      if(!isActiveHouseholdRun(run)) return;
+      invalidateHouseholdRun();
       state.householdStatus = 'unavailable';
-      state.householdError = isHouseholdWriteUnconfirmed(err)
-        ? '通信の問題で切り替えの完了を確認できません。再操作せず、通信復帰後に「再試行」で状態を確認してください。'
-        : '共有状態の切り替えに失敗しました。';
+      state.householdError = '共有の切り替えを確認できませんでした。通信復帰後に「再試行」で状態を確認してください。';
+      setBootPhase('error', state.householdError);
       this.render();
-      alert(state.householdError);
+      // 発行済みの書込みは取消済みと扱わない。再試行はサーバー照合だけを行う。
+      return;
     }
+    // ローカルで成功状態を推測しない。共有先を再確認し、全8購読の初回受信まで待つ。
+    return this.bootWithHousehold();
   },
 
   async retryHousehold(){
-    if(state.householdStatus === 'switching' || state.householdStatus === 'loading') return;
-    state.householdStatus = 'switching';
+    // 連打対策。局面が'loading'の間は再試行ボタンを無効化しているが、二重呼び出しも弾く。
+    if(state.bootPhase === 'loading') return;
+    return this.bootWithHousehold();
+  },
+
+  // 起動・再試行・アプリ内招待参加の共通処理。
+  // ・世代トークンを固定し、await後の状態更新・購読開始・描画が現在の起動かを照合する
+  // ・全体待機上限(15秒。招待Callableの待機も含む)を設け、超過・失敗時は説明を出す
+  // ・共有先をサーバーで確定できたときだけ購読を開始し、通常画面へ進む
+  // ・Promise.raceで先に上限が来た場合、遅れて返る解決結果は採用しない
+  // ・招待受諾の結果が不明なら 'invite-unconfirmed'(readyへ戻さず、旧購読解除のまま)
+  // アプリ内招待は resolveHousehold へ pendingInAppInviteCode で渡し、この共通経路で処理する。
+  // 戻り値: { status: 'ok'|'aborted'|'timeout'|'error'|'invite-unconfirmed'|'invite-business-error', ... }
+  async bootWithHousehold(){
+    const run = beginHouseholdRun();   // これで進行中の旧起動は無効化される
+    setBootPhase('loading');
     this.render();
-    detachFirestoreListeners();
-    await this.resolveHousehold();
-    attachFirestoreListeners();
-    this.render();
+    detachFirestoreListeners();        // 旧購読・前ユーザーのデータを必ず捨ててから
+
+    let timedOut = false;
+    let timer = null;
+    const timeout = new Promise(resolve => {
+      timer = setTimeout(() => { timedOut = true; resolve(); }, HOUSEHOLD_BOOT_TIMEOUT_MS);
+    });
+    let initialLoaded = false;
+    const work = Promise.resolve(this.resolveHousehold(run)).then(async () => {
+      if(!isActiveHouseholdRun(run)) return;
+      if(['personal', 'left', 'shared'].includes(state.householdStatus)){
+        initialLoaded = await attachFirestoreListeners(true);
+      }
+    }).catch(err => {
+      console.error('household boot failed', String((err && err.code) || 'error'));
+    });
+    try{
+      await Promise.race([work, timeout]);
+    } finally {
+      if(timer) clearTimeout(timer);
+    }
+
+    // ログアウト・別アカウント・新しい再試行に追い越されていたら、何も触らず終わる。
+    if(!isActiveHouseholdRun(run)) return { status: 'aborted' };
+
+    // resolveHousehold が「招待の結果未確認」で終えていれば、全体タイムアウトより優先する。
+    // ready へ戻さず、旧購読は解除したままブロックする。
+    if(state.householdStatus === 'invite-unconfirmed'){
+      setBootPhase('invite-unconfirmed', state.householdError);
+      this.render();
+      return { status: 'invite-unconfirmed' };
+    }
+    if(timedOut || state.householdStatus === 'loading' || state.householdStatus === 'switching'){
+      // 上限超過。まだ走っている解決処理の遅延結果を採用させないため世代を進める。
+      invalidateHouseholdRun();
+      detachFirestoreListeners();
+      // 招待送信中に全体上限へ達した場合、未確認状態は resolveHousehold が送信前に
+      // 永続保存済み。汎用エラーではなく「結果未確認」の画面を出す(次回は照合のみ)。
+      const pendingInvite = currentUser ? readPendingInvite(currentUser.uid) : null;
+      if(state.inviteUnconfirmed || pendingInvite){
+        state.householdStatus = 'invite-unconfirmed';
+        state.householdError = state.householdError
+          || '招待の受け付け結果を確認できませんでした。通信を確認して「状態を再確認」してください。';
+        setBootPhase('invite-unconfirmed', state.householdError);
+        this.render();
+        return { status: 'invite-unconfirmed' };
+      }
+      setBootPhase('error', '通信に時間がかかっています。通信状態を確認して「再試行」してください。');
+      this.render();
+      return { status: 'timeout' };
+    }
+    if(!initialLoaded || state.householdStatus === 'unavailable' || state.householdStatus === 'revoked'){
+      detachFirestoreListeners();
+      setBootPhase('error', state.householdError || '共有情報の読み込みに失敗しました。通信を確認して再試行してください。');
+      this.render();
+      return { status: 'error', householdStatus: state.householdStatus };
+    }
+
+    // 共有先と初回データの受信が揃った時点で通常画面を開く。
+    setBootPhase('ready');
+    this.start();
+    this.handleCheckoutRedirect();
+    // 招待が「確定した業務エラー」で終わっていた場合は、通常画面へ戻した上で呼び出し側へ知らせる。
+    if(state.inviteBusinessError){
+      const message = state.inviteBusinessError;
+      state.inviteBusinessError = null;
+      return { status: 'invite-business-error', message };
+    }
+    return { status: 'ok' };
+  },
+
+  // 未確認画面からの明示的な再送。重複処理の可能性を説明し、利用者が選んだときだけ再送する。
+  // 保存済みの未確認状態を先に消して空白期間を作らない。再送準備(これから送る内容での
+  // 上書き保存＝resendInviteRequest)を済ませてからリクエストを発行する。
+  async resendUnconfirmedInvite(){
+    const info = state.inviteUnconfirmed || (currentUser ? readPendingInvite(currentUser.uid) : null);
+    if(!info || !info.kind) return;
+    if(!confirm('この招待は既に受け付けられている可能性があります。もう一度参加を試みると、重複して処理される場合があります。実行しますか?')) return;
+    const payload = info.kind === 'uid'
+      ? { kind: 'uid', ownerUid: info.ownerUid }
+      : { kind: 'code', code: info.code };
+    if(!payload.code && !payload.ownerUid){
+      alert('再送に必要な情報が残っていません。招待リンクを開き直してください。');
+      return;
+    }
+    // 消す前に、これから送る内容で未確認状態を上書き保存する(空白期間を作らない)。
+    if(currentUser && !writePendingInvite(currentUser.uid, payload)){
+      alert('この端末に処理状態を保存できないため、再送できません。ブラウザの設定をご確認ください。');
+      return;
+    }
+    if(payload.kind === 'code') attemptedInviteKeys.delete('familyInvite:' + payload.code);
+    else attemptedInviteKeys.delete('invite:' + payload.ownerUid);
+    // pendingInvite があっても、この1回だけ resolveHousehold に送信を許可する。
+    resendInviteRequest = payload;
+    return this.bootWithHousehold();
   },
 
   openFamilyModal(){
@@ -2142,6 +3077,7 @@ const App = {
     return '招待処理に失敗しました。通信を確認して再試行してください。';
   },
   async createFamilyInviteCode(){
+    if(!isAppReady()) return;
     const button = document.getElementById('familyCreateCodeButton');
     const errorEl = document.getElementById('familyError');
     errorEl.textContent = '';
@@ -2169,31 +3105,42 @@ const App = {
     }
   },
   async acceptFamilyInviteCode(){
+    // 準備未完了(起動中・エラー画面・未確認)では受け付けない。
+    if(!isAppReady()) return;
     const input = document.getElementById('familyJoinCode');
     const button = document.getElementById('familyJoinButton');
     const errorEl = document.getElementById('familyJoinError');
     const code = input.value.trim();
     errorEl.textContent = '';
+    if(!code){ errorEl.textContent = '招待コードを入力してください。'; return; }
     button.disabled = true;
     button.textContent = '参加中...';
-    try{
-      const acceptInvite = functions.httpsCallable('acceptFamilyInviteCode');
-      await acceptInvite({ code });
-      this.closeFamilyModal();
-      detachFirestoreListeners();
-      await this.resolveHousehold();
-      attachFirestoreListeners();
-      this.render();
-      alert('もふもふカルテのメンバーに参加しました。');
-    } catch(err){
-      console.error('acceptFamilyInviteCode failed', err);
-      errorEl.textContent = this.familyInviteErrorMessage(err);
-    } finally {
-      button.disabled = false;
-      button.textContent = '参加する';
+    const startUid = currentUser.uid;
+
+    // URL招待と同じ共通経路で処理する。コードは pendingInAppInviteCode で resolveHousehold へ渡す。
+    // 世代確認のない購読開始・描画・成功表示はしない(すべて bootWithHousehold / resolveHousehold 側)。
+    pendingInAppInviteCode = code;
+    const result = await this.bootWithHousehold();
+
+    // ログアウト・A→B切替(同UIDの新しい処理含む)に追い越されていたら、旧処理のUI更新
+    // (ボタン復帰・エラー表示)も新画面へ反映しない。世代も一致を確認する。
+    if(!currentUser || currentUser.uid !== startUid) return;
+    if(!result || result.status === 'aborted') return;
+
+    button.disabled = false;
+    button.textContent = '参加する';
+
+    if(result.status === 'invite-business-error'){
+      // 参加は成立しなかった(コード誤り・使用済み・枠上限など)。通常画面のままモーダルに表示。
+      errorEl.textContent = result.message || 'この招待コードは使用できません。';
+      return;
     }
+    // ok        → resolveHousehold が参加案内を alert 済み。モーダルを閉じる。
+    // invite-unconfirmed / timeout / error → bootWithHousehold がオーバーレイを表示済み。
+    this.closeFamilyModal();
   },
   async removeFamilyEmail(email){
+    if(!isAppReady()) return;
     if(!confirm(`${displayText(email)}との共有を解除しますか？解除すると、この記録を閲覧・編集できなくなります。`)) return;
     try{
       // オーナーの権限一覧と参加者側のlinkedOwnerUid/knownHouseholdUidを
@@ -2262,18 +3209,17 @@ const App = {
     colRef('pets').doc(petId).update({ trackCibdai: !pet.trackCibdai });
   },
 
-  // 記録・イベント・ごはんの登録・投薬・予防はpetsのサブコレクションではなく、
-  // petIdを持つトップレベルコレクションとして保存されている(colRef参照)ため、
-  // ペット削除時はそれぞれをwhere('petId','==',petId)で検索してから個別に削除し、
-  // 最後にpets文書を消す。受診記録は独立コレクションを廃止しeventsのtype:'visit'へ
-  // 一本化したので、eventsの削除に含まれる。
+  // 記録・投薬・予防はpetsのサブコレクションではなく、petIdを持つ
+  // トップレベルコレクションとして保存されている(colRef参照)ため、ペット削除時は
+  // それぞれをwhere('petId','==',petId)で検索してから個別に削除する必要がある。
   // 写真はFirebase Storageではなく圧縮したdata URLとしてFirestore文書に直接
   // 埋め込まれているため、これらの文書を消せば写真データも一緒に消える。
   async deletePet(petId){
+    if(!isAppReady()) return;
     if(state.linkedOwnerUid){ alert('共有された記録は削除できません。'); return; }
     const pet = state.pets.find(p => p.id === petId);
     if(!pet) return;
-    if(!confirm(`「${pet.name}」を削除しますか?\n体重・症状などの記録、投薬、予防接種、受診歴もすべて削除され、元に戻せません。`)) return;
+    if(!confirm(`「${pet.name}」を削除しますか?\n体重・症状などの記録、投薬、予防接種もすべて削除され、元に戻せません。`)) return;
     const typed = prompt(`本当に削除する場合は、確認のためペットの名前「${pet.name}」を入力してください。`);
     if(typed === null) return;
     if(typed !== pet.name){ alert('入力がペットの名前と一致しなかったため、削除を中止しました。'); return; }
@@ -2467,6 +3413,7 @@ const App = {
   },
   submitDiet(e){
     e.preventDefault();
+    if(!isAppReady()) return;
     const pet = currentPet();
     if(!pet) return;
     colRef('pets').doc(pet.id).update({
@@ -2514,7 +3461,38 @@ const App = {
       </div>
     `).join('');
   },
+  async contactSupport(){
+    if(!isNativeApp()){ window.location.href = 'mailto:contact@pet-health-log.com'; return; }
+    try { await window.NativeBridge.device.contact(); }
+    catch(_err){ alert('メールアプリを開けません。contact@pet-health-log.com へお問い合わせください。'); }
+  },
   async enableNotifications(){
+    const notificationUid = currentUser?.uid;
+    if(isNativeApp()){
+      // アプリ版もWebと同じFCM経路(functions/sendMedicationReminders →
+      // users/{uid}.fcmTokens)を使う。許可取得とトークン登録はNativeBridge側。
+      const notifications = window.NativeBridge && window.NativeBridge.notifications;
+      if(!notifications || typeof notifications.enable !== 'function'){
+        alert('このアプリでは通知を利用できません。');
+        return;
+      }
+      let result;
+      try{ result = await notifications.enable(); }
+      catch(_err){ result = 'error'; }
+      if(currentUser?.uid !== notificationUid) return;
+      if(result === 'granted'){
+        alert('投薬リマインダー通知を有効にしました。');
+        this.render();
+      } else if(result === 'denied'){
+        alert('通知が許可されませんでした。端末の「設定」から「もふもふカルテ」の通知を許可してください。');
+      } else if(result === 'unsupported'){
+        alert('この端末は通知に対応していません。');
+      } else {
+        alert('通知の設定に失敗しました。時間をおいて再度お試しください。');
+        this.render();
+      }
+      return;
+    }
     if(needsIosHomeScreenForPush()){
       alert('iPhoneでは、Safariの共有ボタンから「ホーム画面に追加」し、そのアイコンから開いた状態でないと通知を有効にできません。');
       return;
@@ -2567,7 +3545,23 @@ const App = {
     }
   },
 
+  async disableNotifications(){
+    if(!isNativeApp()) return;
+    const uid = currentUser?.uid;
+    try{
+      await window.NativeBridge.notifications.turnOff();
+      if(currentUser?.uid !== uid) return;
+      alert('この端末で、このアカウントの通知を無効にしました。');
+    } catch(err){
+      if(currentUser?.uid !== uid) return;
+      alert('通知の解除が完了していません。通信状態を確認し、「通知の解除を再試行」を押してください。');
+    }
+    this.render();
+  },
+
   async purchase(item){
+    if(!isAppReady()) return;
+    if(isNativeApp()){ alert('アプリ版の購入は準備中です。'); return; }
     const btn = document.querySelector(`#upgradeItemList [data-upgrade-item="${item}"]`);
     const errorEl = document.getElementById('upgradeError');
     errorEl.textContent = '';
@@ -2578,7 +3572,7 @@ const App = {
       if(result?.data?.updated){
         alert(result.data.pending
           ? '追加席のお支払い確認中です。支払い完了後に席数へ反映されます。'
-          : '家族共有の追加席を購入しました。');
+          : '記録共有の追加席を購入しました。');
         this.closeUpgradeModal();
         return;
       }
@@ -2593,6 +3587,7 @@ const App = {
   },
   async submitPet(e){
     e.preventDefault();
+    if(!isAppReady()) return;
     const btn = document.querySelector('#petForm button[type="submit"]');
     const editId = document.getElementById('petEditId').value;
     const id = editId || uid();
@@ -2711,6 +3706,7 @@ const App = {
   },
   submitRecord(e){
     e.preventDefault();
+    if(!isAppReady()) return;
     if(!state.currentPetId){ alert('先にペットを登録してください'); return; }
     const id = document.getElementById('recordId').value;
     const symptoms = Array.from(document.querySelectorAll('#rSymptoms input:checked')).map(cb => cb.value);
@@ -2750,6 +3746,7 @@ const App = {
     this.closeRecordModal();
   },
   deleteRecord(id){
+    if(!isAppReady()) return;
     if(state.linkedOwnerUid){ alert('共有された記録は削除できません。'); return; }
     if(!confirm('この記録を削除しますか?')) return;
     colRef('records').doc(id).delete();
@@ -2839,6 +3836,8 @@ const App = {
     document.getElementById('medPhotoPreviewWrap').classList.add('hidden');
 
     const subscribed = !!(state.entitlements && state.entitlements.subscriptionActive);
+    // 通知時刻の編集UIは加入者に表示し、未加入には購入誘導を出す(Web/アプリ共通)。
+    // アプリ版もWebと同じFCM経路で通知するようになったため出し分けはしない。
     document.getElementById('medReminderField').classList.toggle('hidden', !subscribed);
     document.getElementById('medReminderUpsell').classList.toggle('hidden', subscribed);
     state.reminderTimesDraft = [];
@@ -2874,7 +3873,32 @@ const App = {
     }
     this.renderReminderTimeList();
     this.renderScheduledTimeList();
+    this.applyHintVisibility();
     document.getElementById('medModalBackdrop').classList.remove('hidden');
+  },
+  // 個別に閉じられる説明文の表示/非表示を、保存済みの集合に合わせて反映する。
+  // その画面に無い説明はスキップ。親欄(#medReminderField等)の表示条件は触らない。
+  applyHintVisibility(){
+    for(const id of DISMISSIBLE_HINT_IDS){
+      const box = document.getElementById(id);
+      const restore = document.getElementById(id + '-restore');
+      if(!box || !restore) continue;
+      const dismissed = loadDismissedHints().has(id);
+      box.classList.toggle('hidden', dismissed);
+      restore.classList.toggle('hidden', !dismissed);
+    }
+  },
+  dismissHint(id){
+    if(!DISMISSIBLE_HINT_IDS.includes(id)) return;
+    loadDismissedHints().add(id);
+    persistDismissedHints();
+    this.applyHintVisibility();
+  },
+  showHint(id){
+    if(!DISMISSIBLE_HINT_IDS.includes(id)) return;
+    loadDismissedHints().delete(id);
+    persistDismissedHints();
+    this.applyHintVisibility();
   },
   closeMedModal(){
     this.restoreQuickDockAfterInput();
@@ -2883,8 +3907,13 @@ const App = {
   },
   addReminderTime(){
     const input = document.getElementById('medReminderTimeInput');
-    const t = input.value; // <input type="time" step="300">はHH:MM(5分刻み)を保証する
+    const t = input.value;
     if(!t) return;
+    // Nativeの時刻ピッカーではstepだけで5分刻みを保証できない。
+    if(!isValidReminderTime(t)){
+      alert('通知時刻は5分刻み（例：12:40、12:45）で指定してください。');
+      return;
+    }
     if(!state.reminderTimesDraft.includes(t)){
       state.reminderTimesDraft.push(t);
       state.reminderTimesDraft.sort();
@@ -2954,16 +3983,24 @@ const App = {
   },
   submitMed(e){
     e.preventDefault();
+    if(!isAppReady()) return;
     if(!state.currentPetId){ alert('先にペットを登録してください'); return; }
 
     const subscribed = !!(state.entitlements && state.entitlements.subscriptionActive);
     const id = document.getElementById('medId').value;
+    if(subscribed && state.reminderTimesDraft.some(t => !isValidReminderTime(t))){
+      alert('通知時刻に5分刻み以外の時刻が含まれています。削除して、5分刻みの時刻を追加してください。');
+      return;
+    }
     // submitMed()はset()でドキュメント全体を上書きするため、休薬中フラグを
     // 引き継がないと編集のたびに休薬が解除されてしまう。既存値を明示的に引き継ぐ。
     const existing = id ? petMedications().find(m => m.id === id) : null;
-    const reminderTimes = subscribed
-      ? [...state.reminderTimesDraft]
-      : [...safeArray(existing?.reminderTimes)];
+    // 未加入で編集UIが購入誘導のときはdraftではなく既存値を保持する(解約後に
+    // 設定済みのreminderTimesを消さない)。判定はresolveMedReminderTimes()に集約し、
+    // テストから直接検証できるようにしている。
+    const reminderTimes = resolveMedReminderTimes({
+      subscribed, draft: state.reminderTimesDraft, existing,
+    });
     // 投薬予定の時刻は無料機能。全ユーザーが編集できる。通知用reminderTimesとは別管理で、
     // 既存reminderTimesの移行・書き換えは行わない。
     const scheduledTimes = [...state.scheduledTimesDraft];
@@ -2987,6 +4024,7 @@ const App = {
     this.closeMedModal();
   },
   deleteMed(id){
+    if(!isAppReady()) return;
     if(state.linkedOwnerUid){ alert('共有された設定は削除できません。'); return; }
     if(!confirm('この薬の記録を削除しますか?')) return;
     colRef('medications').doc(id).delete();
@@ -3038,6 +4076,7 @@ const App = {
   },
   submitPrev(e){
     e.preventDefault();
+    if(!isAppReady()) return;
     if(!state.currentPetId){ alert('先にペットを登録してください'); return; }
     const id = document.getElementById('prevId').value;
     const data = {
@@ -3054,10 +4093,14 @@ const App = {
     this.closePrevModal();
   },
   deletePrev(id){
+    if(!isAppReady()) return;
     if(state.linkedOwnerUid){ alert('共有された記録は削除できません。'); return; }
     if(!confirm('この記録を削除しますか?')) return;
     colRef('preventions').doc(id).delete();
   },
+
+  // 旧「受診歴」タブ(visitsコレクション)は廃止。受診の記録は「本日の記録」の「病院」
+  // (type:'visit'イベント)に一本化し、コード側にvisitsコレクションの参照は持たない。
 
   switchTab(tab){
     state.activeTab = tab;
@@ -3105,7 +4148,7 @@ const App = {
       const mode = state.entitlements?.familyWritesSuspended ? '共有された記録を閲覧中（編集は一時停止中）' : '共有された記録を閲覧・編集中';
       addBanner(`${prefix}${mode}`, '自分のデータに戻る', () => App.leaveHousehold(), 'family');
     } else if(state.knownHouseholdUid){
-      addBanner('家族共有に参加しています', '共有データを見る', () => App.rejoinHousehold(), 'family');
+      addBanner('記録共有に参加しています', '共有データを見る', () => App.rejoinHousehold(), 'family');
     } else {
       banner.classList.add('hidden');
     }
@@ -3123,13 +4166,13 @@ const App = {
       banner.textContent = `⚠️ お支払いを確認できません。支払い方法をご確認ください${suffix}`;
       banner.classList.remove('hidden');
     } else if(['unpaid','paused','grace_expired'].includes(ent.supportPlanStatus)){
-      banner.textContent = '⚠️ 治療サポートプランの有料機能を一時停止しています。基本記録と通常のPDF出力は引き続き利用できます。';
+      banner.textContent = `⚠️ ${planLabel()}の有料機能を一時停止しています。基本記録と通常のPDF出力は引き続き利用できます。`;
       banner.classList.remove('hidden');
     } else if(['unpaid','paused','grace_expired'].includes(ent.familySeatStatus)){
-      banner.textContent = '⚠️ 家族共有の追加席のお支払いに問題があり、一時停止しています。支払い方法をご確認ください。';
+      banner.textContent = '⚠️ 記録共有の追加席のお支払いに問題があり、一時停止しています。支払い方法をご確認ください。';
       banner.classList.remove('hidden');
     } else if(ent.familySeatSelectionRequired){
-      banner.textContent = '⚠️ 家族共有の有効メンバーを選択してください。閲覧はできますが、選択完了まで家族からの編集を停止しています。';
+      banner.textContent = '⚠️ 記録共有の有効メンバーを選択してください。閲覧はできますが、選択完了まで共有相手からの編集を停止しています。';
       banner.classList.remove('hidden');
     }
   },
@@ -3139,7 +4182,7 @@ const App = {
   renderHomeScreenBanner(){
     const banner = document.getElementById('homeScreenBanner');
     const dismissed = localStorage.getItem('homeScreenBannerDismissed') === '1';
-    if(!dismissed && needsIosHomeScreenForPush()){
+    if(!isNativeApp() && !dismissed && needsIosHomeScreenForPush()){
       banner.classList.remove('hidden');
       banner.innerHTML = `<span>🏠 ホーム画面に追加すると、次回からアプリのように素早く開けます。<a href="guide.html" target="_blank">追加方法を見る →</a></span><button onclick="App.dismissHomeScreenBanner()">✕</button>`;
     } else {
@@ -3169,6 +4212,7 @@ const App = {
     }
   },
   async requestAccountDeletion(){
+    if(!isAppReady()) return;
     if(!confirm('アカウントを削除しますか?\nペット・記録・写真などすべてのデータが対象になります。\n(申請後、削除処理が始まるまではいつでも取り消せます)')) return;
     const typed = prompt(`本当に削除を申請する場合は、確認のためログイン中のメールアドレス「${currentUser.email}」を入力してください。`);
     if(typed === null) return;
@@ -3191,6 +4235,7 @@ const App = {
     }
   },
   async cancelAccountDeletion(){
+    if(!isAppReady()) return;
     if(!confirm('アカウント削除の申請を取り消しますか?')) return;
     try{
       const cancelAccountDeletion = functions.httpsCallable('cancelAccountDeletion');
@@ -3240,19 +4285,18 @@ const App = {
     if(state.activeTab === 'export') return this.renderExportTab();
   },
 
-  // 週次の体調傾向分析(「今週のようす」)。有料プラン限定。
-  // 集計対象は当面、従来の日次記録(records)のみ。eventsをこの分析へ含めるのは別フェーズ。
+  // 週次の体調傾向分析(「今週のようす」)。グラフ上部へ常設する有料プラン機能。
   weeklyTrendCardHtml(){
     const subscribed = !!(state.entitlements && state.entitlements.subscriptionActive);
     if(!subscribed) return `
-      <p class="muted" style="font-size:12px;margin:0 0 12px;">週次の体調傾向分析(今週のようす)は治療サポートプランで利用できます。 <button type="button" class="ghost" style="padding:1px 6px;font-size:11px;" onclick="App.openUpgradeModal();">アップグレードを見る</button></p>
+      <p class="weekly-trend-upsell">「今週のようす」は${planLabel()}で表示されます。 <button type="button" onclick="App.openUpgradeModal();">プランを見る</button></p>
     `;
-    const weeklySummary = analyzeWeeklySummary(petRecords());
+    const weeklySummary = analyzeWeeklySummary(petRecords(), petEvents());
     if(!weeklySummary) return '';
     return `
-      <div class="card" style="border:1px solid ${weeklySummary.level === 'concern' ? 'var(--danger)' : 'var(--border)'};">
-        <h3 style="margin:0 0 8px;">${weeklySummary.level === 'concern' ? '⚠️ ' : ''}今週のようす</h3>
-        <p style="margin:0;">${escapeHtml(weeklySummary.text)}</p>
+      <div class="card weekly-trend-card${weeklySummary.level === 'concern' ? ' is-concern' : ''}">
+        <h3>${weeklySummary.level === 'concern' ? '⚠️ ' : ''}今週のようす</h3>
+        <p>${escapeHtml(weeklySummary.text)}</p>
         <p class="hint" style="margin-top:8px;">※診断ではなく、記録の変化をお知らせする目安です。気になる場合は獣医師にご相談ください。</p>
       </div>
     `;
@@ -3280,7 +4324,7 @@ const App = {
       return `<button type="button" class="event-row" ${actionAttrs('openEventDetail', event.id)}><span class="event-time">${escapeHtml(event.time || '--:--')}</span><span class="event-icon">${info.icon}</span><span class="event-main"><span class="event-title">${escapeHtml(info.label)}</span>${eventSummary(event) ? `<span class="event-summary">${escapeHtml(eventSummary(event))}</span>` : ''}</span>${profileIcon(event.authorIconId,'profile-avatar--small')}<span class="event-chevron">›</span></button>`;
     }).join('') || '<div class="empty">この日の記録はまだありません。下のボタンから記録できます。</div>';
     const buttons = Object.entries(EVENT_TYPES).map(([type, info]) => `<button type="button" class="quick-event-button" onclick="App.openEventModal('${type}')"><span>${info.icon}</span>${escapeHtml(info.label)}</button>`).join('');
-    main.innerHTML = `<div class="daily-screen">${this.weeklyTrendCardHtml()}<div class="card">`
+    main.innerHTML = `<div class="daily-screen"><div class="card">`
       + `<div class="daily-record-header">`
       +   `<button class="secondary date-step" type="button" onclick="App.changeRecordDate(-1)" aria-label="前の日">‹</button>`
       +   `<span class="daily-record-date-wrap"><span class="daily-record-date">${escapeHtml(dateLabel)}</span>`
@@ -3317,6 +4361,9 @@ const App = {
     const amount = options(['normal','more','less'].map(v => `<option value="${v}" ${selected(v,details.amount)}>${({normal:'ふつう',more:'多い',less:'少ない'})[v]}</option>`).join(''), 'amount', '量');
     const rollerOptions = (max, step, value, unit) => Array.from({length: max / step + 1}, (_, i) => i * step).map(v => `<option value="${v}" ${selected(v,value)}>${v}${unit}</option>`).join('');
     const duration = `<div class="field"><label>時間</label><select data-event-field="durationMinutes">${rollerOptions(360,5,details.durationMinutes,'分')}</select></div>`;
+    // くすり・病院の記録中に、ワクチン等の「予防」を登録したくなったときの近道。
+    // メニューの「予防」と同じ入力画面へ遷移する（入力中の内容は保存されない）。
+    const prevShortcut = `<div class="field"><button type="button" class="secondary" onclick="App.goToPreventionFromEvent()">予防を登録</button><p class="option-hint">ワクチン・フィラリア・ノミダニなどの予防はこちら。入力中の内容は保存されません。</p></div>`;
     if(type === 'urine') return `${amount}${options(['normal','pale','dark'].map(v => `<option value="${v}" ${selected(v,details.color)}>${({normal:'ふつう',pale:'薄い',dark:'濃い'})[v]}</option>`).join(''), 'color', '色')}`;
     if(type === 'stool') return `<div class="field"><label>糞便スコア <button type="button" class="ghost" onclick="App.openFecalGuide()">見本を見る</button></label><select data-event-field="score">${FECAL_SCALE.map(f => `<option value="${f.v}" ${selected(f.v,details.score)}>${escapeHtml(f.title)}</option>`).join('')}</select></div>${amount}`;
     if(type === 'walk') return `${duration}<div class="field"><label>距離</label><select data-event-field="distanceMeters">${rollerOptions(20000,100,details.distanceMeters,'m')}</select></div>`;
@@ -3330,7 +4377,7 @@ const App = {
     if(type === 'water') return amount;
     if(type === 'medication'){
       const checked = new Set(safeArray(details.medicationIds).length ? details.medicationIds : (details.medicationId ? [details.medicationId] : []));
-      return `<div class="field"><label>投薬したお薬</label><div class="checks">${petMedications().length ? petMedications().map(m => `<label class="dose-check"><input type="checkbox" data-medication-id="${escapeHtml(m.id)}" data-medication-label="${escapeHtml(medLabel(m))}" ${checked.has(m.id) ? 'checked' : ''}> ${escapeHtml(medLabel(m))}</label>`).join('') : '<p class="hint">お薬の設定がありません。メニューから登録してください。</p>'}</div></div>`;
+      return `<div class="field"><label>投薬したお薬</label><div class="checks">${petMedications().length ? petMedications().map(m => `<label class="dose-check"><input type="checkbox" data-medication-id="${escapeHtml(m.id)}" data-medication-label="${escapeHtml(medLabel(m))}" ${checked.has(m.id) ? 'checked' : ''}> ${escapeHtml(medLabel(m))}</label>`).join('') : '<p class="hint">お薬の設定がありません。メニューから登録してください。</p>'}</div></div>${prevShortcut}`;
     }
     if(type === 'weight') return `<div class="field"><label>体重</label><select data-event-field="kilograms" required>${Array.from({length:1001},(_,i)=>i/10).map(v => `<option value="${v}" ${selected(v,details.kilograms)}>${v.toFixed(1)}kg</option>`).join('')}</select></div>`;
     if(type === 'temperature'){
@@ -3338,7 +4385,15 @@ const App = {
       return `<div class="field"><label>体温</label><select data-event-field="celsius" required>${Array.from({length:151},(_,i)=>30+i/10).map(v => `<option value="${v.toFixed(1)}" ${selected(v.toFixed(1),currentTemperature)}>${v.toFixed(1)}℃</option>`).join('')}</select></div>`;
     }
     if(type === 'symptom') { const checked = new Set(safeArray(details.symptoms)); return `<div class="field"><label>気になる症状（複数選択可）</label><div class="checks">${SYMPTOM_OPTIONS.map(s => `<label class="dose-check"><input type="checkbox" data-symptom="${escapeHtml(s)}" ${checked.has(s) ? 'checked' : ''}> ${escapeHtml(s)}</label>`).join('')}</div></div>`; }
-    if(type === 'visit') return ['clinic|病院名','reason|相談内容','diagnosis|診断名','treatment|治療内容'].map(pair => { const [key,label] = pair.split('|'); return `<div class="field"><label>${label}</label><input data-event-field="${key}" value="${escapeHtml(details[key] || '')}"></div>`; }).join('') + `<div class="field"><label>次回の予定</label><input data-event-field="followUpDate" type="date" value="${escapeHtml(details.followUpDate || '')}"></div>`;
+    if(type === 'visit'){
+      const visitField = (key, label) => `<div class="field"><label>${label}</label><input data-event-field="${key}" value="${escapeHtml(details[key] || '')}"></div>`;
+      return visitField('clinic', '病院名')
+        + visitField('reason', '相談内容')
+        + prevShortcut
+        + visitField('diagnosis', '診断名')
+        + visitField('treatment', '治療内容')
+        + `<div class="field"><label>次回の予定</label><input data-event-field="followUpDate" type="date" value="${escapeHtml(details.followUpDate || '')}"></div>`;
+    }
     if(type === 'memo') return `<div class="field"><label>メモ</label><textarea data-event-field="text" rows="4" required>${escapeHtml(details.text || '')}</textarea></div>`;
     return '';
   },
@@ -3379,6 +4434,9 @@ const App = {
     document.getElementById('eventModalBackdrop').classList.remove('hidden');
   },
   closeEventModal(){ this.restoreQuickDockAfterInput(); document.getElementById('eventModalBackdrop').classList.add('hidden'); document.getElementById('eventForm').dataset.scheduledTime = ''; state.editingEventId = null; state.scheduledContext = null; },
+  // 「くすり」「病院」の記録中に置いた「予防を登録」ボタンから、メニューの「予防」と
+  // 同じ入力画面へ移動する。入力中のイベントは保存されない。
+  goToPreventionFromEvent(){ this.closeEventModal(); this.switchTab('prev'); this.openPrevModal(); },
   readEventDetails(type){
     const root = document.getElementById('eventFormFields'); const details = {};
     root.querySelectorAll('[data-event-field]').forEach(input => { details[input.dataset.eventField] = coerceEventFieldValue(input.dataset.eventField, input.value); });
@@ -3401,7 +4459,7 @@ const App = {
     return details;
   },
   submitEvent(e){
-    e.preventDefault(); if(!state.currentPetId) return;
+    e.preventDefault(); if(!isAppReady()) return; if(!state.currentPetId) return;
     const id = document.getElementById('eventId').value || uid(); const type = document.getElementById('eventType').value;
     const date = document.getElementById('eventDate').value; const time = document.getElementById('eventTime').value;
     if(!date || !time) return;
@@ -3449,9 +4507,10 @@ const App = {
     document.getElementById('eventDetailBackdrop').classList.remove('hidden');
   },
   closeEventDetail(){ document.getElementById('eventDetailBackdrop').classList.add('hidden'); },
-  deleteEvent(id){ if(state.linkedOwnerUid){ alert('共有された記録は削除できません。'); return; } if(!confirm('この記録を削除しますか？')) return; colRef('events').doc(id).delete(); this.closeEventDetail(); },
+  deleteEvent(id){ if(!isAppReady()) return; if(state.linkedOwnerUid){ alert('共有された記録は削除できません。'); return; } if(!confirm('この記録を削除しますか？')) return; colRef('events').doc(id).delete(); this.closeEventDetail(); },
   // 予定由来の完了を取り消す。完了イベントを削除すると、その予定行が本日の記録へ復帰する。
   async undoScheduledMedication(id){
+    if(!isAppReady()) return;
     if(!confirm('この投薬を未完了に戻しますか？予定として本日の記録に再表示されます。')) return;
     try{
       if(state.linkedOwnerUid){
@@ -3471,7 +4530,7 @@ const App = {
     const petItems = [[petTypeIcon('dog','') + petTypeIcon('cat',''),'新しい記録を登録する','家族の記録を追加',"App.openPetModal()"]];
     if(currentPet()) petItems.push(
       [petTypeIcon('paw',''),'選択中の記録を編集する','名前・種類・性別・敬称',"App.openPetEditModal()"],
-      [iconSvg('trash','ic--danger'),'選択中の記録を削除する','記録・投薬・予防・受診歴もすべて削除',"App.deletePet(state.currentPetId)"]
+      [iconSvg('trash','ic--danger'),'選択中の記録を削除する','記録・投薬・予防もすべて削除',"App.deletePet(state.currentPetId)"]
     );
     let petManagement = state.linkedOwnerUid ? '' : group('ペットの管理', petItems);
     const accountName = currentUser ? displayText(state.accountProfile?.profileDisplayName, currentUser.displayName || currentUser.email) : '';
@@ -3479,10 +4538,10 @@ const App = {
     petManagement += `<div class="menu-section">アカウント</div><button type="button" class="account-summary" onclick="App.openProfileModal()">${profileIcon(state.accountProfile?.profileIconId)}<span class="account-summary-copy"><strong>${escapeHtml(accountName)}</strong><span class="muted">タップして表示名・アイコン・ログイン情報を確認</span></span><span>›</span></button>`;
     const sharedNotice = state.linkedOwnerUid ? '<div class="notice">共有された記録を閲覧中は一部メニューが使用できません。</div>' : '';
     const recordTools = state.linkedOwnerUid ? '' : group('記録を活用', [[iconSvg('report'),'レポート出力','主治医への共有レポート・PDF',"App.switchTab('export')"]]);
-    const services = state.linkedOwnerUid ? '' : group('サービス', [[iconSvg('family'),'家族共有','家族や同居の方と記録を共有',"App.openFamilyModal()"],[iconSvg('upgrade'),'アップグレード','有料機能とお支払い',"App.openUpgradeModal()"]]);
-    const accountItems = [[iconSvg('privacy'),'プライバシーポリシー・利用規約','',"window.open('privacy.html','_blank','noopener')"],[iconSvg('logout'),'ログアウト','',"AppAuth.signOut()"]];
+    const services = state.linkedOwnerUid ? '' : group('サービス', [[iconSvg('family'),'記録共有','他のアカウントと記録を共有',"App.openFamilyModal()"],[iconSvg('upgrade'),'アップグレード','有料機能とお支払い',"App.openUpgradeModal()"]]);
+    const accountItems = [[iconSvg('privacy'),'プライバシーポリシー','',"App.openLocalPage('privacy.html')"],[iconSvg('privacy'),'利用規約','',"App.openLocalPage('terms.html')"],[iconSvg('logout'),'ログアウト','',"AppAuth.signOut()"]];
     if(!state.linkedOwnerUid) accountItems.push([iconSvg('account-delete','ic--danger'),'アカウントを削除する','',"App.requestAccountDeletion()"]);
-    document.getElementById('mainContent').innerHTML = `${sharedNotice}${petManagement}${group('記録の設定', [[iconSvg('meal-setup'),'ごはんの登録','食事候補の登録・編集・並び替え',"App.renderMealProfiles()"],[iconSvg('med-setup'),'くすりの登録','薬・用量・投薬予定・通知',"App.switchTab('meds')"]])}${group('健康管理', [[iconSvg('prevention'),'予防','ワクチン・ノミダニ・フィラリア',"App.switchTab('prev')"]])}${recordTools}${services}${group('サポート', [[iconSvg('guide'),'使い方ガイド','',"window.open('usage-guide.html','_blank','noopener')"],[iconSvg('contact'),'お問い合わせ','',"window.location.href='mailto:contact@pet-health-log.com'"]])}${group('プライバシーとアカウント', accountItems)}`;
+    document.getElementById('mainContent').innerHTML = `${sharedNotice}${petManagement}${group('記録の設定', [[iconSvg('meal-setup'),'ごはんの登録','食事候補の登録・編集・並び替え',"App.renderMealProfiles()"],[iconSvg('med-setup'),'くすりの登録','薬・用量・投薬予定・通知',"App.switchTab('meds')"]])}${group('健康管理', [[iconSvg('prevention'),'予防','ワクチン・ノミダニ・フィラリア',"App.switchTab('prev')"]])}${recordTools}${services}${group('サポート', [[iconSvg('guide'),'使い方ガイド','',"App.openLocalPage('usage-guide.html')"],[iconSvg('contact'),'お問い合わせ','',"App.contactSupport()"]])}${group('プライバシーとアカウント', accountItems)}`;
   },
   openProfileModal(){
     const profile = state.accountProfile || {};
@@ -3490,15 +4549,17 @@ const App = {
     document.getElementById('profileAuthName').textContent = currentUser.displayName ? `Googleアカウント名: ${currentUser.displayName}` : 'Googleアカウント名: 未設定';
     document.getElementById('profileAuthEmail').textContent = `メールアドレス: ${currentUser.email || '未取得'}`;
     const selected = profile.profileIconId || '';
-    document.getElementById('profileIconChoices').innerHTML = PROFILE_ICONS.map(([id,label]) => `<button type="button" class="avatar-choice ${id === selected ? 'selected' : ''}" data-profile-icon="${id}" onclick="App.selectProfileIcon('${id}')">${profileIcon(id)}<span>${escapeHtml(label)}</span></button>`).join('');
+    document.getElementById('profileIconChoices').innerHTML = PROFILE_ICONS.map(([id,label]) => `<button type="button" class="avatar-choice ${id === selected ? 'selected' : ''}" data-profile-icon="${id}" aria-label="${escapeHtml(label)}" title="${escapeHtml(label)}" onclick="App.selectProfileIcon('${id}')">${profileIcon(id)}</button>`).join('');
     document.getElementById('profileModalBackdrop').classList.remove('hidden');
   },
   selectProfileIcon(id){
     document.querySelectorAll('[data-profile-icon]').forEach(button => button.classList.toggle('selected', button.dataset.profileIcon === id));
   },
+  openLocalPage(path){ openLocalPage(path); },
   closeProfileModal(){ document.getElementById('profileModalBackdrop').classList.add('hidden'); },
   async submitProfile(e){
     e.preventDefault();
+    if(!isAppReady()) return;
     const name = document.getElementById('profileDisplayName').value.trim();
     const selected = document.querySelector('[data-profile-icon].selected');
     if(!name){ alert('アカウント名を入力してください。'); return; }
@@ -3510,11 +4571,12 @@ const App = {
   },
   renderMealProfiles(){
     const profiles = petMealProfiles();
-    document.getElementById('mainContent').innerHTML = `<div class="card"><div class="row" style="justify-content:space-between;"><h3 style="margin:0;">ごはんの設定</h3><button type="button" onclick="App.addMealProfile()">+ 追加</button></div><p class="hint">朝・昼・夜に限らず、普段食べるごはんを候補として登録できます。記録時に複数選択できます。</p>${profiles.length ? profiles.map(profile => `<div class="med-card"><strong>${escapeHtml(profile.label || '名称未設定')}</strong>${profile.description ? `<div class="muted">${escapeHtml(profile.description)}</div>` : ''}${profile.suggestedTime ? `<div class="hint">目安時刻 ${escapeHtml(profile.suggestedTime)}</div>` : ''}<div class="row" style="justify-content:flex-end;"><button class="secondary" ${actionAttrs('editMealProfile', profile.id)}>編集</button>${state.linkedOwnerUid ? '' : `<button class="danger" ${actionAttrs('deleteMealProfile', profile.id)}>削除</button>`}</div></div>`).join('') : '<div class="empty">まだ食事候補がありません</div>'}<div class="row" style="justify-content:flex-end;margin-top:10px;"><button class="ghost" onclick="App.switchTab(\'menu\')">メニューへ戻る</button></div></div>`;
+    document.getElementById('mainContent').innerHTML = `<div class="card"><div class="row" style="justify-content:space-between;"><h3 style="margin:0;">ごはんの設定</h3><button type="button" onclick="App.addMealProfile()">+ 追加</button></div><p class="hint dismissible-hint" id="mealHintIntro"><button type="button" class="hint-dismiss" aria-label="この説明を閉じる" onclick="App.dismissHint('mealHintIntro')">×</button>朝・昼・夜に限らず、普段食べるごはんを候補として登録できます。記録時に複数選択できます。</p><button type="button" class="hint-restore hidden" id="mealHintIntro-restore" onclick="App.showHint('mealHintIntro')">説明を表示</button>${profiles.length ? profiles.map(profile => `<div class="med-card"><strong>${escapeHtml(profile.label || '名称未設定')}</strong>${profile.description ? `<div class="muted">${escapeHtml(profile.description)}</div>` : ''}${profile.suggestedTime ? `<div class="hint">目安時刻 ${escapeHtml(profile.suggestedTime)}</div>` : ''}<div class="row" style="justify-content:flex-end;"><button class="secondary" ${actionAttrs('editMealProfile', profile.id)}>編集</button>${state.linkedOwnerUid ? '' : `<button class="danger" ${actionAttrs('deleteMealProfile', profile.id)}>削除</button>`}</div></div>`).join('') : '<div class="empty">まだ食事候補がありません</div>'}<div class="row" style="justify-content:flex-end;margin-top:10px;"><button class="ghost" onclick="App.switchTab(\'menu\')">メニューへ戻る</button></div></div>`;
+    this.applyHintVisibility();
   },
   addMealProfile(){ this.editMealProfile(); },
   editMealProfile(id){ const item = id ? state.mealProfiles.find(profile => profile.id === id) : null; const label = prompt('食事候補の名前を入力してください', item?.label || ''); if(label === null) return; if(!label.trim()){ alert('名前を入力してください。'); return; } const description = prompt('内容（任意）', item?.description || ''); if(description === null) return; const suggestedTime = prompt('目安時刻（任意、例: 07:00）', item?.suggestedTime || ''); if(suggestedTime === null) return; const docId = id || uid(); colRef('mealProfiles').doc(docId).set({petId:state.currentPetId,label:label.trim(),description:description.trim(),suggestedTime:suggestedTime.trim(),sortOrder:item?.sortOrder || state.mealProfiles.length,active:true,updatedAt:firebase.firestore.FieldValue.serverTimestamp(),...(item ? {} : {createdAt:firebase.firestore.FieldValue.serverTimestamp()})},{merge:true}); },
-  deleteMealProfile(id){ if(state.linkedOwnerUid){ alert('共有された設定は削除できません。'); return; } if(!confirm('この食事候補を削除しますか？過去の記録は変更されません。')) return; colRef('mealProfiles').doc(id).delete(); },
+  deleteMealProfile(id){ if(!isAppReady()) return; if(state.linkedOwnerUid){ alert('共有された設定は削除できません。'); return; } if(!confirm('この食事候補を削除しますか？過去の記録は変更されません。')) return; colRef('mealProfiles').doc(id).delete(); },
 
   // モバイル向けの折りたたみ記録カード。ホーム(概要のみ)と記録一覧(全項目)の
   // どちらからも使う。opts.full=trueで飲水・便・尿・CIBDAI・メモも詳細に含める。
@@ -3593,12 +4655,11 @@ const App = {
         `;
       }).join('');
 
-    const visits = petVisits();
+    const visits = buildVisitHistory(petEvents());
     const lastVisit = visits[0];
     const lastWithCibdai = records.find(r => r.cibdai);
 
     main.innerHTML = `
-      ${this.weeklyTrendCardHtml()}
       <div class="card">
         <h3>${pet.species==='犬'?petTypeIcon('dog','犬'):(pet.species==='猫'?petTypeIcon('cat','猫'):petTypeIcon('paw','ペット'))} ${escapeHtml(pet.name)} ${pet.breed?('('+escapeHtml(pet.breed)+')'):''}</h3>
         <div class="muted">${pet.birthday ? (fmtDate(pet.birthday) + ' 生まれ ・ ' + ageString(pet.birthday)) : '誕生日未登録'}</div>
@@ -3648,13 +4709,15 @@ const App = {
         </div>
       </div>
       <div class="card">
-        <h3 style="margin:0 0 8px;">直近の受診歴</h3>
+        <div class="row" style="justify-content:space-between;align-items:center;">
+          <h3 style="margin:0;">直近の受診歴</h3>
+          <button class="secondary" onclick="App.switchTab('daily'); App.openEventModal('visit');">受診を記録</button>
+        </div>
         ${lastVisit ? `
             <div class="muted">${fmtDate(lastVisit.date)} ${lastVisit.clinic ? '・'+escapeHtml(lastVisit.clinic) : ''}</div>
             <div style="margin-top:4px;"><strong>${escapeHtml(lastVisit.diagnosis || '診断名は未記入')}</strong></div>
             ${lastVisit.reason ? `<div class="muted" style="margin-top:2px;">${escapeHtml(lastVisit.reason)}</div>` : ''}
-            <p class="muted" style="margin-top:8px;font-size:12px;">受診の記録は「本日の記録」の「病院」から追加・編集できます。</p>
-        ` : '<div class="empty">まだ受診記録がありません。「本日の記録」の「病院」から追加できます。</div>'}
+        ` : '<div class="empty">まだ受診記録がありません。「本日の記録」の「病院」から記録できます。</div>'}
       </div>
       <div class="card">
         <h3>最近の記録</h3>
@@ -3764,22 +4827,28 @@ const App = {
       </div>
     `;
     const subscribed = !!(state.entitlements && state.entitlements.subscriptionActive);
+    const nativeApp = isNativeApp();
+    const nativeNotificationStatus = nativeApp ? window.NativeBridge.notifications?.getStatus?.() : null;
     const notifGranted = ('Notification' in window) && Notification.permission === 'granted';
-    const iosNeedsHomeScreen = needsIosHomeScreenForPush();
+    const iosNeedsHomeScreen = !nativeApp && needsIosHomeScreenForPush();
     main.innerHTML = `
       <div class="card">
         <div class="row" style="justify-content:space-between;align-items:center;">
           <h3 style="margin:0;">お薬手帳</h3>
           <button onclick="App.openMedModal()">+ お薬を登録</button>
         </div>
-        ${subscribed && iosNeedsHomeScreen ? `
+        ${!nativeApp && subscribed && iosNeedsHomeScreen ? `
           <p class="hint">📱 iPhoneでは、Safariの共有ボタンから「ホーム画面に追加」し、そのアイコンから開いた状態でないと通知が使えません(通常のSafariのタブでは許可ダイアログ自体が出ません)。<a href="guide.html" target="_blank">画像つきの設定手順を見る →</a></p>
         ` : ''}
         ${subscribed && !iosNeedsHomeScreen ? `
           <div class="row" style="margin-top:6px;align-items:center;">
-            <button class="secondary" onclick="App.enableNotifications()">🔔 ${notifGranted ? '通知の設定を確認・更新する' : '投薬リマインダー通知を有効にする'}</button>
-            ${notifGranted ? '<span class="hint" style="margin:0;">ブラウザの通知は許可済みです</span>' : ''}
+            <button class="secondary" onclick="App.enableNotifications()">🔔 ${!nativeApp && notifGranted ? '通知の設定を確認・更新する' : '投薬リマインダー通知を有効にする'}</button>
+            ${!nativeApp && notifGranted ? '<span class="hint" style="margin:0;">ブラウザの通知は許可済みです</span>' : ''}
           </div>
+        ` : ''}
+        ${nativeApp && subscribed ? `
+          <p class="hint">${nativeNotificationStatus?.registered ? 'この端末の通知は有効です。再ログイン時も自動で再開します。' : nativeNotificationStatus?.enabled ? '自動再開の設定は保存済みですが、通知登録は未完了です。通知を有効にするボタンから再試行してください。' : '一度有効にすると、このアカウントへの再ログイン時に通知を自動で再開します。'} ログアウト中・別アカウントの利用中は届きません。</p>
+          ${nativeNotificationStatus?.enabled || nativeNotificationStatus?.cleanupFailed ? `<button class="secondary" onclick="App.disableNotifications()">${nativeNotificationStatus?.cleanupFailed ? '通知の解除を再試行' : '通知を無効にする'}</button>` : ''}
         ` : ''}
         <p class="hint">お薬手帳や薬袋の記載がない場合は、名前や用量が空欄のまま登録できます。診察時に主治医へ確認できたら、あとから編集して追記してください。</p>
         ${meds.length === 0 ? '<div class="empty">まだお薬が登録されていません</div>' : ''}
@@ -3817,7 +4886,7 @@ const App = {
     `;
   },
 
-  // グラフは体重推移・症状の出現回数のみ無料。範囲選択も無料は7/30日までとし、
+  // グラフは体重推移・症状が記録・判定された日数のみ無料。範囲選択も無料は7/30日までとし、
   // 有料(治療サポートプラン)は60/90日に加え指定期間(最大3ヶ月)を選べる。
   // 「全期間」は指定期間に置き換える形で廃止した(モバイルでx軸が崩れるため)。
   renderChartTab(){
@@ -3841,14 +4910,19 @@ const App = {
     const graphTabs = graphs.map(([key,label]) => `<button type="button" class="graph-tab ${state.activeGraph === key ? 'active' : ''}" onclick="App.setActiveGraph('${key}')">${escapeHtml(label)}</button>`).join('');
     const graphTitle = Object.fromEntries(graphs)[state.activeGraph] || '体重';
     let graphBody = '';
-    if(!subscribed && premiumGraphs.includes(state.activeGraph)) graphBody = `<p class="hint">このグラフは治療サポートプランで利用できます。 <button type="button" class="ghost" onclick="App.openUpgradeModal()">アップグレードを見る</button></p>`;
+    if(!subscribed && premiumGraphs.includes(state.activeGraph)) graphBody = `<p class="hint">このグラフは${planLabel()}で利用できます。 <button type="button" class="ghost" onclick="App.openUpgradeModal()">アップグレードを見る</button></p>`;
     else if(state.activeGraph === 'weight') graphBody = '<div class="chart-wrap"><canvas id="weightChartCanvas"></canvas></div>';
     else if(state.activeGraph === 'temperature') graphBody = '<div class="chart-wrap"><canvas id="temperatureChartCanvas"></canvas></div>';
     else if(state.activeGraph === 'appetite') graphBody = '<div class="chart-wrap"><canvas id="appetiteChartCanvas"></canvas></div>';
-    else if(state.activeGraph === 'walk') graphBody = '<div class="chart-wrap"><canvas id="walkChartCanvas"></canvas></div>';
+    else if(state.activeGraph === 'walk') graphBody = `
+      <div class="chart-sub-label">時間（分）</div>
+      <div class="chart-wrap"><canvas id="walkChartCanvas"></canvas></div>
+      <div class="chart-sub-label" style="margin-top:14px;">距離（m）</div>
+      <div class="chart-wrap"><canvas id="walkDistanceChartCanvas"></canvas></div>`;
     else if(state.activeGraph === 'status') graphBody = `<div id="dailyStatusTimelineWrap"></div>${buildStatusLegendHtml()}`;
-    else graphBody = '<div class="chart-wrap"><canvas id="symptomChartCanvas"></canvas></div><div id="symptomTimelineWrap"></div>';
+    else graphBody = '<p class="hint">症状が記録・判定された日数です。同じ症状を1日に複数回記録しても1日として数えます。</p><div class="chart-wrap"><canvas id="symptomChartCanvas"></canvas></div><p class="hint">便スコア(6・7→下痢／4・5→軟便)、ごはんの食べた量(50%以下→食欲不振)、体温(39.5℃以上→発熱)から自動判定した症状も集計に含みます。</p><div id="symptomTimelineWrap"></div>';
     main.innerHTML = `
+      ${this.weeklyTrendCardHtml()}
       <div class="card">
         <div class="graph-tabs">${graphTabs}</div>
         <div class="row" style="justify-content:space-between;align-items:center;">
@@ -3914,7 +4988,16 @@ const App = {
 
   drawCharts(){
     const subscribed = !!(state.entitlements && state.entitlements.subscriptionActive);
-    const records = this.filterByRange(petRecords()).slice().sort((a,b)=> a.date < b.date ? -1 : 1);
+    // 体重・食欲・日々の状態・症状は「本日の記録」のクイック記録(events)からも日次値を拾う
+    // (レポートと同じ mergeDailyRecordsWithEvents)。旧 records は空欄の補完と症状の統合に使う。
+    const records = this.filterByRange(mergeDailyRecordsWithEvents(petRecords(), petEvents(), null, null))
+      .slice().sort((a,b)=> a.date < b.date ? -1 : 1);
+    // 症状が記録・判定された日数・症状タイムラインには、便スコア・ごはんの食べた量・体温から
+    // 自動判定した症状(下痢/軟便/食欲不振/発熱)も手入力症状と合わせて集計する。
+    const symptomRecords = records.map(r => ({
+      ...r,
+      symptoms: [...new Set([...safeArray(r.symptoms), ...safeArray(r.derivedSymptoms)])],
+    }));
 
     const weightData = records.filter(r => r.weight != null);
     const wCtx = document.getElementById('weightChartCanvas');
@@ -3983,34 +5066,34 @@ const App = {
         }
       }); }
 
-      const walkData = records.filter(r => r.walkMinutes != null);
-      const wkCtx = document.getElementById('walkChartCanvas');
-      if(wkCtx){ if(state.walkChart) state.walkChart.destroy(); state.walkChart = new Chart(wkCtx, {
-        type: 'line',
-        data: {
-          labels: walkData.map(r => fmtDate(r.date)),
-          datasets: [{
-            label: 'お散歩(分)',
-            data: walkData.map(r => r.walkMinutes),
-            borderColor: '#5FA87A',
-            backgroundColor: 'rgba(95,168,122,0.15)',
-            tension: 0.25,
-            fill: true,
-            pointRadius: 3
-          }]
-        },
-        options: {
-          responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}},
-          scales:{ y:{ beginAtZero:true, ticks:{ callback:v => v+'分' } } }
-        }
-      }); }
+      // お散歩は「本日の記録」の「お散歩」イベントのみを日付ごとに合算する。
+      // 時間・距離をそれぞれ別グラフにし、記録が無い方は描画しない。
+      const walkSeries = aggregateWalkSeries(this.filterByRange(petEvents()));
+      const lineChart = (canvasId, chartKey, points, label, unit, borderColor, bgColor) => {
+        const ctx = document.getElementById(canvasId);
+        if(!ctx) return;
+        if(state[chartKey]) state[chartKey].destroy();
+        state[chartKey] = new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: points.map(p => fmtDate(p.date)),
+            datasets: [{ label, data: points.map(p => p.value), borderColor, backgroundColor: bgColor, tension: 0.25, fill: true, pointRadius: 3 }]
+          },
+          options: {
+            responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}},
+            scales:{ y:{ beginAtZero:true, ticks:{ callback:v => v + unit } } }
+          }
+        });
+      };
+      lineChart('walkChartCanvas', 'walkChart', walkSeries.minutes, 'お散歩(分)', '分', '#5FA87A', 'rgba(95,168,122,0.15)');
+      lineChart('walkDistanceChartCanvas', 'walkDistanceChart', walkSeries.distance, 'お散歩(m)', 'm', '#7C6BD6', 'rgba(124,107,214,0.15)');
 
       this.renderDailyStatusTimeline(records);
-      this.renderSymptomTimeline(records);
+      this.renderSymptomTimeline(symptomRecords);
     }
 
     const symptomCounts = {};
-    records.forEach(r => safeArray(r.symptoms).forEach(s => symptomCounts[s] = (symptomCounts[s]||0) + 1));
+    symptomRecords.forEach(r => safeArray(r.symptoms).forEach(s => symptomCounts[s] = (symptomCounts[s]||0) + 1));
     const labels = Object.keys(symptomCounts);
     const sCtx = document.getElementById('symptomChartCanvas');
     if(sCtx){ if(state.symptomChart) state.symptomChart.destroy(); state.symptomChart = new Chart(sCtx, {
@@ -4018,12 +5101,12 @@ const App = {
       data: {
         labels,
         datasets: [{
-          label: '回数',
+          label: '日数（日）',
           data: labels.map(l => symptomCounts[l]),
           backgroundColor: '#5FA8A0'
         }]
       },
-      options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true, ticks:{stepSize:1}}} }
+      options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true, ticks:{stepSize:1, callback:v => v + '日'}}} }
     }); }
   },
 
@@ -4038,7 +5121,7 @@ const App = {
     wrap.innerHTML = buildDailyStatusTimelineHtml(records);
   },
 
-  // 「症状3回」という集計だけでは分からない、いつ集中して起きたかを見せるための表。
+  // 「症状が記録された日が3日」という集計だけでは分からない、いつ集中して起きたかを見せるための表。
   // Chart.jsではなくCSS Gridベースの表で作る(症状の出現有無という離散データに
   // 折れ線・棒グラフは不向きで、ヒートマップ系のプラグインも追加したくないため)。
   // 記録のある症状だけを行として表示する(症状が多いペットで縦に埋もれないように)。
@@ -4105,6 +5188,7 @@ const App = {
    * 消費できなければアップグレードモーダルを出してfalseを返す。
    */
   async consumeReportCreditOrPrompt(){
+    if(!isAppReady()) return false;
     try{
       const consumeReportCredit = functions.httpsCallable('consumeReportCredit');
       await consumeReportCredit();
@@ -4150,11 +5234,12 @@ const App = {
     // 出力範囲は最大31日間まで。無料枠1回で全期間を出力できてしまうと
     // 課金インセンティブが効かなくなるため、ここでクレジット消費前に弾く。
     const { from, to, records, events } = this.getExportRange();
-    const days = (from && to) ? Math.round((new Date(to) - new Date(from)) / 86400000) + 1 : null;
-    if(!from || !to || days > 31){
-      alert('出力範囲を31日間に設定してください。');
-      return;
-    }
+    const rangeError = reportRangeError({ from, to, records, events });
+    if(rangeError){ alert(rangeError); return; }
+    // 起動・再試行が終わるまでクレジット消費・印刷へ進ませない。
+    if(!isAppReady()) return;
+    if(isNativeApp() && !window.NativeBridge.device?.printReport){ alert('このアプリでは印刷を利用できません。'); return; }
+    if(this.reportPrinting) return;
 
     // クレジット消費の確認からwindow.print()までボタンを無効化したままにする。
     // 以前は消費確認が終わった時点で早々にボタンを再度押せるようにしていたため、
@@ -4167,6 +5252,7 @@ const App = {
     // 画面全体を覆う大きなローディング表示も合わせて出す。
     const loadingOverlay = document.getElementById('reportLoadingOverlay');
     loadingOverlay.classList.remove('hidden');
+    this.reportPrinting = true;
     try{
       // 直近1分以内に一度出力に成功していれば、連打とみなしてクレジットを再消費しない。
       const withinGrace = Date.now() - lastReportPrintAt < REPORT_PRINT_GRACE_MS;
@@ -4174,11 +5260,15 @@ const App = {
       if(!ok) return;
 
       const pet = currentPet();
-      if(records.length === 0 && events.length === 0){ alert('選択した期間に記録がありません'); return; }
+
 
       const subscribed = !!(state.entitlements && state.entitlements.subscriptionActive);
 
-      const weightData = records.filter(r => r.weight != null);
+      // 日次サマリー・グラフ・タイムラインは「本日の記録」のクイック記録(events)からも
+      // 日次の飲水・便・尿・体重・食欲・症状を拾う。旧 records は空欄の補完と症状の統合に使う。
+      const dailyRecords = mergeDailyRecordsWithEvents(records, events, from, to);
+
+      const weightData = dailyRecords.filter(r => r.weight != null);
       let chartImg = '';
       if(weightData.length > 0){
         chartImg = await this.renderChartImageForReport({
@@ -4189,9 +5279,9 @@ const App = {
       }
 
       // 食欲・お散歩のグラフはサポートプラン限定。未加入の場合はグラフ自体を作らない。
-      let appetiteImg = '', walkImg = '';
+      let appetiteImg = '', walkImg = '', walkDistanceImg = '';
       if(subscribed){
-        const appetiteData = records.filter(r => r.appetite != null && r.appetite !== '');
+        const appetiteData = dailyRecords.filter(r => r.appetite != null && r.appetite !== '');
         if(appetiteData.length > 0){
           appetiteImg = await this.renderChartImageForReport({
             type:'line',
@@ -4199,28 +5289,46 @@ const App = {
             options:{ responsive:false, animation:false, plugins:{legend:{display:true}}, scales:{y:{min:0,max:100}} }
           });
         }
-        const walkData = records.filter(r => r.walkMinutes != null);
-        if(walkData.length > 0){
+        // お散歩は「本日の記録」の「お散歩」イベントのみを日付ごとに合算し、時間と距離を別グラフにする。
+        const walkSeries = aggregateWalkSeries(events);
+        if(walkSeries.minutes.length > 0){
           walkImg = await this.renderChartImageForReport({
             type:'line',
-            data:{ labels: walkData.map(r=>fmtDate(r.date)), datasets:[{label:'お散歩(分)', data: walkData.map(r=>r.walkMinutes), borderColor:'#5FA87A', backgroundColor:'rgba(95,168,122,0.15)', fill:true, tension:0.25}] },
+            data:{ labels: walkSeries.minutes.map(p=>fmtDate(p.date)), datasets:[{label:'お散歩 時間(分)', data: walkSeries.minutes.map(p=>p.value), borderColor:'#5FA87A', backgroundColor:'rgba(95,168,122,0.15)', fill:true, tension:0.25}] },
+            options:{ responsive:false, animation:false, plugins:{legend:{display:true}}, scales:{y:{beginAtZero:true}} }
+          });
+        }
+        if(walkSeries.distance.length > 0){
+          walkDistanceImg = await this.renderChartImageForReport({
+            type:'line',
+            data:{ labels: walkSeries.distance.map(p=>fmtDate(p.date)), datasets:[{label:'お散歩 距離(m)', data: walkSeries.distance.map(p=>p.value), borderColor:'#7C6BD6', backgroundColor:'rgba(124,107,214,0.15)', fill:true, tension:0.25}] },
             options:{ responsive:false, animation:false, plugins:{legend:{display:true}}, scales:{y:{beginAtZero:true}} }
           });
         }
       }
 
-      // 症状の出現回数は棒グラフの画像ではなく、レポートでは読みやすい数字の一覧にする。
+      // 症状セクション(日数・タイムライン)は、手入力の症状に加えて
+      // 便・ごはん・体温から自動判定した症状(下痢/軟便/食欲不振/発熱)も同じ日付軸で集計する。
+      const symptomRecords = dailyRecords.map(r => ({
+        ...r,
+        symptoms: [...new Set([...safeArray(r.symptoms), ...safeArray(r.derivedSymptoms)])],
+      }));
+      const derivedSymptomNote = derivedSymptomNoteHtml(dailyRecords);
+
+      // 症状が記録・判定された日数は棒グラフの画像ではなく、レポートでは読みやすい数字の一覧にする。
       const symptomCounts = {};
-      records.forEach(r => safeArray(r.symptoms).forEach(s => symptomCounts[s] = (symptomCounts[s]||0) + 1));
+      symptomRecords.forEach(r => safeArray(r.symptoms).forEach(s => symptomCounts[s] = (symptomCounts[s]||0) + 1));
       const symptomEntries = Object.entries(symptomCounts);
       const symptomCountHtml = `
-        <section class="report-keep-together">
-        <h2 style="font-size:15px;margin-top:18px;">症状の出現回数</h2>
+        <section class="report-keep-together report-symptom-count">
+        <h2 style="font-size:15px;margin-top:18px;">症状が記録・判定された日数</h2>
+        <p style="font-size:11px;">同じ症状を1日に複数回記録しても1日として数えます。手入力と自動判定が重なった日も1日です。</p>
         ${symptomEntries.length === 0 ? '<p>この期間に記録された症状はありません。</p>' : `
           <ul style="margin:6px 0 0;padding-left:18px;">
-            ${symptomEntries.map(([s,c]) => `<li>${escapeHtml(s)}: ${escapeHtml(c)}回</li>`).join('')}
+            ${symptomEntries.map(([s,c]) => `<li>${escapeHtml(s)}: ${escapeHtml(c)}日</li>`).join('')}
           </ul>
         `}
+        ${derivedSymptomNote}
         </section>
       `;
 
@@ -4233,38 +5341,105 @@ const App = {
       const dailyStatusHtml = !subscribed ? '' : `
         <section class="report-keep-together">
         <h2 style="font-size:15px;margin-top:18px;">日々の状態(飲水・便・尿)</h2>
-        ${buildDailyStatusTimelineHtml(records, { chunkSize: PRINT_TIMELINE_CHUNK_DAYS })}
+        ${buildDailyStatusTimelineHtml(dailyRecords, { chunkSize: PRINT_TIMELINE_CHUNK_DAYS })}
         ${buildStatusLegendHtml()}
         </section>
       `;
       const symptomTimelineHtml = !subscribed ? '' : `
-        <section class="report-keep-together">
+        <section class="report-keep-together report-symptom-timeline">
         <h2 style="font-size:15px;margin-top:18px;">症状タイムライン</h2>
-        ${buildSymptomTimelineHtml(records, { chunkSize: PRINT_TIMELINE_CHUNK_DAYS })}
+        ${buildSymptomTimelineHtml(symptomRecords, { chunkSize: PRINT_TIMELINE_CHUNK_DAYS })}
+        ${derivedSymptomNote}
         </section>
       `;
+      // 症状の日数とタイムラインは1つの塊にして「日数だけが前ページに残る」のを防ぐ。
+      const symptomBlockHtml = `<section class="report-symptom-block">${symptomCountHtml}${symptomTimelineHtml}</section>`;
 
     const showCibdai = pet.trackCibdai;
 
+    // 一覧表(投薬・ごはん・予防・受診歴)は、見出しだけが前ページ末尾に取り残されたり、
+    // 1ページを超える表が改ページ位置で列見出しを失ったりしないよう、継続カードへ分ける。
+    // 分割位置は「固定行数」ではなく、印刷幅で各セルを折り返したあとの行の見積り高さを
+    // 積み上げて、1ページに収まるところで区切る。各カードは表題(2枚目以降は「(続き)」)と
+    // 列見出しを <thead>(table-header-group)で再掲する。
+    // 1行だけでカード予算(≒1ページ)を超える極端な行は、その行だけの単独カードにして
+    // カード内改ページを許可する(縮小・非表示・省略はしない。全文を継続表示する)。
+    const PRINT_TABLE_WIDTH_PX = 715;       // #printArea の内容幅(A4縦・余白0.2in・padding20px)
+    const PRINT_TABLE_CHAR_PX = 12;         // 全角1文字ぶんの目安。半角主体でも行数を多めに(安全側)見積もる
+    const PRINT_TABLE_LINE_PX = 17;         // font-size:12px / line-height:1.35 の1行の高さ
+    const PRINT_TABLE_ROW_PAD_PX = 12;      // td の上下padding(5+5)＋境界(1+1)
+    const PRINT_TABLE_CARD_BODY_PX = 940;   // 1カードで行に使える高さ(表題・列見出し・安全余白を引いた残り)
+    const PRINT_TABLE_MAX_ROWS_PER_CARD = 40; // 短い行だけの表でカードが際限なく伸びないための上限
+    const estimateRowHeightPx = (cells, columns) => {
+      let maxLines = 1;
+      cells.forEach((text, i) => {
+        const col = columns[i] || { w: 1 / columns.length };
+        const innerPx = Math.max(24, col.w * PRINT_TABLE_WIDTH_PX - PRINT_TABLE_ROW_PAD_PX);
+        const perLine = Math.max(1, Math.floor(innerPx / PRINT_TABLE_CHAR_PX));
+        const segments = col.pre ? String(text ?? '').split('\n') : [String(text ?? '')];
+        const lines = segments.reduce((sum, seg) => sum + Math.max(1, Math.ceil(seg.length / perLine)), 0);
+        if(lines > maxLines) maxLines = lines;
+      });
+      return maxLines * PRINT_TABLE_LINE_PX + PRINT_TABLE_ROW_PAD_PX;
+    };
+    const reportTableCards = (title, columns, rows) => {
+      if(rows.length === 0) return '';
+      // 列幅を固定(table-layout:fixed)して、極端に長い1セルがあっても他列が
+      // 潰れないようにする。見積り高さの前提(列ごとの折返し幅)とも一致する。
+      const colGroupHtml = `<colgroup>${columns.map(c => `<col style="width:${(c.w * 100).toFixed(2)}%;">`).join('')}</colgroup>`;
+      const colHeadRow = `<tr>${columns.map(c => `<th>${escapeHtml(c.header)}</th>`).join('')}</tr>`;
+      const rowHtml = cells => `<tr>${cells.map((t, i) => {
+        const col = columns[i] || {};
+        return `<td${col.pre ? ' style="white-space:pre-wrap;"' : ''}>${escapeHtml(String(t ?? ''))}</td>`;
+      }).join('')}</tr>`;
+      // 折り返し後の見積り高さでカードへ束ねる。予算超過 or 上限行数で次のカードへ。
+      const chunks = [];
+      let cur = [], curPx = 0;
+      rows.forEach(cells => {
+        const h = estimateRowHeightPx(cells, columns);
+        const overflowAlone = h > PRINT_TABLE_CARD_BODY_PX;
+        if(cur.length && (overflowAlone || curPx + h > PRINT_TABLE_CARD_BODY_PX || cur.length >= PRINT_TABLE_MAX_ROWS_PER_CARD)){
+          chunks.push({ rows: cur, overflow: false });
+          cur = []; curPx = 0;
+        }
+        if(overflowAlone){ chunks.push({ rows: [cells], overflow: true }); return; }
+        cur.push(cells); curPx += h;
+      });
+      if(cur.length) chunks.push({ rows: cur, overflow: false });
+      return chunks.map((chunk, i) => {
+        const heading = i === 0 ? title : `${title}(続き)`;
+        if(chunk.overflow){
+          // 1行だけで複数ページに跨る極端なカード。表題も列見出しも <thead> に入れて
+          // table-header-group で全ての物理ページ先頭に再掲する。カード内・行内の改ページを許可。
+          return `<section class="report-table-card report-table-card--overflow">
+            <table>${colGroupHtml}<thead>
+              <tr class="report-table-title"><th colspan="${columns.length}" style="font-size:15px;">${escapeHtml(heading)}</th></tr>
+              ${colHeadRow}
+            </thead><tbody>${chunk.rows.map(rowHtml).join('')}</tbody></table>
+          </section>`;
+        }
+        // 通常カードは1ページに収まる。表題は表の外の <h2> 1つだけ(重複表示しない)、
+        // 列見出しは <thead>。想定外に割れた場合だけ table-header-group で列見出しが再掲される。
+        return `<section class="report-table-card">
+          <h2 style="font-size:15px;">${escapeHtml(heading)}</h2>
+          <table>${colGroupHtml}<thead>${colHeadRow}</thead><tbody>${chunk.rows.map(rowHtml).join('')}</tbody></table>
+        </section>`;
+      }).join('');
+    };
+
     const meds = petMedications();
-    const medsHtml = meds.length === 0 ? '' : `
-      <h2 style="font-size:15px;margin-top:18px;">投薬状況</h2>
-      <table>
-        <tr><th>薬</th><th>用量</th><th>期間</th><th>処方元</th></tr>
-        ${meds.map(m => `
-          <tr>
-            <td>${escapeHtml(medLabel(m))}</td>
-            <td>${escapeHtml(m.dosage || '(未確認)')}</td>
-            <td>${m.startDate ? fmtDate(m.startDate) : '不明'} 〜 ${m.endDate ? fmtDate(m.endDate) : '継続中'}</td>
-            <td>${escapeHtml(m.prescriber || '')}</td>
-          </tr>
-        `).join('')}
-      </table>
-    `;
+    const medsHtml = reportTableCards('投薬状況',
+      [{ header:'薬', w:0.28 }, { header:'用量', w:0.20 }, { header:'期間', w:0.32 }, { header:'処方元', w:0.20 }],
+      meds.map(m => [
+        medLabel(m),
+        m.dosage || '(未確認)',
+        `${m.startDate ? fmtDate(m.startDate) : '不明'} 〜 ${m.endDate ? fmtDate(m.endDate) : '継続中'}`,
+        m.prescriber || '',
+      ]));
 
     // 4日ごとに1ページ、上下それぞれで2日が共通の24時間軸を使う記録帳形式。
     // 自由入力のメモ本文は印刷せず、時刻・アイコン・構造化された記録内容だけを出す。
-    const recordByDate = new Map(records.map(record => [record.date, record]));
+    const recordByDate = new Map(dailyRecords.map(record => [record.date, record]));
     const eventsByDate = new Map();
     events.forEach(event => {
       if(!eventsByDate.has(event.date)) eventsByDate.set(event.date, []);
@@ -4274,19 +5449,76 @@ const App = {
     for(let date = new Date(`${from}T00:00:00`), end = new Date(`${to}T00:00:00`); date <= end; date.setDate(date.getDate() + 1)){
       exportDates.push(localDateString(date));
     }
+    // A4(297mm)から上下12mmの用紙余白を引いた273mmを使う。
+    // 印刷CSSの内容幅も186mmへ固定し、画面幅による縮尺と二重paddingを除く。
+    const PRINT_PAGE_CONTENT_PX = (297 - 12 * 2) * 96 / 25.4;
+    const RECORD_PAGE_SAFETY_PX = 4;
+    const RECORD_TITLE_PX = 28;
+    const PAIR_GAP_PX = 12;
+    const PAIR_CHROME_PX = 28 + 39 + 2;
+    const DAY_LANE_HEIGHT_PX = Math.floor(
+      (PRINT_PAGE_CONTENT_PX - RECORD_TITLE_PX - RECORD_PAGE_SAFETY_PX - PAIR_GAP_PX) / 2 - PAIR_CHROME_PX
+    );
+    const PREV_LANE_HEIGHT_PX = 330;
+    // 枠1組の高さ = 24時間レーン + 日付ヘッダ + サマリー + 枠線。要素へ inline style で渡す。
+    const DAY_PAIR_HEIGHT_PX = DAY_LANE_HEIGHT_PX + PAIR_CHROME_PX;
+    // 24時間軸に時刻配置できる件数の上限。これを超える日は詰めたリストへ切り替える。
+    // 旧 330px 基準の 22件 を現在の高さへ比例(1件あたりの見かけの高さは変えない)。
+    const DAY_LANE_DENSE_LIMIT = Math.round(DAY_LANE_HEIGHT_PX / (PREV_LANE_HEIGHT_PX / 22));
+    // 詰めリスト(report-list-event)の1行の実高さ ≈ アイコン11px + 行間1px
+    // (テキストよりアイコンの方が高い)。レーン内padding(上下3px)と「…ほかN件」の1行ぶんを
+    // 引いた行数までを表示し、残りは件数表示にする(超過件数表示を維持)。
+    const LIST_ROW_PX = 12;
+    const DAY_LANE_LIST_MAX_ROWS = Math.max(6, Math.floor((DAY_LANE_HEIGHT_PX - 6 - LIST_ROW_PX) / LIST_ROW_PX));
+    const eventRowHtml = (event, cls, style = '') => {
+      const info = eventTypeInfo(event.type);
+      return `<div class="${cls}"${style ? ` style="${style}"` : ''}><span class="report-event-time">${escapeHtml(event.time || '--:--')}</span>${info.icon}<span class="report-event-text">${escapeHtml(eventSummary(event) || info.label)}</span></div>`;
+    };
     const dayLaneHtml = date => {
       const dayEvents = sortEvents(eventsByDate.get(date) || []);
       const printableEvents = dayEvents.filter(event => event.type !== 'memo');
-      let previousTop = -10;
-      const eventRows = printableEvents.map(event => {
-        const info = eventTypeInfo(event.type);
+      const n = printableEvents.length;
+      if(n === 0){
+        return `<div class="report-day-lane"><div class="report-day-empty">記録なし</div></div>`;
+      }
+      // 記録が多すぎて時刻配置では読めない日は、時刻順の詰めたリストに切り替える
+      // (24時間軸との対応は失うが、その日だけの措置。左の時刻軸は相方の日のために残る)。
+      if(n > DAY_LANE_DENSE_LIMIT){
+        const shown = printableEvents.slice(0, DAY_LANE_LIST_MAX_ROWS);
+        const rest = n - shown.length;
+        const rows = shown.map(event => eventRowHtml(event, 'report-list-event')).join('')
+          + (rest > 0 ? `<div class="report-list-more">…ほか ${rest} 件</div>` : '');
+        return `<div class="report-day-lane report-day-lane--list">${rows}</div>`;
+      }
+      // 時刻どおりの縦位置に置くが、記録が固まると行が重なって読めなくなる。
+      // (1) 前から見て1行ぶん未満に詰まった行を押し下げる。
+      // (2) 下端を超えたら、はみ出たぶんだけ全体を上の空き時間へ平行移動する
+      //     (遅い時間に集中した日を午前の余白へ寄せる。順序と最小間隔は保つ)。
+      // (3) 平行移動でも収まらないぶんは最小間隔で均等に割る。
+      // しきい値は % 指定だが、レーンを 330px→410px へ伸ばしても「1行の見かけの高さ」は
+      // 変えたくないので、旧 330px 基準の px 値(最小送り10.56px / 上端1.65px / 下端余白13.2px)を
+      // 現在の高さの % へ換算する。
+      const MIN_TOP = (1.65 / DAY_LANE_HEIGHT_PX) * 100;
+      const MAX_TOP = ((DAY_LANE_HEIGHT_PX - 13.2) / DAY_LANE_HEIGHT_PX) * 100;
+      const GAP = (10.56 / DAY_LANE_HEIGHT_PX) * 100;
+      const tops = printableEvents.map(event => {
         const [hour, minute] = String(event.time || '12:00').split(':').map(Number);
-        const actualTop = Math.max(0, Math.min(95, ((hour * 60 + minute) / 1440) * 100));
-        const top = Math.min(95, Math.max(actualTop, previousTop + 3.7));
-        previousTop = top;
-        return `<div class="report-timed-event" style="top:${top.toFixed(2)}%;"><span class="report-event-time">${escapeHtml(event.time || '--:--')}</span>${info.icon}<span class="report-event-text">${escapeHtml(eventSummary(event) || info.label)}</span></div>`;
-      }).join('');
-      return `<div class="report-day-lane">${eventRows || '<div class="report-day-empty">記録なし</div>'}</div>`;
+        return Math.max(MIN_TOP, Math.min(MAX_TOP, ((hour * 60 + minute) / 1440) * 100));
+      });
+      for(let i = 1; i < n; i++) tops[i] = Math.max(tops[i], tops[i - 1] + GAP);
+      const overflow = tops[n - 1] - MAX_TOP;
+      if(overflow > 0){
+        const shift = Math.min(overflow, tops[0] - MIN_TOP);
+        for(let i = 0; i < n; i++) tops[i] -= shift;
+        if(tops[n - 1] > MAX_TOP){
+          const evenGap = (MAX_TOP - MIN_TOP) / (n - 1);
+          for(let i = 0; i < n; i++) tops[i] = MIN_TOP + i * evenGap;
+        }
+      }
+      const eventRows = printableEvents.map((event, i) =>
+        eventRowHtml(event, 'report-timed-event', `top:${tops[i].toFixed(2)}%;`)
+      ).join('');
+      return `<div class="report-day-lane">${eventRows}</div>`;
     };
     const daySummaryHtml = date => {
       const legacy = recordByDate.get(date);
@@ -4298,92 +5530,108 @@ const App = {
         legacy.urine ? `尿 ${urineLabel(legacy.urine)}` : '',
         safeArray(legacy.symptoms).length ? `症状 ${safeArray(legacy.symptoms).join('、')}` : '',
         showCibdai && legacy.cibdai ? `CIBDAI ${cibdaiTotal(legacy.cibdai)}点 (${cibdaiSeverity(cibdaiTotal(legacy.cibdai))})` : '',
-        medsGivenTags(legacy.medsGiven).length ? `投薬 ${medsGivenTags(legacy.medsGiven).map(t => `${t.label}(${t.given}/${t.total})`).join('、')}` : ''
+        medsGivenTags(legacy.medsGiven).length
+          ? `投薬 ${medsGivenTags(legacy.medsGiven).map(t => `${t.label}(${t.given}/${t.total})`).join('、')}`
+          : (legacy.medEventCount ? `投薬 ${legacy.medEventCount}回` : '')
       ].filter(Boolean);
       return `<div class="report-day-summary">${legacyParts.length ? legacyParts.map(escapeHtml).join(' ／ ') : ''}</div>`;
     };
     const hourAxisHtml = Array.from({length:24}, (_, hour) => `<span class="report-hour" style="top:${(hour / 24 * 100).toFixed(3)}%;">${hour}</span>`).join('');
     const pairHtml = dates => {
       const [leftDate, rightDate] = dates;
-      return `<section class="report-day-pair"><div class="report-pair-head"><span></span><div class="report-pair-date">${leftDate ? fmtDate(leftDate) : ''}</div><div class="report-pair-date">${rightDate ? fmtDate(rightDate) : ''}</div></div><div class="report-pair-body"><div class="report-time-axis">${hourAxisHtml}</div>${leftDate ? dayLaneHtml(leftDate) : '<div class="report-day-lane"></div>'}${rightDate ? dayLaneHtml(rightDate) : '<div class="report-day-lane"></div>'}</div><div class="report-pair-summary"><span></span>${leftDate ? daySummaryHtml(leftDate) : '<div></div>'}${rightDate ? daySummaryHtml(rightDate) : '<div></div>'}</div></section>`;
+      return `<section class="report-day-pair" style="height:${DAY_PAIR_HEIGHT_PX}px;"><div class="report-pair-head"><span></span><div class="report-pair-date">${leftDate ? fmtDate(leftDate) : ''}</div><div class="report-pair-date">${rightDate ? fmtDate(rightDate) : ''}</div></div><div class="report-pair-body" style="height:${DAY_LANE_HEIGHT_PX}px;"><div class="report-time-axis">${hourAxisHtml}</div>${leftDate ? dayLaneHtml(leftDate) : '<div class="report-day-lane"></div>'}${rightDate ? dayLaneHtml(rightDate) : '<div class="report-day-lane"></div>'}</div><div class="report-pair-summary"><span></span>${leftDate ? daySummaryHtml(leftDate) : '<div></div>'}${rightDate ? daySummaryHtml(rightDate) : '<div></div>'}</div></section>`;
     };
+    // 表紙(1ページ目)の次のページから、上段2日＋下段2日の4日/ページ。
+    // 「毎日の記録」の見出しは最初のブロックの中に1回だけ入れ(記録セクション冒頭1回)、
+    // ブロックごと break-inside:avoid にして 見出し＋4日 が同じページに載るようにする。
+    // 2ブロック目以降は見出しを付けない(ページ末尾に次ページの見出しを孤立させない)。
+    // 最終ブロックは残る日数ぶんの枠だけを同じ寸法で置く(空枠・白紙は作らない)。
     const recordPages = [];
     for(let index = 0; index < exportDates.length; index += 4){
-      recordPages.push(`<div class="report-record-page">${pairHtml(exportDates.slice(index, index + 2))}${pairHtml(exportDates.slice(index + 2, index + 4))}</div>`);
+      const rows = [exportDates.slice(index, index + 2)];
+      if(index + 2 < exportDates.length) rows.push(exportDates.slice(index + 2, index + 4));
+      const heading = index === 0 ? '<h2 class="report-record-title">毎日の記録</h2>' : '';
+      recordPages.push(`<div class="report-record-page">${heading}${rows.map(pairHtml).join('')}</div>`);
     }
-    const dailyCardsHtml = `<section class="report-daily-section"><h2 style="font-size:15px;">毎日の記録</h2>${recordPages.join('')}</section>`;
+    const dailyCardsHtml = recordPages.length === 0 ? '' : `<section class="report-daily-section">${recordPages.join('')}</section>`;
+
     const mealProfiles = petMealProfiles();
-    const mealProfilesHtml = mealProfiles.length === 0 ? '' : `
-      <h2 style="font-size:15px;margin-top:18px;">登録しているごはん</h2>
-      <table>
-        <tr><th>名前</th><th>内容</th><th>目安時刻</th></tr>
-        ${mealProfiles.map(profile => `
-          <tr>
-            <td>${escapeHtml(profile.label || '-')}</td>
-            <td style="white-space:pre-wrap;">${escapeHtml(profile.description || '-')}</td>
-            <td>${escapeHtml(profile.suggestedTime || '-')}</td>
-          </tr>
-        `).join('')}
-      </table>
-    `;
+    const mealProfilesHtml = reportTableCards('登録しているごはん',
+      [{ header:'名前', w:0.30 }, { header:'内容', w:0.52, pre:true }, { header:'目安時刻', w:0.18 }],
+      mealProfiles.map(profile => [
+        profile.label || '-',
+        profile.description || '-',
+        profile.suggestedTime || '-',
+      ]));
 
     const prevs = petPreventions();
-    const prevsHtml = prevs.length === 0 ? '' : `
-      <h2 style="font-size:15px;margin-top:18px;">予防接種・ノミダニ/フィラリア予防</h2>
-      <table>
-        <tr><th>種類</th><th>名称</th><th>実施日</th><th>次回予定</th><th>病院</th></tr>
-        ${prevs.map(p => `
-          <tr>
-            <td>${escapeHtml(p.category)}</td>
-            <td>${escapeHtml(p.name || '-')}</td>
-            <td>${fmtDate(p.date)}</td>
-            <td>${p.nextDate ? fmtDate(p.nextDate) : '-'}</td>
-            <td>${escapeHtml(p.clinic || '')}</td>
-          </tr>
-        `).join('')}
-      </table>
-    `;
+    const prevsHtml = reportTableCards('予防接種・ノミダニ/フィラリア予防',
+      [{ header:'種類', w:0.17 }, { header:'名称', w:0.22 }, { header:'実施日', w:0.16 }, { header:'次回予定', w:0.16 }, { header:'病院', w:0.29 }],
+      prevs.map(p => [
+        p.category,
+        p.name || '-',
+        fmtDate(p.date),
+        p.nextDate ? fmtDate(p.nextDate) : '-',
+        p.clinic || '',
+      ]));
 
-    const visits = petVisits();
-    const visitsHtml = visits.length === 0 ? '' : `
-      <h2 style="font-size:15px;margin-top:18px;">受診歴</h2>
-      <table>
-        <tr><th>受診日</th><th>病院</th><th>主訴</th><th>診断名</th><th>治療内容</th></tr>
-        ${visits.map(v => `
-          <tr>
-            <td>${fmtDate(v.date)}</td>
-            <td>${escapeHtml(v.clinic || '')}</td>
-            <td>${escapeHtml(v.reason || '')}</td>
-            <td>${escapeHtml(v.diagnosis || '(未記入)')}</td>
-            <td>${escapeHtml(v.treatment || '')}</td>
-          </tr>
-        `).join('')}
-      </table>
-    `;
+    // 受診歴は「本日の記録」の病院イベント(type:'visit')を集約する。投薬状況・予防と同じく
+    // 期間で絞らず全件を継続カード形式で載せる(受診歴は継続的な参照資料のため)。
+    // 折返し後の高さでカードが分かれ、各カードで表題と列見出しを再掲する。
+    const visits = buildVisitHistory(petEvents());
+    const visitsHtml = reportTableCards('受診歴',
+      [{ header:'受診日', w:0.13 }, { header:'病院', w:0.15 }, { header:'主訴', w:0.18 }, { header:'診断名', w:0.18 }, { header:'治療内容', w:0.23 }, { header:'次回予定', w:0.13 }],
+      visits.map(v => [
+        v.date ? fmtDate(v.date) : '-',
+        v.clinic || '',
+        v.reason || '',
+        v.diagnosis || '(未記入)',
+        v.treatment || '',
+        v.followUpDate ? fmtDate(v.followUpDate) : '-',
+      ]));
 
     // 見出しだけが前ページ末尾に残らないよう、最初に存在するグラフと見出しを
     // 同じ改ページ不可ブロックへ入れる。グラフ自体の縦並びと寸法は従来どおり。
-    const reportCharts = [chartImg, appetiteImg, walkImg].filter(Boolean);
+    const reportCharts = [chartImg, appetiteImg, walkImg, walkDistanceImg].filter(Boolean);
     const chartsHtml = reportCharts.map((img, index) => `
       <section class="report-keep-together report-chart-block"${index ? ' style="margin-top:10px;"' : ''}>
-        ${index === 0 ? '<h2 style="font-size:15px;margin-top:18px;">グラフ</h2>' : ''}
+        ${index === 0 ? '<h2 style="font-size:15px;margin:0 0 6px;">グラフ</h2>' : ''}
         <img src="${img}">
       </section>
     `).join('');
 
+    // 1ページ目は表紙。正式アプリアイコン＋アプリ名＋レポート名に、ペット情報・対象期間・
+    // 作成日だけを載せ、記録は混ぜない(印刷CSSで表紙の後に必ず改ページする)。
+    // ロゴは native の AppIcon-512@2x.png と同一データを配信用にコピーした
+    // icons/app-icon-final.png を参照する(装飾用の icons/paw.png は使わない)。
+    // この<img>も #printArea 内なので、下の decode() 待ちで印刷前に読み込み完了を保証する。
+    const petCoverLine = `${escapeHtml(pet.name)}(${escapeHtml(pet.species)}${pet.breed ? '・'+escapeHtml(pet.breed) : ''})${pet.birthday ? ' / ' + escapeHtml(ageString(pet.birthday)) : ''}`;
+    const coverHtml = `
+      <section class="report-cover">
+        <img class="report-cover-logo" src="icons/app-icon-final.png" alt="">
+        <div class="report-cover-app">もふもふカルテ</div>
+        <h1 class="report-cover-title">体調記録レポート</h1>
+        <dl class="report-cover-info">
+          <dt>ペット</dt><dd>${petCoverLine}</dd>
+          <dt>対象期間</dt><dd>${from ? fmtDate(from) : '-'} 〜 ${to ? fmtDate(to) : '-'}</dd>
+          <dt>作成日</dt><dd>${fmtDate(new Date().toISOString().slice(0,10))}</dd>
+        </dl>
+      </section>
+    `;
+
+    // 「グラフ・資料」は毎日の記録の後、まとめて新しいページから始める。
+    // 「症状が記録・判定された日数」→「症状タイムライン」を上下連続にし、
+    // その間に「日々の状態(飲水・便・尿)」を挟まない(日々の状態は症状タイムラインの後ろ)。
+    const resourcesInner = [
+      chartsHtml, symptomBlockHtml, dailyStatusHtml,
+      mealProfilesHtml, visitsHtml, medsHtml, prevsHtml,
+    ].filter(Boolean).join('');
+    const resourcesHtml = resourcesInner ? `<section class="report-resources">${resourcesInner}</section>` : '';
+
     document.getElementById('printArea').innerHTML = `
-      <h1>体調記録レポート</h1>
-      <p>${escapeHtml(pet.name)}(${escapeHtml(pet.species)}${pet.breed ? '・'+escapeHtml(pet.breed) : ''}) ${pet.birthday ? '/ ' + ageString(pet.birthday) : ''}</p>
-      <p>期間: ${from ? fmtDate(from) : '-'} 〜 ${to ? fmtDate(to) : '-'} (作成日: ${fmtDate(new Date().toISOString().slice(0,10))})</p>
+      ${coverHtml}
       ${dailyCardsHtml}
-      ${chartsHtml}
-      ${symptomCountHtml}
-      ${dailyStatusHtml}
-      ${symptomTimelineHtml}
-      ${mealProfilesHtml}
-      ${visitsHtml}
-      ${medsHtml}
-      ${prevsHtml}
+      ${resourcesHtml}
     `;
       // base64画像自体はすでに出来上がっていても、<img>要素がその中身を実際に
       // デコードし終える前にwindow.print()を呼ぶと、セッションで最初の印刷時だけ
@@ -4401,6 +5649,11 @@ const App = {
           ]);
         })
       );
+      if(isNativeApp()){
+        await window.NativeBridge.device.printReport();
+        lastReportPrintAt = Date.now();
+        return;
+      }
       window.print();
       lastReportPrintAt = Date.now();
       // window.print()はモバイルでは呼んだ直後にJSへ戻ってしまい、実際の印刷画面が
@@ -4436,7 +5689,10 @@ const App = {
         timers.push(setTimeout(finish, 90000));
         dismissBtn.onclick = finish;
       });
+    } catch(_err){
+      alert('レポートの出力に失敗しました。時間をおいてお試しください。');
     } finally {
+      this.reportPrinting = false;
       if(printBtn){ printBtn.disabled = false; printBtn.textContent = printBtnLabel; }
       loadingOverlay.classList.add('hidden');
     }
@@ -4451,12 +5707,14 @@ const App = {
   renderOnboardingPage(){
     const p = ONBOARDING_PAGES[this.onboardingIndex];
     const isLast = this.onboardingIndex === ONBOARDING_PAGES.length - 1;
+    // アプリ版はストア購入画面の呼称に合わせる。
+    const swapPlan = s => isNativeApp() ? String(s || '').replaceAll('治療サポートプラン', 'サポートプラン') : s;
     document.getElementById('onboardingImg').src = p.img;
     document.getElementById('onboardingImg').alt = p.title;
-    document.getElementById('onboardingTitle').textContent = p.title;
-    document.getElementById('onboardingDesc').textContent = p.desc;
+    document.getElementById('onboardingTitle').textContent = swapPlan(p.title);
+    document.getElementById('onboardingDesc').textContent = swapPlan(p.desc);
     const noteEl = document.getElementById('onboardingNote');
-    if(p.note){ noteEl.textContent = p.note; noteEl.classList.remove('hidden'); }
+    if(p.note){ noteEl.textContent = swapPlan(p.note); noteEl.classList.remove('hidden'); }
     else { noteEl.classList.add('hidden'); }
     document.getElementById('onboardingDots').innerHTML = ONBOARDING_PAGES.map((_, i) =>
       `<span class="onboarding-dot${i === this.onboardingIndex ? ' active' : ''}"></span>`
@@ -4527,13 +5785,19 @@ const GOOGLE_CLIENT_ID = "594019463341-ld3a242bse6a173dnok147evttl895ng.apps.goo
 // ブロックしてしまう問題を避けるため、Google Identity Services (GIS) で直接IDトークンを取得し、
 // それを Firebase の認証情報に変換してログインする方式に切り替える。
 function initGoogleSignIn(){
+  const container = document.getElementById('gSignInButtonContainer');
+  if(isNativeApp()){
+    if(container){
+      container.innerHTML = '<button type="button" onclick="AppAuth.signInWithGoogle()">Googleで続ける</button>';
+    }
+    return;
+  }
   if(!window.google || !google.accounts || !google.accounts.id) return;
   google.accounts.id.initialize({
     client_id: GOOGLE_CLIENT_ID,
     callback: handleGoogleCredential,
     auto_select: false
   });
-  const container = document.getElementById('gSignInButtonContainer');
   if(container){
     google.accounts.id.renderButton(container, {
       type: 'standard',
@@ -4557,6 +5821,20 @@ function handleGoogleCredential(response){
 }
 
 const AppAuth = {
+  async signInWithGoogle(){
+    const el = document.getElementById('authError');
+    if(el) el.textContent = '';
+    if(!isNativeApp()) return;
+    try{
+      const tokens = await window.NativeBridge.signInWithGoogle();
+      const credential = firebase.auth.GoogleAuthProvider.credential(tokens.idToken, tokens.accessToken || undefined);
+      await auth.signInWithCredential(credential);
+    } catch(err){
+      console.error('native Google sign-in failed', err);
+      const detail = err && err.message ? ` (${err.message})` : '';
+      if(el) el.textContent = `ログインに失敗しました${detail}`;
+    }
+  },
   copyLink(){
     const msg = document.getElementById('copyLinkMsg');
     const url = location.href;
@@ -4578,14 +5856,39 @@ const AppAuth = {
       } catch(e){ fail(); }
     }
   },
-  signOut(){
+  async signOut(){
+    try{
+      if(isNativeApp()) await window.NativeBridge.signOut();
+    } catch(err){
+      alert('通知の解除に失敗しました。通信状態を確認して、もう一度ログアウトしてください。');
+      return;
+    }
     detachFirestoreListeners();
-    auth.signOut();
+    await auth.signOut();
   }
 };
 window.AppAuth = AppAuth;
 
 document.addEventListener('DOMContentLoaded', () => {
+  if(isNativeApp()){
+    // 静的マークアップ内の同梱HTMLリンク(target="_blank")は、フル文書遷移せず
+    // アプリ内オーバーレイで開く。PDF・mailto・外部URLはnative-bridge/WebViewに任せる。
+    document.addEventListener('click', event => {
+      const link = event.target.closest('a[target="_blank"]');
+      if(!link) return;
+      let url;
+      try{ url = new URL(link.href, window.location.href); }catch(_e){ return; }
+      if(!isSameAppOrigin(url)) return;
+      if(!url.pathname.endsWith('.html')) return;
+      event.preventDefault();
+      showLocalPageOverlay(url.pathname + url.search + url.hash);
+    });
+    document.getElementById('localPageBack').addEventListener('click', closeLocalPageOverlay);
+    wireLocalPageFrame();
+    // 静的マークアップ内の有料プラン名を、ストア購入画面の呼称へ揃える。
+    document.querySelectorAll('.js-plan-name').forEach(el => { el.textContent = planLabel(); });
+  }
+
   App.wireEvents();
 
   // ログイン画面より前に見せたいため、認証状態を待たずここで判定する。
@@ -4605,7 +5908,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }, {passive:true});
   }
 
-  const inAppName = detectInAppBrowser();
+  const inAppName = isNativeApp() ? null : detectInAppBrowser();
   if(inAppName){
     document.getElementById('authNormal').classList.add('hidden');
     document.getElementById('authInAppWarning').classList.remove('hidden');
@@ -4613,27 +5916,53 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // GISスクリプトがonloadより先に読み込み済みだった場合のフォールバック
-  if(window.google && google.accounts && google.accounts.id){
+  if(isNativeApp() || (window.google && google.accounts && google.accounts.id)){
     initGoogleSignIn();
   }
 
   auth.onAuthStateChanged(async user => {
+    if(isNativeApp()) {
+      Promise.resolve(window.NativeBridge.notifications?.setSession?.()).then(() => {
+        if(user && currentUser?.uid === user.uid && isAppReady()) App.render();
+      }).catch(err => console.warn('通知の自動再開に失敗しました', err));
+    }
+    // どちらの分岐でも、まず進行中の起動処理・旧購読・開いているガイド/モーダルを捨てる。
+    // 認証通知の重複やアカウント変更で、旧ユーザーの状態や購読を残さない。
+    invalidateHouseholdRun();
+    detachFirestoreListeners();
+    closeLocalPageOverlay();
+    App.closeFamilyModal();
+    // 招待の未確認バナー等のUI状態は次ユーザーへ持ち越さない(localStorageのpendingInviteは
+    // UID別なので残す = そのUIDで再ログインしたら未確認画面が復帰する)。
+    pendingInAppInviteCode = null;
+    resendInviteRequest = null;
+    state.inviteUnconfirmed = null;
+    state.inviteBusinessError = null;
     if(user){
+      const switchingAccount = !!currentUser && currentUser.uid !== user.uid;
       currentUser = user;
+      if(switchingAccount){
+        // 別アカウントに変わったら、前ユーザーの選択ペット・共有状態を持ち越さない。
+        state.currentPetId = null;
+        state.linkedOwnerUid = null;
+        state.knownHouseholdUid = null;
+        state.householdError = null;
+      }
       document.getElementById('authScreen').classList.add('hidden');
       const usageGuideButton = document.getElementById('usageGuideButton');
-      usageGuideButton.onclick = () => window.open('usage-guide.html', '_blank', 'noopener');
+      usageGuideButton.onclick = () => openLocalPage('usage-guide.html');
       usageGuideButton.classList.remove('hidden');
-      await App.resolveHousehold();
-      attachFirestoreListeners();
-      App.start();
-      App.handleCheckoutRedirect();
+      // 起動オーバーレイ(読み込み中)を出したまま、共有先の解決と購読開始を行う。
+      await App.bootWithHousehold();
     } else {
       currentUser = null;
       state.linkedOwnerUid = null;
       state.knownHouseholdUid = null;
       state.householdStatus = 'loading';
       state.householdError = null;
+      state.currentPetId = null;
+      state.bootPhase = 'loading';
+      document.getElementById('bootOverlay').classList.add('hidden');
       document.getElementById('authScreen').classList.remove('hidden');
       document.getElementById('switchRecordButton').classList.add('hidden');
       document.getElementById('currentPetDisplayName').classList.add('hidden');
@@ -4649,12 +5978,29 @@ if (typeof module !== 'undefined') {
     waterLabel, urineLabel, appetiteValue, appetiteLabel, walkLabel,
     stoolLabel, escapeHtml, cibdaiTotal, cibdaiSeverity, daysAgoStr,
     analyzeWeeklySummary, sortEvents, filterEventsByDate, eventSummary,
-    recordedMealIntakes, mergeTimelineItems, localDateString, actionAttrs,
+    recordedMealIntakes, mergeTimelineItems, buildVisitHistory, aggregateWalkSeries, localDateString, actionAttrs,
+    dailyRecordFromEvents, mergeDailyRecordsWithEvents, derivedSymptomsFromEvents, derivedSymptomNoteHtml, DERIVED_SYMPTOM,
+    validMealIntakePercents,
+    buildDailyStatusTimelineHtml, buildSymptomTimelineHtml,
     coerceEventFieldValue, scheduledDoseTaken, medScheduledTimes,
     EVENT_TYPES, eventTypeInfo, iconSvg, petTypeIcon, petDisplayName,
-    PROFILE_ICONS, profileIcon,
-    // 破壊的処理(deletePet)をスタブ環境で検証するための最小シーム。
-    App, state, __setTestUser: user => { currentUser = user; },
+    PROFILE_ICONS, profileIcon, isNativeApp, planLabel, isValidReminderTime, resolveMedReminderTimes, reportRangeError, App,
+    resolveLocalPageUrl, ALLOWED_LOCAL_PAGES,
+    HOUSEHOLD_BOOT_TIMEOUT_MS,
+    beginHouseholdRun, isActiveHouseholdRun, invalidateHouseholdRun, setBootPhase, isAppReady,
+    attachFirestoreListeners, detachFirestoreListeners, clearRevokedHouseholdLink,
+    isDefiniteInviteBusinessError, readPendingInvite, writePendingInvite, clearPendingInvite,
+    DISMISSIBLE_HINT_IDS, loadDismissedHints, DISMISSED_HINTS_KEY,
+    // 起動処理のテスト用フック。モジュール内のlet束縛(currentUser等)へアクセスする。
+    __household: {
+      getState: () => state,
+      setCurrentUser: u => { currentUser = u; },
+      getCurrentUser: () => currentUser,
+      getRunGeneration: () => householdRunGeneration,
+      setPendingInAppInviteCode: c => { pendingInAppInviteCode = c; },
+      getPendingInAppInviteCode: () => pendingInAppInviteCode,
+      resetAttemptedInviteKeys: () => { attemptedInviteKeys.clear(); },
+    },
   };
 }
 </script>

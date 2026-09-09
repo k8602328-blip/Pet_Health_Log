@@ -43,8 +43,8 @@ test('usage-guide.html が存在し、title と h1 が仕様どおり', () => {
   assert.match(guideHtml, /lang="ja"/);
 });
 
-test('10セクションのアンカー(#s1..#s10)と目次リンクが揃っている', () => {
-  for (let i = 1; i <= 10; i += 1) {
+test('12セクションのアンカー(#s1..#s12)と目次リンクが揃っている', () => {
+  for (let i = 1; i <= 12; i += 1) {
     assert.ok(
       guideHtml.includes(`id="s${i}"`),
       `セクション id="s${i}" が無い`
@@ -58,34 +58,45 @@ test('10セクションのアンカー(#s1..#s10)と目次リンクが揃って�
   assert.ok(guideHtml.indexOf('href="#s1"') < guideHtml.indexOf('id="s1"'));
 });
 
-test('10セクションの見出し文言が含まれている', () => {
+test('12セクションの見出し文言が含まれている', () => {
   const titles = [
     'もふもふカルテでできること',
-    'ログインして、すぐ開けるようにする',
+    '表示名とアイコンを設定する',
     'ペットを登録する',
     '毎日の様子を記録する',
+    'ごはん候補を設定する',
     '記録を見返す・修正する',
     'お薬と投薬状況を管理する',
     '予防と受診の記録を残す',
     '記録の変化をグラフで見る',
     '記録を獣医師に共有する',
-    '家族共有と投薬リマインダーを使う',
+    '記録共有を使う',
+    '投薬リマインダーを使う',
   ];
   for (const t of titles) {
     assert.ok(guideHtml.includes(t), `見出し「${t}」が無い`);
   }
+  // 旧名称・削除した文言は残さない
+  assert.doesNotMatch(guideHtml, /家族共有/);
+  assert.doesNotMatch(guideHtml, /ログインして、すぐ開けるようにする/);
 });
 
-test('家族共有ガイドはメールやURLではなく招待コードの手順を案内する', () => {
+test('記録共有ガイドはメールやURLではなく招待コードの手順を案内する', () => {
   assert.match(guideHtml, /16文字の招待コード/);
-  assert.match(guideHtml, /受け取ったコードを入力して「参加する」/);
+  assert.match(guideHtml, /16文字のコードを入力し「参加」/);
   assert.match(guideHtml, /使用済みまたは期限切れの招待コードでは参加できません/);
   assert.doesNotMatch(guideHtml, /招待メールを送信|招待リンク/);
 });
 
+test('投薬リマインダーは独立セクションで、準備中の表記を持たない', () => {
+  assert.match(guideHtml, /id="s12"[\s\S]*?投薬リマインダーを使う/);
+  assert.match(guideHtml, /投薬予定の時間とは別に、通知の時刻を設定/);
+  assert.doesNotMatch(guideHtml, /準備中/);
+});
+
 test('折りたたみは <details> で、JS無効でも本文が読めるよう既定で open', () => {
   const detailsOpen = guideHtml.match(/<details class="sec"[^>]*\bopen\b/g) || [];
-  assert.equal(detailsOpen.length, 10);
+  assert.equal(detailsOpen.length, 12);
   // インラインの onclick / <script> は持たない（不要なJSを足さない方針）
   assert.ok(!/<script[\s>]/.test(guideHtml));
   assert.ok(!/ on[a-z]+=/.test(guideHtml));
@@ -95,7 +106,6 @@ test('アプリ・既存ガイド・レポートへのリンクがある', () =>
   assert.ok(guideHtml.includes('href="./"'), 'アプリへ戻るリンクが無い');
   // 先頭と末尾の2箇所
   assert.equal((guideHtml.match(/class="back[^"]*" href="\.\/"/g) || []).length, 2);
-  assert.ok(guideHtml.includes('href="guide.html"'), 'guide.html へのリンクが無い');
   assert.ok(guideHtml.includes('href="pdf-guide.html"'), 'pdf-guide.html へのリンクが無い');
   assert.ok(guideHtml.includes('href="sample-report.pdf"'), 'sample-report.pdf へのリンクが無い');
 });
@@ -155,7 +165,7 @@ test('セクション1の不一致画像と重複する注意書きを掲載し�
 });
 
 test('index.html に usage-guide.html を開く常設導線がある', () => {
-  assert.ok(indexHtml.includes("window.open('usage-guide.html'"), 'usage-guide.html を開く導線が無い');
+  assert.ok(indexHtml.includes("openLocalPage('usage-guide.html'"), 'usage-guide.html を開く導線が無い');
   assert.ok(indexHtml.includes('使い方ガイド'), '「使い方ガイド」ボタン文言が無い');
   assert.ok(indexHtml.includes('id="usageGuideButton"'), '独立したガイドボタンが無い');
   assert.ok(indexHtml.includes("usageGuideButton.classList.remove('hidden')"), 'ログイン後にガイドが表示されない');

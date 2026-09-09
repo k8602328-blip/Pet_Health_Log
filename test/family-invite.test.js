@@ -5,7 +5,7 @@ const path = require('node:path');
 
 const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 
-test('家族共有は一度限りの招待コードだけを発行・受諾する', () => {
+test('記録共有は一度限りの招待コードだけを発行・受諾する', () => {
   assert.match(html, /httpsCallable\('createFamilyInviteCode'\)/);
   assert.match(html, /httpsCallable\('acceptFamilyInviteCode'\)/);
   assert.match(html, /招待するひと：招待コードの発行/);
@@ -15,7 +15,7 @@ test('家族共有は一度限りの招待コードだけを発行・受諾す�
   assert.doesNotMatch(html, /id="familyEmailInput"|id="familyInviteUrl"/);
 });
 
-test('家族共有画面は説明・メンバー・人数・発行・入力の順に表示する', () => {
+test('記録共有画面は説明・メンバー・人数・発行・入力の順に表示する', () => {
   const modal = html.slice(html.indexOf('id="familyModalBackdrop"'), html.indexOf('id="photoViewerBackdrop"'));
   const labels = [
     '他のひとをこの記録に招待しましょう',
@@ -30,7 +30,7 @@ test('家族共有画面は説明・メンバー・人数・発行・入力の�
     assert.ok(current > previous, `「${label}」の表示順が正しくありません`);
     previous = current;
   }
-  assert.match(html, /usage-guide\.html#s10/);
+  assert.match(html, /usage-guide\.html#s11/);
   assert.match(html, /記録を共有するためには、共有枠の購入が必要です/);
 });
 
@@ -79,8 +79,27 @@ test('レポートのグラフとタイムライン表は現行スタイルの�
   assert.match(printCss, /\.symptom-timeline-scroll[\s\S]*page-break-inside:avoid/);
   assert.match(reportBlock, /report-keep-together report-chart-block/);
   assert.match(reportBlock, /index === 0 \? '<h2[^']+>グラフ<\/h2>'/);
-  assert.match(reportBlock, /buildDailyStatusTimelineHtml\(records, \{ chunkSize: PRINT_TIMELINE_CHUNK_DAYS \}\)/);
-  assert.match(reportBlock, /buildSymptomTimelineHtml\(records, \{ chunkSize: PRINT_TIMELINE_CHUNK_DAYS \}\)/);
+  // 日次サマリー・タイムラインは events からも日次値を拾うため merge 済みの dailyRecords を渡す。
+  // 症状セクションは便・ごはん・体温からの自動判定症状を足した symptomRecords を渡す。
+  assert.match(reportBlock, /buildDailyStatusTimelineHtml\(dailyRecords, \{ chunkSize: PRINT_TIMELINE_CHUNK_DAYS \}\)/);
+  assert.match(reportBlock, /buildSymptomTimelineHtml\(symptomRecords, \{ chunkSize: PRINT_TIMELINE_CHUNK_DAYS \}\)/);
+  assert.match(reportBlock, /const dailyRecords = mergeDailyRecordsWithEvents\(records, events, from, to\)/);
+  assert.match(reportBlock, /const symptomRecords = dailyRecords\.map\(r => \(\{[\s\S]*?derivedSymptoms/);
+  assert.match(reportBlock, /derivedSymptomNoteHtml\(dailyRecords\)/);
+  // 注記の本文は共通ヘルパー derivedSymptomNoteHtml() 側にある
+  assert.match(html, /function derivedSymptomNoteHtml\(recs\)[\s\S]*?便スコア\(6・7→下痢／4・5→軟便\)/);
+});
+
+test('グラフタブも events から日次値・自動判定症状を反映する（レポートと同じ経路）', () => {
+  const drawCharts = html.slice(html.indexOf('drawCharts(){'), html.indexOf('renderDailyStatusTimeline(records){'));
+  // 体重・食欲・日々の状態・症状の元データを merge 済みにする
+  assert.match(drawCharts, /const records = this\.filterByRange\(mergeDailyRecordsWithEvents\(petRecords\(\), petEvents\(\), null, null\)\)/);
+  // 症状セクションは自動判定症状を足した symptomRecords を使う
+  assert.match(drawCharts, /const symptomRecords = records\.map\(r => \(\{[\s\S]*?derivedSymptoms/);
+  assert.match(drawCharts, /this\.renderSymptomTimeline\(symptomRecords\)/);
+  assert.match(drawCharts, /symptomRecords\.forEach\(r => safeArray\(r\.symptoms\)/);
+  // 症状グラフの説明に自動判定の注記がある
+  assert.match(html, /便スコア\(6・7→下痢／4・5→軟便\)、ごはんの食べた量\(50%以下→食欲不振\)、体温\(39\.5℃以上→発熱\)から自動判定した症状も集計に含みます。/);
 });
 
 test('レポートの日付カードは共通24時間軸で2日を比較し、4日ごとに改ページする', () => {
@@ -91,9 +110,14 @@ test('レポートの日付カードは共通24時間軸で2日を比較し、4�
   assert.match(printCss, /\.report-timed-event[^}]*grid-template-columns:30px 15px minmax\(0,1fr\)/);
   assert.match(reportBlock, /Array\.from\(\{length:24\}/);
   assert.match(reportBlock, /index \+= 4/);
-  const eventTemplate = reportBlock.slice(reportBlock.indexOf('report-timed-event'), reportBlock.indexOf('</div>`;', reportBlock.indexOf('report-timed-event')));
+  // 記録行のテンプレートは eventRowHtml() に共通化。時刻→アイコン→要約の順を保つ。
+  const eventTemplate = reportBlock.slice(reportBlock.indexOf('const eventRowHtml ='), reportBlock.indexOf('};', reportBlock.indexOf('const eventRowHtml =')));
   assert.ok(eventTemplate.indexOf('report-event-time') < eventTemplate.indexOf('${info.icon}'));
   assert.ok(eventTemplate.indexOf('${info.icon}') < eventTemplate.indexOf('report-event-text'));
+  // 記録が多すぎる日は時刻配置をやめて詰めたリストに切り替える。
+  assert.match(reportBlock, /n > DAY_LANE_DENSE_LIMIT/);
+  assert.match(reportBlock, /report-day-lane--list/);
+  assert.match(printCss, /\.report-list-event\{[^}]*grid-template-columns:30px 15px minmax\(0,1fr\)/);
 });
 
 test('実機確認で見つかった文言・メモ・猫の狂犬病選択を修正する', () => {

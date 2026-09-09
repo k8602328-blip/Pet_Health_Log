@@ -36,22 +36,23 @@ test('専用の受診歴タブとその導線を撤去した', () => {
 });
 
 test('受診表示は events の type:\'visit\' から組み立てる', () => {
-  const fn = HTML.slice(HTML.indexOf('function petVisits(){'), HTML.indexOf('function latestPrevByCategory'));
-  assert.match(fn, /state\.events/);
-  assert.match(fn, /e\.type === 'visit'/);
-  assert.match(fn, /e\.petId === state\.currentPetId/);
-  // 旧 visits と同じ形（id は events のドキュメントID）へ整形する。
-  assert.match(fn, /id: e\.id/);
-  assert.match(fn, /clinic: d\.clinic/);
-  assert.match(fn, /diagnosis: d\.diagnosis/);
-  assert.match(fn, /memo: e\.note/);
-  assert.doesNotMatch(fn, /state\.visits/);
+  const {buildVisitHistory}=require('./load-app').loadApp();
+  const visits=buildVisitHistory([
+    {type:'visit',date:'2026-09-08',details:{clinic:'A',diagnosis:'B'},note:'memo'},
+    {type:'memo',date:'2026-09-09'},
+    {type:'visit',date:'2026-09-07',details:{clinic:'old'}}
+  ]);
+  assert.equal(visits.length,2);
+  assert.equal(visits[0].clinic,'A');
+  assert.equal(visits[0].diagnosis,'B');
+  assert.equal(visits[0].memo,'memo');
+  assert.equal(visits[1].clinic,'old');
 });
 
 test('ホームの「直近の受診歴」カードは events 由来表示を残しつつタブ導線を持たない', () => {
   const home = HTML.slice(HTML.indexOf('renderHome(){'), HTML.indexOf('renderList(){'));
   assert.match(home, /直近の受診歴/);
-  assert.match(home, /petVisits\(\)/);
+  assert.match(home, /buildVisitHistory\(petEvents\(\)\)/);
   assert.match(home, /lastVisit\.diagnosis/);
   // 受診歴カードから旧タブへ飛ぶ「管理する」ボタンを撤去した。
   const visitCard = home.slice(home.indexOf('直近の受診歴') - 200, home.indexOf('直近の受診歴') + 400);
@@ -61,7 +62,7 @@ test('ホームの「直近の受診歴」カードは events 由来表示を残
 
 test('レポートは events 由来の受診歴表を出力し続ける', () => {
   const report = HTML.slice(HTML.indexOf('printReport(){'), HTML.indexOf("document.getElementById('printArea').innerHTML"));
-  assert.match(report, /const visits = petVisits\(\);/);
+  assert.match(report, /const visits = buildVisitHistory\(petEvents\(\)\);/);
   assert.match(report, /受診歴/);
 });
 

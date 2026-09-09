@@ -16,6 +16,10 @@ const EXPECTED = [
   'paw','dog','cat','daily','chart','menu','family','upgrade','meal-setup','med-setup','prevention',
   'visits','report','history','guide','contact','privacy','logout','account-delete','lock','camera','trash',
 ];
+// UIグリフではない配信用アセット。正本コンセプトシート由来ではなく、
+// native の AppIcon-512@2x.png をそのままコピーしたPDF表紙用ロゴ（RGB・1024px）。
+// グリフ用の透過PNG・解像度・許可リストの検査対象からは外す（SHA一致は report-cover-layout.test.js で検証）。
+const NON_GLYPH_ASSETS = new Set(['app-icon-final']);
 
 function pngInfo(file) {
   const b = fs.readFileSync(file);
@@ -30,7 +34,9 @@ function referencedPngs() {
 }
 
 test('正本から切り出したPNG素材が揃っている', () => {
-  const actual = fs.readdirSync(path.join(ROOT, 'icons')).filter(f => f.endsWith('.png')).map(f => f.slice(0,-4));
+  const actual = fs.readdirSync(path.join(ROOT, 'icons'))
+    .filter(f => f.endsWith('.png')).map(f => f.slice(0,-4))
+    .filter(id => !NON_GLYPH_ASSETS.has(id));
   assert.deepEqual(actual.sort(), [...EXPECTED].sort());
 });
 
@@ -50,11 +56,9 @@ test('iconSvgとpetTypeIconはSVGを描かずPNGを参照する', () => {
 
 test('全PNG素材がindex.htmlから参照され、参照切れがない', () => {
   const refs = new Set(referencedPngs());
-  // history は旧「これまでの記録」メニュー撤去後、visits は旧「受診歴」タブ撤去後
-  // (受診記録は events の type:'visit' へ一本化)も、素材としては保管する。
-  const keptButUnreferenced = new Set(['history', 'visits']);
-  for (const id of EXPECTED.filter(id => !keptButUnreferenced.has(id))) assert.ok(refs.has(id), `${id}.png is not referenced`);
-  for (const id of refs) assert.ok(EXPECTED.includes(id), `unexpected icon reference: ${id}`);
+  // history=旧「これまでの記録」、visits=旧「受診歴」タブ。いずれもメニュー撤去後も素材として保管する。
+  for (const id of EXPECTED.filter(id => id !== 'history' && id !== 'visits')) assert.ok(refs.has(id), `${id}.png is not referenced`);
+  for (const id of refs) assert.ok(EXPECTED.includes(id) || NON_GLYPH_ASSETS.has(id), `unexpected icon reference: ${id}`);
 });
 
 test('共有記録の閲覧中は制限対象メニューと削除操作を表示しない', () => {
@@ -65,7 +69,8 @@ test('共有記録の閲覧中は制限対象メニューと削除操作を表�
   assert.match(menu, /state\.linkedOwnerUid \? '' : group\('サービス'/);
   assert.doesNotMatch(menu, /'これまでの記録'/);
   for (const method of ['deleteRecord','deleteMed','deletePrev','deleteMealProfile']) {
-    assert.match(HTML, new RegExp(`${method}\\(id\\)\\{\\s*if\\(state\\.linkedOwnerUid\\)`));
+    // 起動未完了ガード(if(!isAppReady()) return;)が先頭に入ることは許容する。
+    assert.match(HTML, new RegExp(`${method}\\(id\\)\\{\\s*(if\\(!isAppReady\\(\\)\\) return;\\s*)?if\\(state\\.linkedOwnerUid\\)`));
   }
 });
 
@@ -73,7 +78,7 @@ test('家族共有バナーは説明と操作ボタンを二段にする', () =>
   assert.match(HTML, /household-banner--stacked/);
   assert.match(HTML, /共有された記録を閲覧・編集中/);
   assert.match(HTML, /'自分のデータに戻る'/);
-  assert.match(HTML, /'家族共有に参加しています', '共有データを見る'/);
+  assert.match(HTML, /'記録共有に参加しています', '共有データを見る'/);
 });
 
 test('固定クイック記録13項目が指定順で対応PNGを使う', () => {
@@ -143,6 +148,17 @@ test('アカウント名と12種類の記録者アイコンを編集し、新規
   assert.ok(HTML.includes('Object.assign(data, authorSnapshot())'));
   assert.ok(HTML.includes("profileIcon(event.authorIconId,'profile-avatar--small')"));
   assert.ok(HTML.includes("add('記録者', event.authorName || '記録者情報なし')"));
+  assert.match(HTML, /\.profile-avatar-frame\{[^}]*overflow:hidden/);
+  assert.match(HTML, /\.profile-avatar\{[^}]*transform:scale\(1\.18\)/);
+  for (const id of ['son','daughter','toy_poodle','pomeranian','siamese','black_cat']) {
+    assert.ok(HTML.includes(`.profile-avatar-frame--${id} .profile-avatar`), id);
+  }
+  assert.match(HTML, /transform:translateX\(4%\) scale\(1\.34\)/);
+  // 被写体が左寄りの素材は補正量を10%へ増やして丸枠中心に合わせる
+  assert.match(HTML, /--daughter \.profile-avatar,\s*\.profile-avatar-frame--pomeranian \.profile-avatar,\s*\.profile-avatar-frame--black_cat \.profile-avatar\{transform:translateX\(10%\) scale\(1\.34\)/);
+  const chooser = HTML.slice(HTML.indexOf("document.getElementById('profileIconChoices').innerHTML"), HTML.indexOf("document.getElementById('profileModalBackdrop')"));
+  assert.match(chooser, /aria-label="\$\{escapeHtml\(label\)\}"/);
+  assert.doesNotMatch(chooser, /<span>\$\{escapeHtml\(label\)\}<\/span>/);
 });
 
 test('記録詳細は右上に閉じる、右下に編集・削除の順で表示する', () => {
